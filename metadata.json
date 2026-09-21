@@ -1,0 +1,6 @@
+{
+  "name": "اتاق جنگ | سامانه فرماندهی و عملیات",
+  "description": "سامانه یکپارچه مأموریت‌ها، آموزش‌ها، ویترین آثار و امتیازات اتاق جنگ",
+  "requestFramePermissions": ["microphone"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

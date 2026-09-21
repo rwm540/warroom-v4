@@ -1,0 +1,456 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Vazirmatn", "Segoe UI", Tahoma, Arial, system-ui, -apple-system, sans-serif;
+}
+
+* {
+  font-family: "Vazirmatn", "Segoe UI", Tahoma, Arial, system-ui, -apple-system, sans-serif;
+}
+
+pre, code, .font-mono, [class*="font-mono"] {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace !important;
+}
+
+body, html {
+  font-family: "Vazirmatn", "Segoe UI", Tahoma, Arial, system-ui, -apple-system, sans-serif !important;
+  background-color: #030610;
+  color: #f1f5f9;
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+#root {
+  width: 100%;
+  min-height: 100vh;
+}
+
+/* Offline Resilience & Layout Stability: Prevent Layout Shift (CLS) */
+img {
+  content-visibility: auto;
+}
+
+/* Smooth GPU hardware acceleration for interactive elements */
+.transform-gpu {
+  transform: translateZ(0);
+  backface-visibility: hidden;
+  perspective: 1000px;
+}
+
+/* Native-feel momentum scrolling on mobile platforms */
+.overflow-auto, .overflow-y-auto, .overflow-x-auto, [class*="overflow-"] {
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Custom Tactical Cyber Grid and Radial Glow Backgrounds */
+.cyber-grid-bg {
+  background-color: #040814;
+  background-image: 
+    radial-gradient(circle at 10% 10%, rgba(6, 182, 212, 0.18) 0%, transparent 40%),
+    radial-gradient(circle at 90% 10%, rgba(225, 29, 72, 0.18) 0%, transparent 40%),
+    radial-gradient(circle at 10% 90%, rgba(225, 29, 72, 0.18) 0%, transparent 40%),
+    radial-gradient(circle at 90% 90%, rgba(6, 182, 212, 0.18) 0%, transparent 40%),
+    linear-gradient(rgba(34, 211, 238, 0.05) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(34, 211, 238, 0.05) 1px, transparent 1px);
+  background-size: 100% 100%, 100% 100%, 100% 100%, 100% 100%, 24px 24px, 24px 24px;
+}
+
+/* Boys Dedicated Tactical Atmosphere Background (Obsidian Top, Crimson-Red Bottom-Left, Electric Cobalt-Blue Bottom-Right, with Crisp Grid matching uploaded wallpaper) */
+.boys-atmosphere-bg {
+  background-color: #010206;
+  background-image: 
+    linear-gradient(rgba(255, 255, 255, 0.08) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.08) 1px, transparent 1px),
+    radial-gradient(ellipse 70% 60% at 0% 100%, rgba(220, 38, 38, 0.75) 0%, rgba(185, 28, 28, 0.38) 30%, transparent 65%),
+    radial-gradient(ellipse 75% 65% at 100% 100%, rgba(37, 99, 235, 0.8) 0%, rgba(29, 78, 216, 0.42) 35%, transparent 70%),
+    radial-gradient(ellipse 85% 45% at 50% 95%, rgba(109, 40, 217, 0.45) 0%, transparent 60%),
+    radial-gradient(circle at 50% 0%, rgba(1, 2, 6, 0.98) 0%, transparent 70%);
+  background-size: 28px 28px, 28px 28px, 100% 100%, 100% 100%, 100% 100%, 100% 100%;
+  background-attachment: fixed;
+}
+
+.boys-card-surface {
+  background: linear-gradient(165deg, rgba(8, 14, 30, 0.96) 0%, rgba(4, 7, 18, 0.98) 55%, rgba(2, 3, 10, 0.99) 100%);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  border-top: 1px solid rgba(59, 130, 246, 0.45);
+  border-left: 1px solid rgba(220, 38, 38, 0.35);
+  border-right: 1px solid rgba(37, 99, 235, 0.35);
+  border-bottom: 2px solid rgba(1, 2, 7, 0.95);
+  box-shadow: 
+    inset 0 1px 1px 0 rgba(255, 255, 255, 0.15),
+    0 10px 30px -5px rgba(0, 0, 0, 0.85),
+    0 0 15px 0 rgba(37, 99, 235, 0.15);
+}
+
+.boys-button-tactical {
+  background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 45%, #dc2626 100%);
+  border-top: 1px solid rgba(255, 255, 255, 0.4);
+  border-bottom: 2px solid #7f1d1d;
+  box-shadow: 0 4px 16px rgba(37, 99, 235, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.25);
+}
+
+.neon-text-boys {
+  color: #eff6ff;
+  text-shadow: 0 0 8px rgba(59, 130, 246, 0.8), 0 0 18px rgba(37, 99, 235, 0.5);
+}
+
+.neon-box-boys {
+  border: 1.5px solid #2563eb;
+  box-shadow: 0 0 12px rgba(37, 99, 235, 0.35), inset 0 0 8px rgba(37, 99, 235, 0.15);
+}
+
+/* Girls Dedicated Atmosphere Background (Obsidian Top, Neon Magenta-Pink Bottom-Left, Electric Royal Violet Bottom-Right) */
+.girls-atmosphere-bg {
+  background-color: #020005;
+  background-image: 
+    radial-gradient(ellipse 70% 65% at 5% 100%, rgba(255, 19, 137, 0.45) 0%, rgba(236, 72, 153, 0.2) 35%, transparent 70%),
+    radial-gradient(ellipse 75% 70% at 95% 100%, rgba(109, 40, 217, 0.48) 0%, rgba(88, 28, 135, 0.22) 40%, transparent 75%),
+    radial-gradient(ellipse 95% 45% at 50% 65%, rgba(46, 7, 63, 0.3) 0%, transparent 60%),
+    radial-gradient(circle at 50% 0%, rgba(6, 1, 10, 0.98) 0%, transparent 70%);
+  background-attachment: fixed;
+}
+
+.girls-card-surface {
+  background: linear-gradient(165deg, rgba(24, 6, 36, 0.96) 0%, rgba(12, 2, 20, 0.98) 55%, rgba(4, 0, 8, 0.99) 100%);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  border-top: 1px solid rgba(244, 63, 94, 0.45);
+  border-left: 1px solid rgba(244, 63, 94, 0.3);
+  border-right: 1px solid rgba(139, 92, 246, 0.35);
+  border-bottom: 2px solid rgba(3, 0, 6, 0.95);
+  box-shadow: 
+    inset 0 1px 1px 0 rgba(255, 255, 255, 0.18),
+    0 10px 30px -5px rgba(0, 0, 0, 0.85),
+    0 0 15px 0 rgba(244, 63, 94, 0.15);
+}
+
+.girls-button-neon {
+  background: linear-gradient(135deg, #ff1389 0%, #ec4899 40%, #8b5cf6 100%);
+  border-top: 1px solid rgba(255, 255, 255, 0.45);
+  border-bottom: 2px solid #4c1d95;
+  box-shadow: 0 6px 22px rgba(255, 19, 137, 0.45), 0 0 18px rgba(139, 92, 246, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.3);
+}
+
+.neon-text-girls {
+  color: #fff1f2;
+  text-shadow: 0 0 8px rgba(255, 19, 137, 0.9), 0 0 22px rgba(244, 63, 94, 0.7), 0 0 38px rgba(124, 58, 237, 0.6);
+}
+
+/* Cyber Glass Card with 3D Depth */
+.cyber-card {
+  background: linear-gradient(135deg, rgba(13, 22, 48, 0.85) 0%, rgba(6, 11, 26, 0.9) 100%);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(56, 189, 248, 0.25);
+  box-shadow: 
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.12),
+    0 10px 30px -5px rgba(0, 0, 0, 0.8),
+    0 0 15px 0 rgba(6, 182, 212, 0.15);
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.cyber-card-3d {
+  background: linear-gradient(145deg, rgba(14, 23, 50, 0.9) 0%, rgba(7, 12, 28, 0.95) 100%);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-top: 1px solid rgba(34, 211, 238, 0.4);
+  border-left: 1px solid rgba(34, 211, 238, 0.25);
+  border-right: 1px solid rgba(6, 182, 212, 0.15);
+  border-bottom: 2px solid rgba(2, 6, 23, 0.9);
+  box-shadow: 
+    inset 0 1px 1px 0 rgba(255, 255, 255, 0.2),
+    0 15px 35px -5px rgba(0, 0, 0, 0.85),
+    0 0 25px 0 rgba(6, 182, 212, 0.2);
+  transition: transform 0.3s ease, box-shadow 0.3s ease, border-color 0.3s ease;
+}
+
+.cyber-card-3d:hover {
+  transform: translateY(-4px) scale(1.01);
+  box-shadow: 
+    inset 0 1px 2px 0 rgba(255, 255, 255, 0.3),
+    0 22px 45px -10px rgba(0, 0, 0, 0.9),
+    0 0 35px 2px rgba(34, 211, 238, 0.35);
+  border-top-color: rgba(34, 211, 238, 0.7);
+}
+
+/* 3D Tactile Buttons */
+.cyber-button-3d {
+  background: linear-gradient(180deg, #06b6d4 0%, #0284c7 100%);
+  border-top: 1px solid rgba(255, 255, 255, 0.4);
+  border-bottom: 3px solid #0369a1;
+  box-shadow: 0 6px 20px rgba(6, 182, 212, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.3);
+  transition: all 0.15s ease-in-out;
+}
+
+.cyber-button-3d:active {
+  transform: translateY(2px);
+  border-bottom-width: 1px;
+  box-shadow: 0 2px 10px rgba(6, 182, 212, 0.3);
+}
+
+/* Glowing Neon Elements */
+.glow-cyan {
+  box-shadow: 0 0 16px rgba(34, 211, 238, 0.6);
+}
+
+.glow-pink {
+  box-shadow: 0 0 16px rgba(244, 63, 94, 0.6);
+}
+
+.glow-red {
+  box-shadow: 0 0 12px rgba(225, 29, 72, 0.6);
+}
+
+.glow-amber {
+  box-shadow: 0 0 12px rgba(245, 158, 11, 0.6);
+}
+
+/* Neon Text and Border Glow Effects for War Room */
+.neon-text-cyan {
+  color: #67e8f9;
+  text-shadow: 0 0 8px rgba(6, 182, 212, 0.8), 0 0 20px rgba(34, 211, 238, 0.6), 0 0 35px rgba(6, 182, 212, 0.4);
+}
+
+.neon-text-pink {
+  color: #f472b6;
+  text-shadow: 0 0 8px rgba(244, 63, 94, 0.8), 0 0 20px rgba(251, 113, 133, 0.6), 0 0 35px rgba(244, 63, 94, 0.4);
+}
+
+.neon-box-cyan {
+  border: 1.5px solid #22d3ee;
+  box-shadow: 0 0 15px rgba(34, 211, 238, 0.4), inset 0 0 12px rgba(34, 211, 238, 0.2);
+}
+
+.neon-box-pink, .neon-box-girls {
+  border: 1.5px solid #ff1389;
+  box-shadow: 0 0 16px rgba(255, 19, 137, 0.45), 0 0 25px rgba(124, 58, 237, 0.3), inset 0 0 12px rgba(255, 19, 137, 0.2);
+}
+
+.neon-logo-glow {
+  animation: neon-pulse 3s infinite alternate ease-in-out;
+}
+
+@keyframes neon-pulse {
+  0% {
+    filter: drop-shadow(0 0 8px rgba(34, 211, 238, 0.5)) drop-shadow(0 0 20px rgba(6, 182, 212, 0.3));
+  }
+  100% {
+    filter: drop-shadow(0 0 16px rgba(34, 211, 238, 0.85)) drop-shadow(0 0 32px rgba(34, 211, 238, 0.6));
+  }
+}
+
+.neon-logo-glow-pink, .neon-logo-glow-girls {
+  animation: neon-pulse-girls 3s infinite alternate ease-in-out;
+}
+
+@keyframes neon-pulse-girls {
+  0% {
+    filter: drop-shadow(0 0 8px rgba(255, 19, 137, 0.6)) drop-shadow(0 0 18px rgba(124, 58, 237, 0.4));
+  }
+  100% {
+    filter: drop-shadow(0 0 18px rgba(255, 19, 137, 0.9)) drop-shadow(0 0 34px rgba(139, 92, 246, 0.7));
+  }
+}
+
+.neon-logo-glow-boys {
+  animation: neon-pulse-boys 3s infinite alternate ease-in-out;
+}
+
+@keyframes neon-pulse-boys {
+  0% {
+    filter: drop-shadow(0 0 8px rgba(37, 99, 235, 0.6)) drop-shadow(0 0 18px rgba(220, 38, 38, 0.4));
+  }
+  100% {
+    filter: drop-shadow(0 0 18px rgba(37, 99, 235, 0.9)) drop-shadow(0 0 34px rgba(220, 38, 38, 0.7));
+  }
+}
+
+/* Rotating Radar Scanner Animations */
+.radar-grid {
+  background-size: 30px 30px;
+  background-image: 
+    linear-gradient(to right, rgba(6, 182, 212, 0.08) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(6, 182, 212, 0.08) 1px, transparent 1px);
+}
+
+.radar-sweep {
+  background: conic-gradient(
+    from 0deg at 50% 50%,
+    rgba(6, 182, 212, 0) 0deg,
+    rgba(6, 182, 212, 0) 270deg,
+    rgba(34, 211, 238, 0.15) 330deg,
+    rgba(34, 211, 238, 0.6) 360deg
+  );
+  animation: radar-spin 3s linear infinite;
+  border-radius: 50%;
+}
+
+@keyframes radar-spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.radar-sweep-pink {
+  background: conic-gradient(
+    from 0deg at 50% 50%,
+    rgba(244, 63, 94, 0) 0deg,
+    rgba(244, 63, 94, 0) 270deg,
+    rgba(251, 113, 133, 0.15) 330deg,
+    rgba(244, 63, 94, 0.6) 360deg
+  );
+  animation: radar-spin 3s linear infinite;
+  border-radius: 50%;
+}
+
+.radar-sweep-green {
+  background: conic-gradient(
+    from 0deg at 50% 50%,
+    rgba(16, 185, 129, 0) 0deg,
+    rgba(16, 185, 129, 0) 240deg,
+    rgba(5, 150, 105, 0.08) 280deg,
+    rgba(16, 185, 129, 0.28) 335deg,
+    rgba(52, 211, 153, 0.85) 360deg
+  );
+  animation: radar-spin 2.6s linear infinite;
+  border-radius: 50%;
+}
+
+.radar-grid-green {
+  background-size: 24px 24px;
+  background-image: 
+    linear-gradient(to right, rgba(16, 185, 129, 0.08) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(16, 185, 129, 0.08) 1px, transparent 1px);
+}
+
+.level-pulse {
+  animation: level-glow 2s infinite ease-in-out;
+}
+
+@keyframes level-glow {
+  0%, 100% {
+    box-shadow: 0 0 15px rgba(34, 211, 238, 0.7), 0 0 30px rgba(6, 182, 212, 0.4);
+    transform: scale(1);
+  }
+  50% {
+    box-shadow: 0 0 25px rgba(34, 211, 238, 0.95), 0 0 45px rgba(6, 182, 212, 0.7);
+    transform: scale(1.05);
+  }
+}
+
+.level-pulse-pink {
+  animation: level-glow-pink 2s infinite ease-in-out;
+}
+
+@keyframes level-glow-pink {
+  0%, 100% {
+    box-shadow: 0 0 15px rgba(244, 63, 94, 0.7), 0 0 30px rgba(251, 113, 133, 0.4);
+    transform: scale(1);
+  }
+  50% {
+    box-shadow: 0 0 25px rgba(244, 63, 94, 0.95), 0 0 45px rgba(244, 63, 94, 0.7);
+    transform: scale(1.05);
+  }
+}
+
+/* Custom Tactical Cyber Scrollbars */
+::-webkit-scrollbar {
+  width: 7px;
+  height: 7px;
+}
+
+::-webkit-scrollbar-track {
+  background: #030612;
+  border-radius: 9999px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, #0284c7 0%, #06b6d4 100%);
+  border-radius: 9999px;
+  border: 1px solid #040818;
+  box-shadow: inset 0 0 6px rgba(34, 211, 238, 0.5);
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(180deg, #38bdf8 0%, #22d3ee 100%);
+  box-shadow: 0 0 12px rgba(34, 211, 238, 0.8);
+}
+
+/* Firefox scrollbar support */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #06b6d4 #030612;
+}
+
+/* Girl Theme Tactical Cyber Theme */
+.girl-theme .cyber-card {
+  background: linear-gradient(135deg, rgba(32, 10, 36, 0.88) 0%, rgba(18, 5, 22, 0.94) 100%);
+  border: 1px solid rgba(244, 63, 94, 0.35);
+  box-shadow: 
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.15),
+    0 10px 30px -5px rgba(0, 0, 0, 0.85),
+    0 0 18px 0 rgba(244, 63, 94, 0.2);
+}
+
+.girl-theme .cyber-card-3d {
+  background: linear-gradient(145deg, rgba(35, 12, 40, 0.92) 0%, rgba(20, 6, 24, 0.96) 100%);
+  border-top: 1px solid rgba(244, 63, 94, 0.5);
+  border-left: 1px solid rgba(244, 63, 94, 0.3);
+  border-right: 1px solid rgba(217, 70, 239, 0.2);
+  border-bottom: 2px solid rgba(24, 4, 28, 0.9);
+  box-shadow: 
+    inset 0 1px 1px 0 rgba(255, 255, 255, 0.22),
+    0 15px 35px -5px rgba(0, 0, 0, 0.85),
+    0 0 25px 0 rgba(244, 63, 94, 0.22);
+}
+
+.girl-theme .cyber-card-3d:hover {
+  box-shadow: 
+    inset 0 1px 2px 0 rgba(255, 255, 255, 0.3),
+    0 22px 45px -10px rgba(0, 0, 0, 0.9),
+    0 0 35px 2px rgba(244, 63, 94, 0.4);
+  border-top-color: rgba(244, 63, 94, 0.8);
+}
+
+.girl-theme .cyber-button-3d {
+  background: linear-gradient(180deg, #f43f5e 0%, #db2777 100%);
+  border-top: 1px solid rgba(255, 255, 255, 0.4);
+  border-bottom: 3px solid #9d174d;
+  box-shadow: 0 6px 20px rgba(244, 63, 94, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.3);
+}
+
+.girl-theme ::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, #f43f5e 0%, #d946ef 100%);
+  border: 1px solid #200824;
+  box-shadow: inset 0 0 6px rgba(244, 63, 94, 0.5);
+}
+
+.girl-theme ::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(180deg, #fb7185 0%, #f43f5e 100%);
+  box-shadow: 0 0 12px rgba(244, 63, 94, 0.8);
+}
+
+/* Global No-Scrollbar utility */
+.no-scrollbar::-webkit-scrollbar {
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
+}
+.no-scrollbar {
+  -ms-overflow-style: none !important;
+  scrollbar-width: none !important;
+}
+
+/* Smooth Scroll Fade Mask */
+.faded-scroll-mask {
+  mask-image: linear-gradient(to bottom, transparent 0%, black 20px, black calc(100% - 20px), transparent 100%);
+  -webkit-mask-image: linear-gradient(to bottom, transparent 0%, black 20px, black calc(100% - 20px), transparent 100%);
+}
+
+

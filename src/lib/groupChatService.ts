@@ -1,5 +1,5 @@
 import { GroupChatMessage, GroupChatRoom, User } from '../types';
-import { isSupabaseEnabled, supabase } from './supabaseClient';
+import { isSupabaseEnabled, supabase } from './supabaseData';
 import { logAudit } from './auditLogger';
 
 const CHAT_STORAGE_KEY = 'warroom_group_chat_store_v1';

@@ -74,8 +74,7 @@ import {
 } from 'lucide-react';
 import { defaultHomeButtons } from '../data/home';
 import { VitrinPost, buildVitrinPostFromSubmission } from '../data/vitrinData';
-import { uploadToStorage, isSupabaseEnabled } from '../lib/supabaseClient';
-import { sha256Hex } from '../lib/supabaseData';
+import { uploadToStorage, isSupabaseEnabled, sha256Hex } from '../lib/supabaseData';
 import {
   probeBackend,
   getBackendStatus,

@@ -3,7 +3,7 @@ import react from '@vitejs/plugin-react';
 import path from 'path';
 import {defineConfig} from 'vite';
 import type { ViteDevServer } from 'vite';
-import { appendOperationLog, normalizeOperationLogEvent, shouldWriteOperationLog } from './server/logServer';
+import { appendOperationLog, normalizeOperationLogEvent, shouldWriteOperationLog } from './server/logServer.ts';
 
 const MAX_LOG_BODY_BYTES = 64 * 1024;
 
@@ -54,13 +54,17 @@ const operationLogPlugin = {
   configureServer: installLogMiddleware,
 };
 
+const rootDir = import.meta.dirname ?? process.cwd();
+
 export default defineConfig(() => {
   return {
     plugins: [react(), tailwindcss(), operationLogPlugin],
     resolve: {
-      alias: {
-        '@': path.resolve(__dirname, '.'),
-      },
+      alias: [
+        { find: /^@\/(.*)/, replacement: path.resolve(rootDir, '$1') },
+        { find: /.*\/supabaseClient(\.ts)?$/, replacement: path.resolve(rootDir, 'src/lib/supabaseData.ts') },
+        { find: /.*\/supabaseclient(\.ts)?$/, replacement: path.resolve(rootDir, 'src/lib/supabaseData.ts') },
+      ],
     },
     build: {
       target: 'esnext',

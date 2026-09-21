@@ -62,9 +62,9 @@ import {
   useSyncedSetting,
   persistSavedPostsToDb,
   loadSavedPostsFromDb,
-  saveUserProgressToSupabase
+  saveUserProgressToSupabase,
+  checkSupabaseHealth
 } from './lib/supabaseData';
-import { checkSupabaseHealth } from './lib/supabaseClient';
 // 🛡️ لایه ارتباط امن با بک‌اند (احراز هویت، رمز عبور، درخواست‌های تغییر رمز)
 import { probeBackend, apiLogout, apiSession, getBackendStatus, subscribeBackendStatus } from './lib/backendApi';
 import { installGlobalErrorAudit, logAudit } from './lib/auditLogger';

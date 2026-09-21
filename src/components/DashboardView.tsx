@@ -180,15 +180,22 @@ export default function DashboardView({
   }).sort((a, b) => b.score - a.score);
 
   // Filtered Leaderboard
-  const filteredGroups = groupScores.filter(g => 
-    g.group.name.includes(searchRanking) || g.group.province.includes(searchRanking)
-  );
+  const filteredGroups = groupScores.filter(g => {
+    if (!g?.group) return false;
+    const name = g.group.name || '';
+    const province = g.group.province || '';
+    const query = (searchRanking || '').trim().toLowerCase();
+    return name.toLowerCase().includes(query) || province.toLowerCase().includes(query);
+  });
 
-  const filteredIndividuals = individualScores.filter(i => 
-    i.user.first_name.includes(searchRanking) || 
-    i.user.last_name.includes(searchRanking) || 
-    i.groupName.includes(searchRanking)
-  );
+  const filteredIndividuals = individualScores.filter(i => {
+    if (!i?.user) return false;
+    const firstName = i.user.first_name || '';
+    const lastName = i.user.last_name || '';
+    const gName = i.groupName || '';
+    const query = (searchRanking || '').trim().toLowerCase();
+    return firstName.toLowerCase().includes(query) || lastName.toLowerCase().includes(query) || gName.toLowerCase().includes(query);
+  });
 
   // محاسبه پویای مراحل نقشه راه بر اساس دیتابیس Supabase و وضعیت رزمنده
   const userCompletedStageIds = Array.isArray(currentUser.completed_stages) ? currentUser.completed_stages : [];
@@ -727,23 +734,26 @@ export default function DashboardView({
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-800/60">
-                    {filteredGroups.map((item, idx) => (
-                      <tr key={item.group.id} className="hover:bg-slate-900/50 transition">
-                        <td className="p-3 font-mono font-black">
-                          {idx === 0 ? <span className="text-amber-400 font-bold">🥇 ۱</span> :
-                           idx === 1 ? <span className="text-slate-300 font-bold">🥈 ۲</span> :
-                           idx === 2 ? <span className="text-amber-600 font-bold">🥉 ۳</span> :
-                           <span className="text-slate-400">{formatToPersianDigits(idx + 1)}</span>}
-                        </td>
-                        <td className="p-3 font-extrabold text-white">{item.group.name}</td>
-                        <td className="p-3 text-slate-300">{item.group.province}</td>
-                        <td className="p-3 font-mono text-slate-300">{formatToPersianDigits(item.membersCount)} نفر</td>
-                        <td className="p-3 font-mono text-cyan-300">{formatToPersianDigits(item.completedMissions)}</td>
-                        <td className="p-3 text-left font-mono font-black text-amber-300 text-sm">
-                          {formatToPersianDigits(item.score)} <span className="text-[10px] text-slate-400 font-sans">امتیاز</span>
-                        </td>
-                      </tr>
-                    ))}
+                    {filteredGroups.map((item, idx) => {
+                      if (!item?.group) return null;
+                      return (
+                        <tr key={item.group.id || idx} className="hover:bg-slate-900/50 transition">
+                          <td className="p-3 font-mono font-black">
+                            {idx === 0 ? <span className="text-amber-400 font-bold">🥇 ۱</span> :
+                             idx === 1 ? <span className="text-slate-300 font-bold">🥈 ۲</span> :
+                             idx === 2 ? <span className="text-amber-600 font-bold">🥉 ۳</span> :
+                             <span className="text-slate-400">{formatToPersianDigits(idx + 1)}</span>}
+                          </td>
+                          <td className="p-3 font-extrabold text-white">{item.group.name || 'بدون نام'}</td>
+                          <td className="p-3 text-slate-300">{item.group.province || 'نامشخص'}</td>
+                          <td className="p-3 font-mono text-slate-300">{formatToPersianDigits(item.membersCount)} نفر</td>
+                          <td className="p-3 font-mono text-cyan-300">{formatToPersianDigits(item.completedMissions)}</td>
+                          <td className="p-3 text-left font-mono font-black text-amber-300 text-sm">
+                            {formatToPersianDigits(item.score)} <span className="text-[10px] text-slate-400 font-sans">امتیاز</span>
+                          </td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>

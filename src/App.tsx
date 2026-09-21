@@ -1,6 +1,6 @@
 import React, { useState, useEffect, lazy, Suspense } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Bell, ShieldAlert, X, Radio } from 'lucide-react';
+import { Bell, ShieldAlert, X, Radio, MessageSquare } from 'lucide-react';
 
 // Types
 import { 
@@ -1115,6 +1115,8 @@ export default function App() {
               isAdminView={isAdminMode}
               setIsAdminView={setIsAdminMode}
               campaignTheme={campaignTheme}
+              isFloatingChatOpen={isFloatingChatOpen}
+              onToggleFloatingChat={handleToggleFloatingChat}
             />
 
             {currentUser && currentUser.role !== 'admin' && !isAdminMode && isFloatingChatOpen && activeTab !== 'Chat' && (
@@ -1130,6 +1132,32 @@ export default function App() {
                 onClose={handleCloseFloatingChat}
               />
             )}
+
+            {/* Floating Chat Room Toggle Button when chat is closed / inactive */}
+            {currentUser && currentUser.role !== 'admin' && !isAdminMode && !isFloatingChatOpen && activeTab !== 'Chat' && (() => {
+              const isGirlsTheme = campaignTheme === 'girls' || currentUser?.gender === 'دختر';
+              return (
+                <motion.button
+                  initial={{ scale: 0, opacity: 0 }}
+                  animate={{ scale: 1, opacity: 1 }}
+                  whileHover={{ scale: 1.08 }}
+                  whileTap={{ scale: 0.95 }}
+                  onClick={handleToggleFloatingChat}
+                  className={`fixed bottom-20 left-4 md:bottom-6 md:left-6 z-40 px-4 py-3 rounded-2xl shadow-2xl flex items-center gap-2.5 font-bold text-xs border cursor-pointer backdrop-blur-md transition-all ${
+                    isGirlsTheme
+                      ? 'bg-gradient-to-r from-fuchsia-600/90 to-purple-600/90 text-white border-pink-400/50 shadow-[0_0_25px_rgba(255,19,137,0.5)]'
+                      : 'bg-gradient-to-r from-blue-600/90 to-indigo-600/90 text-white border-blue-400/50 shadow-[0_0_25px_rgba(37,99,235,0.5)]'
+                  }`}
+                  title="نمایش اتاق گفتگو و چت روم"
+                >
+                  <div className="relative">
+                    <MessageSquare size={18} />
+                    <span className="absolute -top-1 -right-1 w-2 h-2 bg-emerald-400 rounded-full animate-pulse" />
+                  </div>
+                  <span>اتاق گفتگو</span>
+                </motion.button>
+              );
+            })()}
 
             {/* Main Content Body */}
             <main className={`flex-1 w-full mx-auto ${
@@ -1202,6 +1230,7 @@ export default function App() {
                       <JourneyView 
                         currentUser={currentUser}
                         stages={stages}
+                        dailyChallengeConfig={dailyChallengeConfig}
                         showMapBackground={activeTab === 'Journey'}
                         groups={groups}
                         medals={medals}

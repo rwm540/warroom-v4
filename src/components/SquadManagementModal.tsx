@@ -445,8 +445,8 @@ export default function SquadManagementModal({
             <h4 className="text-xs font-black text-cyan-300">پیوستن به گروه دیگر</h4>
             <p className="text-[10px] leading-5 text-slate-400">بدون پذیرش سرگروه، گروه و روم شما تغییر نمی‌کند.</p>
             <div className="max-h-24 space-y-1 overflow-y-auto">
-              {groups.filter(group => group.id !== currentUser.group_id).map(group => (
-                <button key={group.id} type="button" onClick={() => requestToJoinGroup(group)} disabled={outgoingRequests.some(request => request.target_group_id === group.id)} className="w-full rounded-lg border border-slate-700 bg-slate-900 px-2 py-1.5 text-right text-[10px] text-slate-200 disabled:cursor-not-allowed disabled:opacity-50 hover:border-cyan-500">{group.name} <span className="text-slate-500">({group.members_count}/{group.max_members || 4})</span></button>
+              {groups.filter(group => Boolean(group?.id) && group.id !== currentUser?.group_id).map(group => (
+                <button key={group.id} type="button" onClick={() => requestToJoinGroup(group)} disabled={outgoingRequests.some(request => request.target_group_id === group.id)} className="w-full rounded-lg border border-slate-700 bg-slate-900 px-2 py-1.5 text-right text-[10px] text-slate-200 disabled:cursor-not-allowed disabled:opacity-50 hover:border-cyan-500">{group.name || 'جوخه'} <span className="text-slate-500">({group.members_count || 0}/{group.max_members || 4})</span></button>
               ))}
             </div>
           </div>

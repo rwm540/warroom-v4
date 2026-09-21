@@ -235,6 +235,7 @@ export interface StageQuizQuestion {
   question: string;
   options: string[];
   correctAnswer: number;
+  timeLimitSeconds?: number;
 }
 
 export interface JourneyStage {
@@ -265,6 +266,7 @@ export interface DailyChallengeConfig {
   questionText?: string;
   options: string[];
   correctOptionIndex: number;
+  timeLimitSeconds?: number;
   isActive: boolean;
   bannerUrl?: string;
 }

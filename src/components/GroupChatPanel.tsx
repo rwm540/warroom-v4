@@ -34,7 +34,7 @@ export default function GroupChatPanel({
 }: GroupChatPanelProps) {
   const isAdminUser = currentUser?.role === 'admin';
   const adminGroupOptions = useMemo(
-    () => groups.filter(group => Boolean(group?.id)).map(group => ({ id: group.id, name: group.name })),
+    () => groups.filter(group => Boolean(group?.id)).map(group => ({ id: group.id, name: group?.name || 'گروه' })),
     [groups]
   );
 
@@ -57,8 +57,8 @@ export default function GroupChatPanel({
     if (effectiveGroupId === 'general_headquarters') {
       return 'روم عمومی ستاد کل اتاق جنگ';
     }
-    const found = groups.find(group => group.id === effectiveGroupId);
-    if (found) return found.name;
+    const found = groups.find(group => group?.id === effectiveGroupId);
+    if (found) return found.name || 'جوخه';
     if (effectiveGroupId === syncedUserGroupId) return 'جوخه عملیاتی من';
     return 'چت گروهی';
   }, [effectiveGroupId, groups, syncedUserGroupId]);
@@ -70,12 +70,15 @@ export default function GroupChatPanel({
     return users.filter(user => user.group_id === effectiveGroupId).map(user => user.id);
   }, [effectiveGroupId, users]);
 
-  const room = useMemo(() => {
-    return ensureGroupChatRoom(
+  const [room, setRoom] = useState<any>(null);
+
+  useEffect(() => {
+    const r = ensureGroupChatRoom(
       effectiveGroupId, 
       effectiveGroupName, 
       memberIds.length ? memberIds : [activeUserId]
     );
+    setRoom(r);
   }, [effectiveGroupId, effectiveGroupName, memberIds, activeUserId]);
 
   const [messages, setMessages] = useState<any[]>([]);
@@ -145,7 +148,7 @@ export default function GroupChatPanel({
   const currentGroup = groups.find(group => group.id === syncedUserGroupId);
   const canRegisterSquadMember = Boolean(currentUser && (currentUser.role === 'leader' || currentGroup?.leader_id === currentUser.id));
   const pendingIncoming = groupJoinRequests.filter(request => request.target_group_id === currentUser?.group_id && request.status === 'pending');
-  const matchingGroups = groups.filter(group => group.id !== currentUser?.group_id && group.status !== 'merged' && group.name.toLowerCase().includes(groupSearch.trim().toLowerCase()));
+  const matchingGroups = groups.filter(group => Boolean(group?.id) && group.id !== currentUser?.group_id && group.status !== 'merged' && (group.name || '').toLowerCase().includes(groupSearch.trim().toLowerCase()));
   const visibleGroups = matchingGroups.slice(0, (groupPage + 1) * 5);
 
   const sendGroupRequest = (targetGroup: Group) => {
@@ -326,7 +329,7 @@ export default function GroupChatPanel({
           </span>
           <div className="min-w-0">
             <div className="text-[12px] font-black text-white flex items-center gap-1.5">
-              <span>{room.name}</span>
+              <span>{room?.name || 'چت روم'}</span>
               {effectiveGroupId === 'general_headquarters' && (
                 <span className="text-[9px] font-normal bg-cyan-950/80 border border-cyan-800 text-cyan-300 px-1.5 py-0.2 rounded">عمومی</span>
               )}

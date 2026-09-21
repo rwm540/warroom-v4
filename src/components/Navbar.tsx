@@ -28,7 +28,8 @@ import {
   Gift,
   Grid,
   WalletCards,
-  MessageCircle
+  MessageCircle,
+  MessageSquare
 } from 'lucide-react';
 import { User } from '../types';
 import { formatToPersianDigits } from '../utils/jalali';
@@ -210,6 +211,22 @@ export default function Navbar({
             {/* User Controls / Status */}
             {currentUser && (
               <>
+                {/* Chat Room Toggle Button */}
+                {onToggleFloatingChat && currentUser.role !== 'admin' && (
+                  <button
+                    onClick={onToggleFloatingChat}
+                    className={`px-2.5 py-1.5 rounded-xl border text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${
+                      isFloatingChatOpen
+                        ? isGirls ? 'bg-fuchsia-950/60 border-fuchsia-500/40 text-fuchsia-300' : 'bg-blue-950/60 border-blue-500/40 text-blue-300'
+                        : 'bg-slate-900 border-slate-800 text-slate-400 hover:text-white'
+                    }`}
+                    title={isFloatingChatOpen ? 'پنهان کردن چت روم' : 'نمایش چت روم'}
+                  >
+                    <MessageSquare size={15} />
+                    <span className="hidden sm:inline">چت روم</span>
+                  </button>
+                )}
+
                 {/* Logout Button */}
                 <button
                   onClick={onLogout}

@@ -45,7 +45,7 @@ import {
   School,
   Bookmark
 } from 'lucide-react';
-import { User, Mission, MissionSubmission, Group, Medal, UserMedal, JourneyStage } from '../types';
+import { User, Mission, MissionSubmission, Group, Medal, UserMedal, JourneyStage, DailyChallengeConfig } from '../types';
 import { formatToPersianDigits } from '../utils/jalali';
 import { getSavedPostIds } from '../data/vitrinData';
 import { getStageBadge } from '../data/stageBadges';
@@ -76,6 +76,7 @@ interface JourneyViewProps {
   showMapBackground?: boolean;
   onStageCompleted?: (stageId: string, earnedPoints: number) => void;
   onAwardDailyPoints?: (points: number) => void;
+  dailyChallengeConfig?: DailyChallengeConfig | null;
 }
 
 export default function JourneyView({
@@ -96,7 +97,8 @@ export default function JourneyView({
   initialOpenProfile = false,
   showMapBackground = true,
   onStageCompleted,
-  onAwardDailyPoints
+  onAwardDailyPoints,
+  dailyChallengeConfig
 }: JourneyViewProps) {
   const [selectedStage, setSelectedStage] = useState<JourneyStage | null>(null);
   const [activeTabSub, setActiveTabSub] = useState<'journey' | 'journal' | 'prayer'>('journey');
@@ -420,86 +422,13 @@ export default function JourneyView({
       <div className="w-full max-w-4xl mx-auto flex flex-col gap-3 pb-36 md:pb-16 px-1.5 sm:px-3 relative z-10">
 
         {/* ========================================================================= */}
-        {/* 1. STICKY TOP HUD BAR: Smooth Left & Right Scrollable Menus + 4 Stats Cards */}
+        {/* 1. STICKY TOP HUD BAR: 4 Stats Cards */}
         {/* ========================================================================= */}
-        <div className={`sticky top-0 z-30 w-full pt-1.5 pb-2 px-2 rounded-2xl backdrop-blur-xl border shadow-xl flex flex-col gap-2 transition-all duration-300 ${
+        <div className={`sticky top-0 z-30 w-full pt-1.5 pb-1.5 px-2 rounded-2xl backdrop-blur-xl border shadow-xl flex flex-col gap-2 transition-all duration-300 ${
           isGirls 
             ? 'bg-[#150220]/90 border-fuchsia-500/30 shadow-[0_10px_30px_rgba(0,0,0,0.8),0_0_20px_rgba(255,19,137,0.2)]'
             : 'bg-[#060c20]/90 border-blue-500/30 shadow-[0_10px_30px_rgba(0,0,0,0.8),0_0_20px_rgba(37,99,235,0.2)]'
         }`}>
-          
-          {/* Top Header Actions Row (Full Right-to-Left & Left-to-Right Horizontal Scrolling) */}
-          <header className="w-full flex items-center justify-between gap-3 px-1 shrink-0 overflow-x-auto no-scrollbar py-0.5 touch-pan-x">
-            {/* Right/Start Actions: Guide button + Saved Vitrin Videos + Tactical Commander */}
-            <div className="flex items-center gap-1.5 sm:gap-2 flex-nowrap shrink-0">
-              <button
-                onClick={() => setShowGuideModal(true)}
-                className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-gradient-to-r from-cyan-500/20 to-blue-500/20 border border-cyan-500/40 text-cyan-300 hover:text-white hover:border-cyan-400 text-xs font-bold transition shadow-sm group cursor-pointer shrink-0"
-                title="مشاهده راهنمای نقشه و دستورات تاکتیکی فرمانده"
-              >
-                <Compass size={14} className="text-cyan-400 group-hover:rotate-45 transition shrink-0" />
-                <span className="text-[11px] sm:text-xs whitespace-nowrap">راهنمای مسیر و فرمانده</span>
-              </button>
-
-
-
-              {/* Military Commander / Tactical Announcements (Responsive by Gender) */}
-              <button
-                onClick={onOpenNotifications || (() => triggerAlert('مرکز پیام‌ها و دستورات فرماندهی باز شد.'))}
-                className="relative p-0.5 rounded-full bg-[#111927] border border-amber-500/50 hover:border-amber-400 text-slate-200 transition shadow-sm group overflow-hidden cursor-pointer shrink-0"
-                title={isGirls ? 'فرمانده بانوان - پیام‌ها و دستورات تاکتیکی' : 'فرمانده عملیات - پیام‌ها و دستورات تاکتیکی'}
-              >
-                <div className="w-7 h-7 rounded-full overflow-hidden ring-1 ring-amber-500/60 bg-slate-900">
-                  <img 
-                    src={isGirls 
-                      ? 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=150&q=80' 
-                      : 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=150&q=80'} 
-                    alt="فرمانده نظامی" 
-                    className="w-full h-full object-cover group-hover:scale-110 transition"
-                    referrerPolicy="no-referrer"
-                  />
-                </div>
-                <span className="absolute top-0 right-0 w-2.5 h-2.5 rounded-full bg-rose-500 ring-1 ring-[#070b13] animate-pulse" />
-              </button>
-            </div>
-
-            {/* Left/End Actions: User Welcome & Badges Status */}
-            <div className="flex items-center gap-2 sm:gap-3 flex-nowrap shrink-0">
-              <div className="text-left shrink-0">
-                <h2 className="text-xs sm:text-sm font-black text-white leading-tight flex items-center justify-end gap-1.5 whitespace-nowrap">
-                  <span>سلام</span>
-                  <span className="text-amber-300">
-                    {currentUser ? `${currentUser.first_name} ${currentUser.last_name}` : 'علی رضایی'}
-                  </span>
-                </h2>
-                <p className="text-[10px] text-slate-400 flex items-center justify-end gap-1 mt-0.5 whitespace-nowrap">
-                  <Sparkles size={10} className="text-amber-400" />
-                  <span>مسیر عشاق الحسین</span>
-                </p>
-              </div>
-
-              {/* Circular Avatar */}
-              <div 
-                onClick={() => {
-                  setProfileSubTab('dossier');
-                  setShowProfileDrawer(true);
-                }}
-                className="relative cursor-pointer group shrink-0"
-                title="مشاهده شناسنامه، پروفایل و انتخاب آواتار"
-              >
-                <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full ring-2 ring-emerald-500/80 p-0.5 bg-slate-900 overflow-hidden shadow-[0_0_12px_rgba(16,185,129,0.3)]">
-                  {currentUser?.avatar_url || selectedAvatarUrl ? (
-                    <img src={currentUser?.avatar_url || selectedAvatarUrl} alt="آواتار" className="w-full h-full object-cover rounded-full group-hover:scale-110 transition" />
-                  ) : (
-                    <div className="w-full h-full rounded-full bg-[#132035] flex items-center justify-center text-emerald-400 font-black">
-                      <UserIcon size={16} />
-                    </div>
-                  )}
-                </div>
-                <span className="absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full bg-emerald-500 border-2 border-[#070b13]" />
-              </div>
-            </div>
-          </header>
 
           {/* Stats Bar (4 Columns: سطح شما, امتیاز کل, نشان‌ها, درصد مسیر) — کاملاً پویا از Supabase */}
           <section className="shrink-0 grid grid-cols-4 gap-1.5 sm:gap-2 bg-[#0d1524]/90 border border-slate-800/80 rounded-xl p-1.5 sm:p-2 backdrop-blur-md shadow-md">
@@ -1297,6 +1226,7 @@ export default function JourneyView({
         isOpen={showDailyChallengeModal}
         onClose={() => setShowDailyChallengeModal(false)}
         triggerAlert={triggerAlert}
+        dailyChallengeConfig={dailyChallengeConfig}
         onAwardPoints={(pts) => {
           setIsDailyChallengeDone(true);
           onAwardDailyPoints?.(pts);

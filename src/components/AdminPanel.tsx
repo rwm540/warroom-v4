@@ -5877,11 +5877,6 @@ export default function AdminPanel({
                   <span>ویترین آثار — نمایشگاه عمومی رزمندگان</span>
                 </div>
                 <h2 className="text-lg sm:text-xl font-black text-white">مدیریت و ایجاد ویترین‌های آثار</h2>
-                <p className="text-xs text-slate-400 leading-relaxed max-w-xl">
-                  در این بخش می‌توانید آثار را مستقیماً به ویترین عمومی اضافه کنید (تصویر یا ویدیو).
-                  همه‌ی تغییرات به‌صورت خودکار در <span className="text-emerald-400 font-bold">Supabase</span> ذخیره و در بخش
-                  «ویترین آثار» سایت برای کاربران نمایش داده می‌شود.
-                </p>
               </div>
               <button
                 onClick={handleOpenCreateVitrin}
@@ -6225,33 +6220,6 @@ export default function AdminPanel({
       {/* ==================================================================== */}
       {activeAdminTab === 'stage_builder' && (
         <div className="space-y-6 dir-rtl font-sans">
-          
-          {/* Header Banner */}
-          <div className="bg-gradient-to-r from-[#031520] via-[#082333] to-[#020d14] border border-cyan-500/30 rounded-3xl p-5 sm:p-7 shadow-2xl relative overflow-hidden">
-            <div className="absolute -left-10 -top-10 w-48 h-48 bg-cyan-500/20 rounded-full blur-3xl pointer-events-none" />
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 relative z-10">
-              <div className="space-y-2">
-                <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-cyan-500/10 border border-cyan-500/30 text-cyan-300 text-xs font-bold">
-                  <MapPin size={15} className="animate-pulse text-cyan-400" />
-                  <span>مدیریت ساختار مراحل و چالش روزانه — همگام با Supabase</span>
-                </div>
-                <h2 className="text-lg sm:text-xl font-black text-white">ایجاد و ویرایش مراحل نقشه بازی و چالش روزانه</h2>
-                <p className="text-xs text-slate-300 leading-relaxed max-w-2xl">
-                  در این بخش تمامی مراحل نقشه سفر، آیکون و نشان‌ها، امتیاز لازم، سوالات کوییز و چالش روزانه به صورت پویا تعریف می‌شوند. تمامی تغییرات بلافاصله در پایگاه داده <span className="text-emerald-400 font-bold">Supabase</span> و نقشه کاربران ثبت و همگام‌سازی می‌گردند.
-                </p>
-              </div>
-
-              <div className="flex items-center gap-2.5 shrink-0">
-                <button
-                  onClick={handleOpenAddStage}
-                  className="px-4 py-2.5 rounded-2xl bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-slate-950 font-black text-xs transition shadow-lg shadow-cyan-500/20 flex items-center gap-2"
-                >
-                  <Plus size={16} />
-                  <span>افزودن مرحله جدید</span>
-                </button>
-              </div>
-            </div>
-          </div>
 
           {/* Section 1: Daily Challenge Configuration */}
           <div className="bg-[#080d21] border border-slate-800 rounded-3xl p-5 sm:p-6 space-y-4 shadow-xl">
@@ -6295,6 +6263,22 @@ export default function AdminPanel({
                     value={dailyForm.pointsReward}
                     onChange={e => setDailyForm(prev => ({ ...prev, pointsReward: Number(e.target.value) || 0 }))}
                     className="w-full bg-slate-950 border border-slate-800 focus:border-amber-400 rounded-xl px-3 py-2 text-xs text-amber-300 font-mono outline-none"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-300 mb-1">مهلت تایمر پاسخگویی (۵ تا ۶۰۰ ثانیه)</label>
+                  <input
+                    type="number"
+                    min={5}
+                    max={600}
+                    value={dailyForm.timeLimitSeconds || 10}
+                    onChange={e => {
+                      const val = Math.max(5, Math.min(600, Number(e.target.value) || 5));
+                      setDailyForm(prev => ({ ...prev, timeLimitSeconds: val }));
+                    }}
+                    className="w-full bg-slate-950 border border-slate-800 focus:border-amber-400 rounded-xl px-3 py-2 text-xs text-amber-400 font-mono outline-none"
+                    placeholder="10"
                   />
                 </div>
 
@@ -6354,7 +6338,7 @@ export default function AdminPanel({
                   className="px-5 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-xs transition shadow-lg flex items-center gap-2"
                 >
                   <Check size={14} />
-                  <span>ذخیره چالش روزانه در Supabase</span>
+                  <span>ذخیره چالش روزانه</span>
                 </button>
               </div>
             </form>
@@ -6565,22 +6549,133 @@ export default function AdminPanel({
                   </select>
                 </div>
 
-                <div className="sm:col-span-2">
-                  <label className="block text-[11px] font-bold text-slate-300 mb-1">انحراف افقی روی جاده نقشه (xOffsetPercent %)</label>
-                  <div className="flex items-center gap-3">
-                    <input
-                      type="range"
-                      min="-30"
-                      max="30"
-                      value={stageForm.xOffsetPercent}
-                      onChange={e => setStageForm(prev => ({ ...prev, xOffsetPercent: Number(e.target.value) }))}
-                      className="w-full accent-cyan-400 cursor-pointer"
-                    />
-                    <span className="text-xs font-mono font-bold text-cyan-300 shrink-0 w-12 text-center">
-                      {stageForm.xOffsetPercent}%
-                    </span>
+                <div className="sm:col-span-2 space-y-3 border-t border-slate-800/80 pt-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h4 className="text-xs font-black text-white flex items-center gap-1.5">
+                        <HelpCircle size={15} className="text-cyan-400" />
+                        <span>سوالات آزمون مرحله (چهار گزینه‌ای)</span>
+                      </h4>
+                      <p className="text-[10px] text-slate-400">طرح سوالات ۴ گزینه‌ای برای ارزیابی رزمندگان در این مرحله</p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const newQ: StageQuizQuestion = {
+                          id: `q_${Date.now()}_${Math.random().toString(36).substring(2, 5)}`,
+                          question: '',
+                          options: ['', '', '', ''],
+                          correctAnswer: 0
+                        };
+                        setStageForm(prev => ({ ...prev, quizQuestions: [...(prev.quizQuestions || []), newQ] }));
+                      }}
+                      className="px-3 py-1.5 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-slate-950 font-bold text-xs transition flex items-center gap-1 cursor-pointer"
+                    >
+                      <Plus size={14} />
+                      <span>افزودن سوال جدید</span>
+                    </button>
                   </div>
-                  <p className="text-[10px] text-slate-400 mt-1">مقدار منفی = انحراف به چپ، ۰ = مرکز، مقدار مثبت = انحراف به راست روی نقشه</p>
+
+                  {(!stageForm.quizQuestions || stageForm.quizQuestions.length === 0) ? (
+                    <div className="p-4 rounded-xl bg-slate-950/60 border border-slate-800 text-center text-xs text-slate-400">
+                      هنوز هیچ سوالی برای این مرحله تعریف نشده است. با کلیک روی «افزودن سوال جدید» سوالات ۴ گزینه‌ای ایجاد کنید.
+                    </div>
+                  ) : (
+                    <div className="space-y-4 max-h-80 overflow-y-auto pr-1">
+                      {stageForm.quizQuestions.map((q, qIdx) => (
+                        <div key={q.id || qIdx} className="bg-slate-950 p-3.5 rounded-2xl border border-slate-800 space-y-3 relative">
+                          <div className="flex items-center justify-between gap-2">
+                            <span className="text-[11px] font-bold text-cyan-300">سوال {qIdx + 1}</span>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setStageForm(prev => ({
+                                  ...prev,
+                                  quizQuestions: prev.quizQuestions.filter((_, idx) => idx !== qIdx)
+                                }));
+                              }}
+                              className="text-rose-400 hover:text-rose-300 p-1 rounded-lg hover:bg-rose-950/40 transition cursor-pointer"
+                              title="حذف این سوال"
+                            >
+                              <Trash2 size={14} />
+                            </button>
+                          </div>
+
+                          <div>
+                            <label className="block text-[10px] font-bold text-slate-400 mb-1">متن سوال *</label>
+                            <input
+                              type="text"
+                              value={q.question}
+                              onChange={e => {
+                                const updated = [...stageForm.quizQuestions];
+                                updated[qIdx] = { ...updated[qIdx], question: e.target.value };
+                                setStageForm(prev => ({ ...prev, quizQuestions: updated }));
+                              }}
+                              placeholder="سوال مرحله را وارد کنید..."
+                              className="w-full bg-slate-900 border border-slate-800 focus:border-cyan-400 rounded-xl px-3 py-2 text-xs text-white outline-none"
+                            />
+                          </div>
+
+                          <div className="flex items-center justify-between gap-2 bg-slate-900/80 p-2 rounded-xl border border-slate-800">
+                            <span className="text-[10px] text-slate-300 font-bold">مهلت پاسخگویی به این سوال (۵ تا ۶۰۰ ثانیه):</span>
+                            <div className="flex items-center gap-1.5">
+                              <input
+                                type="number"
+                                min={5}
+                                max={600}
+                                value={q.timeLimitSeconds || 30}
+                                onChange={e => {
+                                  const val = Math.max(5, Math.min(600, Number(e.target.value) || 5));
+                                  const updated = [...stageForm.quizQuestions];
+                                  updated[qIdx] = { ...updated[qIdx], timeLimitSeconds: val };
+                                  setStageForm(prev => ({ ...prev, quizQuestions: updated }));
+                                }}
+                                className="w-20 bg-slate-950 border border-slate-700 focus:border-cyan-400 rounded-lg px-2 py-1 text-xs text-cyan-300 font-mono outline-none text-center"
+                              />
+                              <span className="text-[10px] text-slate-400 font-bold">ثانیه</span>
+                            </div>
+                          </div>
+
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                            {[0, 1, 2, 3].map(optIdx => (
+                              <div key={optIdx} className="space-y-1">
+                                <div className="flex items-center justify-between">
+                                  <span className="text-[10px] font-bold text-slate-400">گزینه {optIdx + 1}</span>
+                                  <label className="flex items-center gap-1 cursor-pointer">
+                                    <input
+                                      type="radio"
+                                      name={`correct_opt_stage_${qIdx}`}
+                                      checked={q.correctAnswer === optIdx}
+                                      onChange={() => {
+                                        const updated = [...stageForm.quizQuestions];
+                                        updated[qIdx] = { ...updated[qIdx], correctAnswer: optIdx };
+                                        setStageForm(prev => ({ ...prev, quizQuestions: updated }));
+                                      }}
+                                      className="accent-emerald-400"
+                                    />
+                                    <span className="text-[10px] text-emerald-400 font-bold">پاسخ صحیح</span>
+                                  </label>
+                                </div>
+                                <input
+                                  type="text"
+                                  value={q.options[optIdx] || ''}
+                                  onChange={e => {
+                                    const updated = [...stageForm.quizQuestions];
+                                    const opts = [...(updated[qIdx].options || ['', '', '', ''])];
+                                    opts[optIdx] = e.target.value;
+                                    updated[qIdx] = { ...updated[qIdx], options: opts };
+                                    setStageForm(prev => ({ ...prev, quizQuestions: updated }));
+                                  }}
+                                  placeholder={`متن گزینه ${optIdx + 1}...`}
+                                  className="w-full bg-slate-900 border border-slate-800 focus:border-cyan-400 rounded-xl px-2.5 py-1.5 text-xs text-white outline-none"
+                                />
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
 
                 <div className="sm:col-span-2 space-y-2 border-t border-slate-800/80 pt-3">

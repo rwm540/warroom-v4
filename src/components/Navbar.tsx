@@ -107,13 +107,6 @@ export default function Navbar({
       onOpenNotifications();
       return;
     }
-    if (tab === 'Chat') {
-      setIsMobileMoreOpen(false);
-      if (typeof window !== 'undefined') {
-        window.dispatchEvent(new CustomEvent('warroom_open_chat_modal'));
-      }
-      return;
-    }
     setIsAdminView(isAdmin);
     setCurrentTab(tab);
     setIsMobileMoreOpen(false);
@@ -124,7 +117,6 @@ export default function Navbar({
     { id: 'Journey', label: 'نقشه مراحل بازی', icon: Gamepad2 },
     { id: 'Rewards', label: 'جوایز و امتیازات', icon: Gift },
     { id: 'Vitrin', label: 'ویترین و آثار', icon: Grid },
-    { id: 'Chat', label: 'چت روم عملیاتی', icon: MessageCircle },
     ...(currentUser?.role === 'admin' ? [] : [{ id: 'Wallet', label: 'تراکنش‌ها و پرداختی‌ها', icon: WalletCards }]),
   ];
 
@@ -278,24 +270,6 @@ export default function Navbar({
                   <span>داوری و مدیریت ستاد</span>
                 </button>
               )}
-              {currentUser.role !== 'admin' && (
-                <button
-                  onClick={onOpenSquadModal}
-                  className="flex items-center gap-1.5 rounded-xl border border-red-800/60 bg-red-950/40 px-3 py-1.5 text-xs font-black text-red-300 transition hover:bg-red-900/50 cursor-pointer"
-                  title="تشکیل جوخه، مدیریت اعضا و ثبت نیرو"
-                >
-                  <Users size={15} />
-                  <span>{currentUser.group_id ? 'مدیریت و ثبت نیروی جوخه' : 'تشکیل و مدیریت جوخه'}</span>
-                </button>
-              )}
-              <button
-                onClick={() => handleSelectTab('Chat')}
-                className="flex items-center gap-1.5 rounded-xl border border-cyan-800/60 bg-cyan-950/40 px-3 py-1.5 text-xs font-black text-cyan-300 transition hover:bg-cyan-900/50 cursor-pointer"
-                title="باز کردن چت روم عملیاتی"
-              >
-                <MessageCircle size={15} />
-                <span>چت روم</span>
-              </button>
             </nav>
           </div>
         )}

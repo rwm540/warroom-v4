@@ -426,9 +426,6 @@ export default function App() {
     if (!user) {
       setCurrentUser(null);
       setIsAdminMode(false);
-      setShowAuthScreen(false);
-      setShowGamePortal(false);
-      setActiveTab('Home');
       setMustChangePassword(false);
       return;
     }
@@ -463,25 +460,22 @@ export default function App() {
           if (storedUser) {
             const parsed = JSON.parse(storedUser) as User | null;
             if (parsed?.id) {
-              routeAuthenticatedUser(parsed);
+              const safeUser = { ...parsed, password: '' } as User;
+              setCurrentUser(safeUser);
               return;
             }
           }
         } catch {
-          // Fall through to the signed-out route when the stored session is invalid.
+          // Fall through
         }
         setCurrentUser(null);
         setIsAdminMode(false);
         setMustChangePassword(false);
-        setShowAuthScreen(false);
-        setShowGamePortal(false);
-        setActiveTab('Home');
         return;
       }
 
       const safeUser: User = { ...serverUser, password: '' };
       setCurrentUser((prev) => (prev && prev.id === safeUser.id ? { ...prev, ...safeUser } : safeUser));
-      routeAuthenticatedUser(safeUser);
       setMustChangePassword(false);
     });
 
@@ -663,10 +657,6 @@ export default function App() {
   };
 
   const handleTabChange = (tab: string) => {
-    if (tab === 'Chat') {
-      setShowChatRoomModal(true);
-      return;
-    }
     setShowAuthScreen(false);
     setShowGamePortal(false);
     setIsAdminMode(tab === 'Admin');
@@ -675,6 +665,32 @@ export default function App() {
   };
   const [showSquadModal, setShowSquadModal] = useState<boolean>(false);
   const [showChatRoomModal, setShowChatRoomModal] = useState<boolean>(false);
+  // Persistent web design floating chat state
+  const [isFloatingChatOpen, setIsFloatingChatOpen] = useState<boolean>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('warroom_chat_open_state');
+      if (saved !== null) return saved === 'true';
+    }
+    return true; // default open in desktop web design
+  });
+
+  const handleToggleFloatingChat = () => {
+    setIsFloatingChatOpen(prev => {
+      const next = !prev;
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('warroom_chat_open_state', String(next));
+      }
+      return next;
+    });
+  };
+
+  const handleCloseFloatingChat = () => {
+    setIsFloatingChatOpen(false);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('warroom_chat_open_state', 'false');
+    }
+  };
+
   // Alias for backward compatibility
   const showMobileChatRoom = showChatRoomModal;
   const setShowMobileChatRoom = setShowChatRoomModal;
@@ -686,7 +702,9 @@ export default function App() {
   useEffect(() => {
     const openSquad = () => setShowSquadModal(true);
     const openNotifications = () => setShowNotificationCenter(true);
-    const openChat = () => setShowChatRoomModal(true);
+    const openChat = () => {
+      handleTabChange('Chat');
+    };
     window.addEventListener('warroom_open_squad_modal', openSquad);
     window.addEventListener('warroom_open_notifications', openNotifications);
     window.addEventListener('warroom_open_chat_modal', openChat);
@@ -843,40 +861,10 @@ export default function App() {
   };
 
   const handleOpenAuth = (mode: 'login' | 'register_individual' | 'register_group') => {
-    const activeUser = currentUser;
-
-    if (activeUser) {
-      if (activeUser.role === 'admin') {
-        setIsAdminMode(true);
-        setActiveTab('Admin');
-        setShowGamePortal(false);
-        setShowAuthScreen(false);
-        return;
-      }
-      setIsAdminMode(false);
-      setActiveTab('Journey');
-      setShowGamePortal(false);
-      setShowAuthScreen(false);
-      return;
-    }
-
     setAuthMode(mode);
+    setShowGamePortal(false);
     setShowAuthScreen(true);
   };
-
-  // Guard: If currentUser is logged in, immediately dismiss any auth screen
-  useEffect(() => {
-    if (currentUser && showAuthScreen) {
-      setShowAuthScreen(false);
-      if (currentUser.role === 'admin') {
-        setIsAdminMode(true);
-        setActiveTab('Admin');
-      } else {
-        setIsAdminMode(false);
-        setActiveTab('Journey');
-      }
-    }
-  }, [currentUser, showAuthScreen]);
 
   // Guard: Regular users are routed to Journey if they attempt to access Dashboard
   useEffect(() => {
@@ -1129,7 +1117,7 @@ export default function App() {
               campaignTheme={campaignTheme}
             />
 
-            {currentUser && (currentUser.group_id || users.some(user => user.id === currentUser.id && user.group_id)) && currentUser.role !== 'admin' && !isAdminMode && (
+            {currentUser && currentUser.role !== 'admin' && !isAdminMode && isFloatingChatOpen && activeTab !== 'Chat' && (
               <GroupChatPanel
                 currentUser={currentUser}
                 users={users}
@@ -1139,6 +1127,7 @@ export default function App() {
                 groupJoinRequests={groupJoinRequests}
                 setGroupJoinRequests={setGroupJoinRequests}
                 onOpenSquadModal={() => setShowSquadModal(true)}
+                onClose={handleCloseFloatingChat}
               />
             )}
 
@@ -1352,6 +1341,23 @@ export default function App() {
                         onNavigate={(tab) => handleTabChange(tab)}
                         triggerAlert={triggerAlert}
                       />
+                    )}
+
+                    {activeTab === 'Chat' && (
+                      <div className="w-full max-w-4xl mx-auto h-[calc(100vh-170px)] min-h-[520px] flex flex-col">
+                        <GroupChatPanel 
+                          currentUser={currentUser}
+                          users={users}
+                          setUsers={setUsers}
+                          setGroups={setGroups}
+                          groups={groups}
+                          groupJoinRequests={groupJoinRequests}
+                          setGroupJoinRequests={setGroupJoinRequests}
+                          onOpenSquadModal={() => setShowSquadModal(true)}
+                          isModal
+                          mobileMode
+                        />
+                      </div>
                     )}
                   </>
                 )}

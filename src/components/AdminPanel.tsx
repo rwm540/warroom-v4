@@ -2032,7 +2032,7 @@ export default function AdminPanel({
           id="btn-tab-chat-control"
         >
           <MessageSquare size={15} />
-          <span>کنترل چت‌ها</span>
+          <span>کنترل چت روم</span>
         </button>
 
         <button

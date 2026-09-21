@@ -85,8 +85,7 @@ export default function AdventureHeroSection({
             alt={isGirls ? "بنر ثبت‌نام دختران اتاق جنگ" : "بنر ثبت‌نام پسران اتاق جنگ"} 
             referrerPolicy="no-referrer"
             loading="eager"
-            // @ts-ignore
-            fetchpriority="high"
+            fetchPriority="high"
             decoding="async"
             width={1200}
             height={675}

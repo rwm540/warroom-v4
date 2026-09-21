@@ -90,7 +90,7 @@ export default function GroupChatPanel({
     setGroupPage(0);
   }, [groupSearch]);
 
-  const layoutStorageKey = `warroom_chat_layout_${currentUser?.id || 'guest'}_${effectiveGroupId || 'default'}`;
+  const layoutStorageKey = `warroom_chat_layout_${currentUser?.id || 'guest'}`;
   const defaultPosition = () => ({
     left: typeof window === 'undefined' ? 20 : Math.max(16, window.innerWidth - 388),
     top: 110,

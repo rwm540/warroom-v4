@@ -79,53 +79,53 @@ import {
 import { DEFAULT_GAME_PORTALS } from './data/portalData';
 
 // Static Base Views (Needed for immediate FCP & LCP)
-import HomeView from './components/HomeView';
-import Navbar from './components/Navbar';
-import BottomNavigation from './components/home/BottomNavigation';
-import LoadingScreen from './components/LoadingScreen';
-import BackgroundMusic from './components/BackgroundMusic';
-import PersistentMusicBar from './components/PersistentMusicBar';
-import LiveNotificationToast from './components/LiveNotificationToast';
-import InternalDialogHost from './components/InternalDialogHost';
-import RadarLoading from './components/RadarLoading';
+import HomeView from './components/HomeView.tsx';
+import Navbar from './components/Navbar.tsx';
+import BottomNavigation from './components/home/BottomNavigation.tsx';
+import LoadingScreen from './components/LoadingScreen.tsx';
+import BackgroundMusic from './components/BackgroundMusic.tsx';
+import PersistentMusicBar from './components/PersistentMusicBar.tsx';
+import LiveNotificationToast from './components/LiveNotificationToast.tsx';
+import InternalDialogHost from './components/InternalDialogHost.tsx';
+import RadarLoading from './components/RadarLoading.tsx';
 
 // Code-Split Dynamic Views & Modals (loaded on-demand for maximum performance & lowest initial JS payload)
-const AuthView = lazy(() => import('./components/AuthView'));
-const DashboardView = lazy(() => import('./components/DashboardView'));
-const JourneyView = lazy(() => import('./components/JourneyView'));
-const MissionsView = lazy(() => import('./components/MissionsView'));
-const TrainingsView = lazy(() => import('./components/TrainingsView'));
-const SupportView = lazy(() => import('./components/SupportView'));
-const ContactView = lazy(() => import('./components/ContactView'));
-const AboutView = lazy(() => import('./components/AboutView'));
-const RulesView = lazy(() => import('./components/RulesView'));
-const ProfileView = lazy(() => import('./components/ProfileView'));
-const PrizesPointsView = lazy(() => import('./components/PrizesPointsView'));
-const VitrinView = lazy(() => import('./components/VitrinView'));
-const WalletTransfersView = lazy(() => import('./components/WalletTransfersView'));
-const SquadManagementModal = lazy(() => import('./components/SquadManagementModal'));
-const ProfileModal = lazy(() => import('./components/ProfileModal'));
-const GameSelectionPortalModal = lazy(() => import('./components/GameSelectionPortalModal'));
-const NotificationCenterModal = lazy(() => import('./components/NotificationCenterModal'));
-const OnboardingCommanderTutorial = lazy(() => import('./components/OnboardingCommanderTutorial'));
-const GroupChatPanel = lazy(() => import('./components/GroupChatPanel'));
-const AdminPanel = lazy(() => import('./components/AdminPanel'));
+const AuthView = lazy(() => import('./components/AuthView.tsx'));
+const DashboardView = lazy(() => import('./components/DashboardView.tsx'));
+const JourneyView = lazy(() => import('./components/JourneyView.tsx'));
+const MissionsView = lazy(() => import('./components/MissionsView.tsx'));
+const TrainingsView = lazy(() => import('./components/TrainingsView.tsx'));
+const SupportView = lazy(() => import('./components/SupportView.tsx'));
+const ContactView = lazy(() => import('./components/ContactView.tsx'));
+const AboutView = lazy(() => import('./components/AboutView.tsx'));
+const RulesView = lazy(() => import('./components/RulesView.tsx'));
+const ProfileView = lazy(() => import('./components/ProfileView.tsx'));
+const PrizesPointsView = lazy(() => import('./components/PrizesPointsView.tsx'));
+const VitrinView = lazy(() => import('./components/VitrinView.tsx'));
+const WalletTransfersView = lazy(() => import('./components/WalletTransfersView.tsx'));
+const SquadManagementModal = lazy(() => import('./components/SquadManagementModal.tsx'));
+const ProfileModal = lazy(() => import('./components/ProfileModal.tsx'));
+const GameSelectionPortalModal = lazy(() => import('./components/GameSelectionPortalModal.tsx'));
+const NotificationCenterModal = lazy(() => import('./components/NotificationCenterModal.tsx'));
+const OnboardingCommanderTutorial = lazy(() => import('./components/OnboardingCommanderTutorial.tsx'));
+const GroupChatPanel = lazy(() => import('./components/GroupChatPanel.tsx'));
+const AdminPanel = lazy(() => import('./components/AdminPanel.tsx'));
 
 // Preload common chunks on idle / hover
 export function prefetchViewChunk(name: string) {
   switch (name) {
-    case 'Auth': void import('./components/AuthView'); break;
-    case 'Dashboard': void import('./components/DashboardView'); break;
-    case 'Journey': void import('./components/JourneyView'); break;
-    case 'Missions': void import('./components/MissionsView'); break;
-    case 'Trainings': void import('./components/TrainingsView'); break;
-    case 'Vitrin': void import('./components/VitrinView'); break;
-    case 'Prizes': case 'Rewards': void import('./components/PrizesPointsView'); break;
-    case 'Support': case 'Contact': void import('./components/ContactView'); void import('./components/SupportView'); break;
-    case 'About': void import('./components/AboutView'); break;
-    case 'Rules': void import('./components/RulesView'); break;
-    case 'Profile': void import('./components/ProfileView'); break;
-    case 'Admin': void import('./components/AdminPanel'); break;
+    case 'Auth': void import('./components/AuthView.tsx'); break;
+    case 'Dashboard': void import('./components/DashboardView.tsx'); break;
+    case 'Journey': void import('./components/JourneyView.tsx'); break;
+    case 'Missions': void import('./components/MissionsView.tsx'); break;
+    case 'Trainings': void import('./components/TrainingsView.tsx'); break;
+    case 'Vitrin': void import('./components/VitrinView.tsx'); break;
+    case 'Prizes': case 'Rewards': void import('./components/PrizesPointsView.tsx'); break;
+    case 'Support': case 'Contact': void import('./components/ContactView.tsx'); void import('./components/SupportView.tsx'); break;
+    case 'About': void import('./components/AboutView.tsx'); break;
+    case 'Rules': void import('./components/RulesView.tsx'); break;
+    case 'Profile': void import('./components/ProfileView.tsx'); break;
+    case 'Admin': void import('./components/AdminPanel.tsx'); break;
   }
 }
 

@@ -60,10 +60,9 @@ export default defineConfig(() => {
   return {
     plugins: [react(), tailwindcss(), operationLogPlugin],
     resolve: {
+      extensions: ['.mjs', '.js', '.mts', '.ts', '.jsx', '.tsx', '.json'],
       alias: [
-        { find: /^@\/(.*)/, replacement: path.resolve(rootDir, '$1') },
-        { find: /.*\/supabaseClient(\.ts)?$/, replacement: path.resolve(rootDir, 'src/lib/supabaseData.ts') },
-        { find: /.*\/supabaseclient(\.ts)?$/, replacement: path.resolve(rootDir, 'src/lib/supabaseData.ts') },
+        { find: /^@\/(.*)/, replacement: path.resolve(rootDir, 'src/$1') },
       ],
     },
     build: {

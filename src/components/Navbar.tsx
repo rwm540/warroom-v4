@@ -46,6 +46,8 @@ interface NavbarProps {
   setIsAdminView: (val: boolean) => void;
   unreadTicketsCount?: number;
   campaignTheme?: 'girls' | 'boys';
+  isFloatingChatOpen?: boolean;
+  onToggleFloatingChat?: () => void;
 }
 
 export default function Navbar({
@@ -60,7 +62,9 @@ export default function Navbar({
   isAdminView,
   setIsAdminView,
   unreadTicketsCount = 0,
-  campaignTheme = 'boys'
+  campaignTheme = 'boys',
+  isFloatingChatOpen = true,
+  onToggleFloatingChat
 }: NavbarProps) {
   const [copied, setCopied] = useState(false);
   const [isMobileMoreOpen, setIsMobileMoreOpen] = useState(false);

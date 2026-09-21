@@ -1,0 +1,12 @@
+export const initialUsers = [];
+export const initialGroups = [];
+export const initialMissions = [];
+export const initialSubmissions = [];
+export const initialTrainings = [];
+export const initialMedals = [];
+export const initialUserMedals = [];
+export const initialSupportTickets = [];
+export const initialSupportReplies = [];
+export const initialAnnouncements = [];
+export const initialNews = [];
+export const initialNotifications = [];

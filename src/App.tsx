@@ -1028,11 +1028,11 @@ export default function App() {
               faqs={faqs}
               prizes={prizes}
               campaignTheme={campaignTheme}
-              onChangeCampaign={() => {
-                const newTheme = campaignTheme === 'boys' ? 'girls' : 'boys';
+              onChangeCampaign={(targetTheme?: 'girls' | 'boys') => {
+                const newTheme = targetTheme || (campaignTheme === 'boys' ? 'girls' : 'boys');
                 setCampaignTheme(newTheme);
                 localStorage.setItem('hisstory_theme_mode', newTheme);
-                triggerAlert(newTheme === 'girls' ? 'پویش دختران فعال شد.' : 'پویش پسران فعال شد.');
+                triggerAlert(newTheme === 'girls' ? 'تم دخترانه فعال شد.' : 'تم مردانه (پسرانه) فعال شد.');
               }}
             />
           </motion.div>

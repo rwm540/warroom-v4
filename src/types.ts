@@ -465,6 +465,7 @@ export interface SiteSettings {
   heroCountdown?: string;
   heroImage?: string;
   heroVideoUrl?: string;
+  teaserVideoUrl?: string;
   girlsBannerImage?: string;
   boysBannerImage?: string;
   heroButtonText?: string;

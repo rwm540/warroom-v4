@@ -1226,6 +1226,7 @@ export default function AdminPanel({
   const [generalCountdown, setGeneralCountdown] = useState(siteSettings?.heroCountdown || '۰۲:۱۴:۳۹:۱۵');
   const [generalImage, setGeneralImage] = useState(siteSettings?.heroImage || '');
   const [heroVideoUrl, setHeroVideoUrl] = useState(siteSettings?.heroVideoUrl || '');
+  const [teaserVideoUrl, setTeaserVideoUrl] = useState(siteSettings?.teaserVideoUrl || '');
   const [girlsBannerImage, setGirlsBannerImage] = useState(siteSettings?.girlsBannerImage || '');
   const [boysBannerImage, setBoysBannerImage] = useState(siteSettings?.boysBannerImage || '');
   const [generalBtnText, setGeneralBtnText] = useState(siteSettings?.heroButtonText || 'ورود و ثبت‌نام');
@@ -4347,6 +4348,7 @@ export default function AdminPanel({
                     heroCountdown: generalCountdown,
                     heroImage: generalImage,
                     heroVideoUrl: heroVideoUrl,
+                    teaserVideoUrl: teaserVideoUrl,
                     girlsBannerImage: girlsBannerImage,
                     boysBannerImage: boysBannerImage,
                     heroButtonText: generalBtnText,
@@ -4704,7 +4706,7 @@ export default function AdminPanel({
                 {/* Hero Video URL / Upload */}
                 <div className="space-y-1 bg-slate-950 p-2.5 rounded-xl border border-slate-800">
                   <label className="text-slate-300 font-bold block flex items-center justify-between">
-                    <span>آدرس ویدئوی اصلی معرفی قرارگاه (هیرو):</span>
+                    <span>آدرس ویدئوی معرفی اتاق جنگ (معرفی):</span>
                     <label className="text-cyan-400 text-[10px] cursor-pointer hover:underline flex items-center gap-1">
                       <Upload size={11} />
                       <span>انتخاب ویدیو</span>
@@ -4728,6 +4730,37 @@ export default function AdminPanel({
                     value={heroVideoUrl} 
                     placeholder="آدرس URL ویدئو (مثال: https://.../intro.mp4)..."
                     onChange={(e) => setHeroVideoUrl(e.target.value)}
+                    className="w-full bg-slate-900 border border-slate-800 rounded-lg px-2.5 py-1.5 text-white font-mono text-[10px] dir-ltr"
+                  />
+                </div>
+
+                {/* Teaser Video URL / Upload */}
+                <div className="space-y-1 bg-slate-950 p-2.5 rounded-xl border border-slate-800">
+                  <label className="text-slate-300 font-bold block flex items-center justify-between">
+                    <span>آدرس تیزر رسمی مسابقات (تیزر سینمایی):</span>
+                    <label className="text-cyan-400 text-[10px] cursor-pointer hover:underline flex items-center gap-1">
+                      <Upload size={11} />
+                      <span>انتخاب تیزر</span>
+                      <input 
+                        type="file" 
+                        accept="video/*" 
+                        className="hidden"
+                        onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          if (file) {
+                            const reader = new FileReader();
+                            reader.onload = (ev) => setTeaserVideoUrl(ev.target?.result as string);
+                            reader.readAsDataURL(file);
+                          }
+                        }}
+                      />
+                    </label>
+                  </label>
+                  <input 
+                    type="text" 
+                    value={teaserVideoUrl} 
+                    placeholder="آدرس URL تیزر (مثال: https://.../teaser.mp4)..."
+                    onChange={(e) => setTeaserVideoUrl(e.target.value)}
                     className="w-full bg-slate-900 border border-slate-800 rounded-lg px-2.5 py-1.5 text-white font-mono text-[10px] dir-ltr"
                   />
                 </div>
@@ -5835,6 +5868,7 @@ export default function AdminPanel({
           heroCountdown: generalCountdown,
           heroImage: generalImage,
           heroVideoUrl: heroVideoUrl,
+          teaserVideoUrl: teaserVideoUrl,
           girlsBannerImage: girlsBannerImage,
           boysBannerImage: boysBannerImage,
           heroButtonText: generalBtnText,

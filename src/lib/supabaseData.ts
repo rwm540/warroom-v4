@@ -20,17 +20,10 @@ const supabasePublicKey = runtimeEnv?.VITE_SUPABASE_PUBLIC_KEY?.trim();
 const supabaseAnonKey = runtimeEnv?.VITE_SUPABASE_ANON_KEY?.trim();
 
 function pickActiveKey(): string {
-  const candidate = supabasePublishableKey || supabasePublicKey;
-  if (candidate && /^sb_(publishable|secret)_[A-Za-z0-9_-]{10,}$/.test(candidate)) {
-    return candidate;
-  }
-  if (supabaseAnonKey) {
-    const parts = supabaseAnonKey.split('.');
-    if (parts.length === 3 && parts[2].length >= 20) {
-      return supabaseAnonKey;
-    }
-  }
-  return candidate || defaultPublishableKey;
+  if (supabasePublishableKey && supabasePublishableKey.length > 15) return supabasePublishableKey;
+  if (supabaseAnonKey && supabaseAnonKey.length > 15) return supabaseAnonKey;
+  if (supabasePublicKey && supabasePublicKey.length > 15) return supabasePublicKey;
+  return defaultPublishableKey;
 }
 
 const activeKey = pickActiveKey();

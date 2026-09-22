@@ -108,6 +108,7 @@ const ProfileModal = lazy(() => import('./components/ProfileModal.tsx'));
 const GameSelectionPortalModal = lazy(() => import('./components/GameSelectionPortalModal.tsx'));
 const NotificationCenterModal = lazy(() => import('./components/NotificationCenterModal.tsx'));
 const OnboardingCommanderTutorial = lazy(() => import('./components/OnboardingCommanderTutorial.tsx'));
+const ForcePasswordChangeModal = lazy(() => import('./components/ForcePasswordChangeModal.tsx'));
 const GroupChatPanel = lazy(() => import('./components/GroupChatPanel.tsx'));
 const AdminPanel = lazy(() => import('./components/AdminPanel.tsx'));
 
@@ -813,7 +814,7 @@ export default function App() {
     setCurrentUser(safeUser);
     setShowAuthScreen(false);
     setShowGamePortal(false);
-    setMustChangePassword(false);
+    setMustChangePassword(Boolean(_meta?.mustChangePassword || user.mustChangePassword));
     localStorage.setItem('warroom_current_user_data', JSON.stringify(safeUser));
     localStorage.setItem('warroom_current_user_id', safeUser.id);
     localStorage.setItem('warroom_session_id', sessionId);
@@ -1562,6 +1563,18 @@ export default function App() {
           campaignTheme={campaignTheme}
           portals={gamePortals}
         />
+
+        {mustChangePassword && currentUser && (
+          <ForcePasswordChangeModal
+            userName={`${currentUser.first_name} ${currentUser.last_name}`}
+            isDefault={true}
+            onChanged={() => {
+              setMustChangePassword(false);
+              triggerAlert('رمز عبور با موفقیت تغییر یافت.');
+            }}
+            onLogout={handleLogout}
+          />
+        )}
       </Suspense>
 
       {/* Global Fixed Persistent Music Player Bar (Visible across all tabs and views) */}

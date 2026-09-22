@@ -47,3 +47,5 @@ export * from './home';
 export * from './initialStages';
 export * from './portalData';
 export * from './vitrinData';
+export * from './showcase';
+export * from './stageQuestionsData';

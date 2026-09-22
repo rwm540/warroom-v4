@@ -142,7 +142,7 @@ export default function GroupChatPanel({
     setMessages(listGroupChatMessages(room.id));
     const unsub = subscribeGroupChat(room.id, setMessages);
     return () => unsub();
-  }, [room]);
+  }, [room?.id, effectiveGroupId]);
 
   const stats = room ? getGroupChatStats(effectiveGroupId, users) : { totalMessages: 0, activeMembers: 0, engagementScore: 0 };
   const currentGroup = groups.find(group => group.id === syncedUserGroupId);
@@ -333,6 +333,13 @@ export default function GroupChatPanel({
               {effectiveGroupId === 'general_headquarters' && (
                 <span className="text-[9px] font-normal bg-cyan-950/80 border border-cyan-800 text-cyan-300 px-1.5 py-0.2 rounded">عمومی</span>
               )}
+              <span className="flex items-center gap-1 rounded-full border border-emerald-500/40 bg-emerald-950/60 px-1.5 py-0.5 text-[8px] font-bold text-emerald-400" title="اتصال بلادرنگ فعال است">
+                <span className="relative flex h-1.5 w-1.5">
+                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75"></span>
+                  <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-emerald-500"></span>
+                </span>
+                <span>زنده</span>
+              </span>
             </div>
             <div className="truncate text-[10px] text-slate-400">
               {stats.activeMembers} رزمنده فعال • نرخ تعامل {stats.engagementScore}%

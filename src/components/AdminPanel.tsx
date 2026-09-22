@@ -5103,7 +5103,14 @@ export default function AdminPanel({
 
       {/* 9. REAL-TIME PUSH NOTIFICATIONS & BROADCAST STUDIO */}
       {activeAdminTab === 'chat_control' && (
-        <AdminChatRoomsPanel currentUser={currentUser} groups={groups} users={users} />
+        <AdminChatRoomsPanel
+          currentUser={currentUser}
+          groups={groups}
+          setGroups={setGroups}
+          users={users}
+          setUsers={setUsers}
+          triggerAlert={triggerAlert}
+        />
       )}
 
       {activeAdminTab === 'notifications' && (

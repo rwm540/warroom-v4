@@ -1,234 +1,355 @@
 -- ============================================================================
---  🎖️  پلتفرم «اتاق جنگ» (WarRoom) — Query کامل و آپدیت شده ساخت دیتابیس Supabase
+--  🎖️  پلتفرم «اتاق جنگ» — Query کامل ساخت دیتابیس Supabase
 -- ============================================================================
 --  راهنمای اجرا:
---    ۱) وارد پنل پروژه خود در https://supabase.com/dashboard شوید.
---    ۲) از منوی سمت چپ:  SQL Editor → New query را انتخاب کنید.
---    ۳) تمامی کدهای این فایل را کپی (Paste) کرده و دکمه Run را بزنید.
+--    ۱) وارد پروژه خود در https://supabase.com/dashboard شوید
+--    ۲) از منوی کنار:  SQL Editor → New query
+--    ۳) کل این فایل را Paste کرده و Run کنید
 --
---  محتویات این Query:
---    • ساخت ۲۴ جدول عمومی داده با ساختار پویا (JSONB)
---    • 🛡️ ساخت ۵ جدول امنیتی اختصاصی (اعتبارنامه‌ها، نشست‌ها، تغییر رمز، رخدادها)
---    • تریگر به‌روزرسانی خودکار زمان (updated_at)
---    • ایندکس‌های هوشمند برای جستجوی سریع در فیلدهای JSONB
---    • فعال‌سازی RLS و سیاست‌های دسترسی عمومی (Anon & Authenticated)
---    • اعطای مجوز کامل به نقش‌های کاربری (Grants)
---    • ایجاد حساب مدیر کل پیش‌فرض (Admin Seed Data)
---    • ساخت باکت ذخیره‌سازی رسانه‌ها (warroom-media) و سیاست‌های آپلود/دانلود
---    • فعال‌سازی قابلیت‌های زنده (Realtime Publications)
+--  این فایل «مکمل و جایگزین» فایل supabase/schema.sql است و شامل:
+--    • جدول‌های کاربران، گروه‌ها، چت گروهی، محتوا، پرداخت و ثبت‌نام گروهی
+--    • 🛡️ ۵ جدول امنیتی سرور (اعتبارنامه‌ها، نشست‌ها، درخواست‌های تغییر رمز،
+--      رخدادهای امنیتی، تنظیمات امنیتی) — بدون هیچ سیاست عمومی (RLS بسته)
+--    • تریگر به‌روزرسانی خودکار updated_at
+--    • ایندکس‌های کمکی روی فیلدهای jsonb
+--    • فعال‌سازی RLS (جدول‌های عمومی: سیاست دموی باز / جدول‌های حساس: بدون دسترسی عمومی)
+--    • مجوزهای اجرا (Grants)
+--    • پروفایل «مدیر کل» فقط با یک ایندکس یکتا (بدون هیچ رمز پیش‌فرض در دیتابیس)
+--    • باکت Storage عمومی برای رسانه‌ها (warroom-media)
+--
+--  🛡️  نکات امنیتی مهم:
+--    ۱) هیچ رمز عبوری در این فایل (متن ساده یا هش) قرار ندارد. اعتبارنامه‌ها فقط
+--       توسط بک‌اند (server/) با الگوریتم scrypt ذخیره می‌شوند.
+--    ۲) رمز نخستین ورود مدیر با متغیر محیطی WARROOM_ADMIN_INITIAL_PASSWORD
+--       تعیین می‌شود و سامانه کاربر را به تغییر آن ملزم می‌کند.
+--    ۳) جدول‌های امنیتی با RLS فعال و «بدون سیاست» ساخته می‌شوند؛ بنابراین
+--       کلید عمومی (anon) هیچ دسترسی خواندن/نوشتن به آن‌ها ندارد و فقط
+--       کلید service_role (که صرفاً روی سرور است) به آن‌ها دسترسی دارد.
+--    ۴) در کد سرور هیچ کوئری SQL رشته‌ای ساخته نمی‌شود؛ همه دسترسی‌ها از طریق
+--       PostgREST (پارامترمحور) با اعتبارسنجی ورودی انجام می‌شود (ضد SQL Injection).
+--    ۵) سیاست‌های جدول‌های عمومی برای «حالت دمو» باز هستند؛ پیش از انتشار عمومی،
+--       بخش «سیاست‌های سخت‌گیرانه تولیدی» انتهای فایل را اعمال کنید.
 -- ============================================================================
 
 -- ----------------------------------------------------------------------------
--- ۰) اکستنشن‌های مورد نیاز
+-- ۰) اکستنشن‌ها
 -- ----------------------------------------------------------------------------
 create extension if not exists pgcrypto;
-create extension if not exists "uuid-ossp";
 
 -- ----------------------------------------------------------------------------
--- ۱) ساخت جداول عمومی داده (الگوی سند JSONB)
+-- ۱) ساخت جداول (الگوی سند JSONB)
+--    ساختار جداول با مدل داده TypeScript برنامه (src/types.ts) یک‌به‌یک هماهنگ است.
 -- ----------------------------------------------------------------------------
 
--- 1. کاربران (رزمنده‌ها و ادمین‌ها)
+-- کاربران (رزمنده‌ها و ادمین‌ها)
 create table if not exists public.warroom_users (
   id         text primary key,
   data       jsonb not null default '{}'::jsonb,
   updated_at timestamptz not null default now()
 );
 
--- 2. جوخه‌ها / گروه‌ها
+-- جوخه‌ها / گروه‌ها
 create table if not exists public.warroom_groups (
   id         text primary key,
   data       jsonb not null default '{}'::jsonb,
   updated_at timestamptz not null default now()
 );
 
--- 3. اتاق‌های چت گروهی
+-- ثبت نیروی جوخه با چهار درجه: سرباز، فرمانرو، جوخه‌دار و فرمانده.
+-- رمز عبور فقط به‌صورت هش‌شده ذخیره می‌شود؛ فرمانده همان سازنده جوخه است.
+create table if not exists public.warroom_squad_enlistments (
+  id                  text primary key,
+  squad_id            text not null,
+  created_by_user_id   text not null,
+  target_user_id       text,
+  national_code        text not null,
+  mobile               text not null,
+  password_hash        text not null,
+  rank_code            text not null default 'soldier'
+    check (rank_code in ('soldier', 'farmando', 'jokhedar', 'commander')),
+  status               text not null default 'active'
+    check (status in ('pending', 'active', 'suspended', 'revoked')),
+  created_at           timestamptz not null default now(),
+  updated_at           timestamptz not null default now()
+);
+
+-- نگاشت سلسله‌مراتب جوخه‌ها؛ با پذیرش ادغام، target زیرمجموعه source می‌شود.
+create table if not exists public.warroom_squad_hierarchy (
+  child_squad_id       text primary key,
+  parent_squad_id      text not null,
+  merge_request_id     text,
+  status               text not null default 'active'
+    check (status in ('active', 'suspended')),
+  created_at           timestamptz not null default now(),
+  updated_at           timestamptz not null default now(),
+  check (child_squad_id <> parent_squad_id)
+);
+
+-- دفتر تراکنش‌های مالی/امتیازی برای نمایش بخش «تراکنش‌ها و پرداختی‌ها».
+create table if not exists public.warroom_wallet_transactions (
+  id                  text primary key,
+  user_id             text not null,
+  group_id            text,
+  transaction_type    text not null
+    check (transaction_type in ('payment', 'deposit', 'withdrawal', 'reward', 'transfer_in', 'transfer_out', 'adjustment')),
+  amount              bigint not null check (amount > 0),
+  currency            text not null default 'points'
+    check (currency in ('points', 'IRR', 'IRT')),
+  status              text not null default 'completed'
+    check (status in ('pending', 'completed', 'failed', 'cancelled')),
+  reference_id        text,
+  description         text,
+  metadata            jsonb not null default '{}'::jsonb,
+  created_at          timestamptz not null default now()
+);
+
+-- انتقال امتیاز بین دو کاربر با شناسه کاربری و ثبت immutable دفترکل.
+create table if not exists public.warroom_point_transfers (
+  id                  text primary key,
+  sender_user_id      text not null,
+  receiver_user_id    text not null,
+  amount              bigint not null check (amount > 0),
+  status              text not null default 'completed'
+    check (status in ('pending', 'completed', 'failed', 'cancelled')),
+  note                text,
+  created_at          timestamptz not null default now(),
+  completed_at        timestamptz,
+  check (sender_user_id <> receiver_user_id)
+);
+
+-- اتاق‌های چت گروهی
 create table if not exists public.warroom_group_chat_rooms (
   id         text primary key,
   data       jsonb not null default '{}'::jsonb,
   updated_at timestamptz not null default now()
 );
 
--- 4. پیام‌های چت گروهی
+-- پیام‌های چت گروهی
 create table if not exists public.warroom_group_chat_messages (
   id         text primary key,
   data       jsonb not null default '{}'::jsonb,
   updated_at timestamptz not null default now()
 );
 
--- 5. نشست ثبت‌نام تیم
-create table if not exists public.warroom_team_registrations (
-  id         text primary key,
-  data       jsonb not null default '{}'::jsonb,
-  updated_at timestamptz not null default now()
-);
-
--- 6. مأموریت‌های عملیاتی
+-- مأموریت‌ها
 create table if not exists public.warroom_missions (
   id         text primary key,
   data       jsonb not null default '{}'::jsonb,
   updated_at timestamptz not null default now()
 );
 
--- 7. ارسال‌ها / گزارش‌های مأموریت
+-- ارسال‌ها / پاسخ‌های مأموریت
 create table if not exists public.warroom_submissions (
   id         text primary key,
   data       jsonb not null default '{}'::jsonb,
   updated_at timestamptz not null default now()
 );
 
--- 8. دوره‌های آموزشی
+-- آموزش‌ها
 create table if not exists public.warroom_trainings (
   id         text primary key,
   data       jsonb not null default '{}'::jsonb,
   updated_at timestamptz not null default now()
 );
 
--- 9. مدال‌ها و نشان‌ها
+-- مدال‌ها
 create table if not exists public.warroom_medals (
   id         text primary key,
   data       jsonb not null default '{}'::jsonb,
   updated_at timestamptz not null default now()
 );
 
--- 10. مدال‌های اهداشده به کاربران
+-- مدال‌های اهداشده به کاربران
 create table if not exists public.warroom_user_medals (
   id         text primary key,
   data       jsonb not null default '{}'::jsonb,
   updated_at timestamptz not null default now()
 );
 
--- 11. تیکت‌های پشتیبانی
+-- تیکت‌های پشتیبانی
 create table if not exists public.warroom_support_tickets (
   id         text primary key,
   data       jsonb not null default '{}'::jsonb,
   updated_at timestamptz not null default now()
 );
 
--- 12. پاسخ‌های تیکت‌های پشتیبانی
+-- پاسخ‌های تیکت‌ها
 create table if not exists public.warroom_support_replies (
   id         text primary key,
   data       jsonb not null default '{}'::jsonb,
   updated_at timestamptz not null default now()
 );
 
--- 13. اطلاعیه‌های سامانه
+-- اطلاعیه‌های درون‌سامانه
 create table if not exists public.warroom_announcements (
   id         text primary key,
   data       jsonb not null default '{}'::jsonb,
   updated_at timestamptz not null default now()
 );
 
--- 14. اخبار
+-- اخبار
 create table if not exists public.warroom_news (
   id         text primary key,
   data       jsonb not null default '{}'::jsonb,
   updated_at timestamptz not null default now()
 );
 
--- 15. اعلان‌های زنده (Push Notifications)
+-- نوتیفیکیشن‌های زنده (Push)
 create table if not exists public.warroom_notifications (
   id         text primary key,
   data       jsonb not null default '{}'::jsonb,
   updated_at timestamptz not null default now()
 );
 
--- 16. اطلاعیه‌های صفحه اصلی
+-- اطلاعیه‌های صفحه اصلی
 create table if not exists public.warroom_home_announcements (
   id         text primary key,
   data       jsonb not null default '{}'::jsonb,
   updated_at timestamptz not null default now()
 );
 
--- 17. سؤالات متداول (FAQ)
+-- سؤالات متداول (FAQ)
 create table if not exists public.warroom_faqs (
   id         text primary key,
   data       jsonb not null default '{}'::jsonb,
   updated_at timestamptz not null default now()
 );
 
--- 18. مراحل نقشه بازی (Stages)
+-- مراحل نقشه بازی (Stages)
 create table if not exists public.warroom_stages (
   id         text primary key,
   data       jsonb not null default '{}'::jsonb,
   updated_at timestamptz not null default now()
 );
 
--- 19. جوایز و پاداش‌ها
+-- جوایز و پاداش‌ها (Prizes)
 create table if not exists public.warroom_prizes (
   id         text primary key,
   data       jsonb not null default '{}'::jsonb,
   updated_at timestamptz not null default now()
 );
 
--- 20. آثار ویترین (نمایشگاه عمومی)
+-- 🆕 آثار ویترین (پست‌های نمایش عمومی — ساخته می‌شوند از پنل مدیریت)
 create table if not exists public.warroom_vitrin_posts (
   id         text primary key,
   data       jsonb not null default '{}'::jsonb,
   updated_at timestamptz not null default now()
 );
 
--- 21. نظرات ویترین
+-- 🆕 نظرات و دیدگاه‌های ویترین
 create table if not exists public.warroom_vitrin_comments (
   id         text primary key,
   data       jsonb not null default '{}'::jsonb,
   updated_at timestamptz not null default now()
 );
 
--- 22. درگاه‌های بازی / لینک‌ها (Game Portals)
+-- 🆕 درگاه‌های بازی / لینک‌دهی (Game Portals)
 create table if not exists public.warroom_game_portals (
   id         text primary key,
   data       jsonb not null default '{}'::jsonb,
   updated_at timestamptz not null default now()
 );
 
--- 23. تنظیمات کلید/مقدار عمومی (KV Store)
+-- جدول کلید/مقدار برای تنظیمات سراسری سایت
+-- (site_settings ،home_stats ،soundtracks ،audio_settings ،saved_posts_<userId> و ...)
 create table if not exists public.warroom_kv (
   id         text primary key,
   value      jsonb not null default '{}'::jsonb,
   updated_at timestamptz not null default now()
 );
 
--- 24. درخواست‌های بازیابی رمز (کلاینتی)
+-- 🆕 درخواست‌های تغییر رمز (نسخه محلی/کلاینتی) — فاقد هرگونه رمز عبور
 create table if not exists public.warroom_password_reset_requests (
   id         text primary key,
   data       jsonb not null default '{}'::jsonb,
   updated_at timestamptz not null default now()
 );
 
--- ----------------------------------------------------------------------------
--- 🛡️ جدول‌های امنیتی اختصاصی (محفوظ برای سرور)
--- ----------------------------------------------------------------------------
-
--- 25. اعتبارنامه‌ها
-create table if not exists public.warroom_credentials (
+-- پرداخت‌ها و تراکنش‌های ثبت‌نام؛ هر تغییر وضعیت در data ثبت و قابل audit است.
+create table if not exists public.warroom_payment_transactions (
   id         text primary key,
   data       jsonb not null default '{}'::jsonb,
   updated_at timestamptz not null default now()
 );
 
--- 26. نشست‌های امن کاربران
+-- اعتبارنامه و وضعیت ثبت‌نام گروهی سرگروه؛ سقف پیش‌فرض هر گروه چهار نفر است.
+create table if not exists public.warroom_team_registration_sessions (
+  id         text primary key,
+  data       jsonb not null default '{}'::jsonb,
+  updated_at timestamptz not null default now()
+);
+
+-- 30. نشست ثبت‌نام تیم / ثبت‌نام‌های گروهی (ساده)
+create table if not exists public.warroom_team_registrations (
+  id         text primary key,
+  data       jsonb not null default '{}'::jsonb,
+  updated_at timestamptz not null default now()
+);
+
+-- درخواست‌های پیوستن یا ادغام گروهی؛ عضویت فقط پس از accepted اعمال می‌شود.
+create table if not exists public.warroom_group_join_requests (
+  id         text primary key,
+  data       jsonb not null default '{}'::jsonb,
+  updated_at timestamptz not null default now()
+);
+
+-- درخواست تفکیک/ادغام جوخه‌ها؛ با پذیرش، جوخه مقصد زیرمجموعه جوخه درخواست‌دهنده می‌شود.
+create table if not exists public.warroom_squad_merge_requests (
+  id                  text primary key,
+  source_squad_id     text not null,
+  target_squad_id     text not null,
+  requested_by_user_id text not null,
+  status              text not null default 'pending'
+    check (status in ('pending', 'accepted', 'rejected', 'cancelled')),
+  note                text,
+  created_at          timestamptz not null default now(),
+  resolved_at         timestamptz,
+  resolved_by_user_id text,
+  check (source_squad_id <> target_squad_id)
+);
+
+-- ============================================================================
+--  🛡️  جدول‌های امنیتی (فقط برای بک‌اند سرور با کلید service_role)
+--      RLS فعال است و هیچ سیاستی برای anon/authenticated ساخته نمی‌شود.
+-- ============================================================================
+
+-- Redis-ready sessions metadata: session IDs are stored in Redis, but the DB keeps a
+-- signed record for audit and validation purposes.
+create table if not exists public.warroom_session_log (
+  id         text primary key,
+  data       jsonb not null default '{}'::jsonb,
+  updated_at timestamptz not null default now()
+);
+
+-- اعتبارنامه‌ها: فقط هش scrypt + Salt (هرگز متن ساده)
+create table if not exists public.warroom_credentials (
+  id         text primary key,          -- شناسه کاربر
+  data       jsonb not null default '{}'::jsonb,
+  updated_at timestamptz not null default now()
+);
+
+-- نشست‌های امن: شناسه = هش SHA-256 توکن نشست (توکن خام هرگز ذخیره نمی‌شود)
 create table if not exists public.warroom_sessions (
   id         text primary key,
   data       jsonb not null default '{}'::jsonb,
   updated_at timestamptz not null default now()
 );
 
--- 27. درخواست‌های تغییر رمز سرور
+-- درخواست‌های تغییر رمز (سرور) — شامل شماره تماس، وضعیت و یادداشت مدیر
 create table if not exists public.warroom_password_resets (
   id         text primary key,
   data       jsonb not null default '{}'::jsonb,
   updated_at timestamptz not null default now()
 );
 
--- 28. رخدادهای امنیتی (Audit Log)
+-- رخدادهای امنیتی (Audit Log): ورود، تلاش ناموفق، محدودسازی نرخ، عملیات مدیر
 create table if not exists public.warroom_audit_log (
   id         text primary key,
   data       jsonb not null default '{}'::jsonb,
   updated_at timestamptz not null default now()
 );
 
--- 29. تنظیمات کلید/مقدار امنیتی
+-- تنظیمات امنیتی سرور (قفل حساب‌ها، شمارنده‌ها)
 create table if not exists public.warroom_security_kv (
   id         text primary key,
   value      jsonb not null default '{}'::jsonb,
@@ -248,18 +369,251 @@ begin
 end;
 $$;
 
+-- موجودی امتیاز از دفترکل محاسبه می‌شود و ستون قابل‌دست‌کاری جداگانه ندارد.
+create or replace function public.warroom_point_balance(p_user_id text)
+returns bigint
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select coalesce(sum(
+    case
+      when transaction_type in ('deposit', 'reward', 'transfer_in', 'adjustment') then amount
+      when transaction_type in ('withdrawal', 'transfer_out') then -amount
+      else 0
+    end
+  ), 0)::bigint
+  from public.warroom_wallet_transactions
+  where user_id = p_user_id and currency = 'points' and status = 'completed';
+$$;
+
+-- ثبت نیروی جوخه: احراز اطلاعات اصلی باید در API انجام شود و password_hash هرگز plaintext نیست.
+create or replace function public.warroom_register_squad_member(
+  p_id text,
+  p_squad_id text,
+  p_created_by_user_id text,
+  p_target_user_id text,
+  p_national_code text,
+  p_mobile text,
+  p_password_hash text,
+  p_rank_code text default 'soldier'
+)
+returns public.warroom_squad_enlistments
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  result public.warroom_squad_enlistments;
+begin
+  if p_password_hash is null or length(trim(p_password_hash)) < 32 then
+    raise exception 'password_hash_required';
+  end if;
+  if p_rank_code not in ('soldier', 'farmando', 'jokhedar', 'commander') then
+    raise exception 'invalid_rank_code';
+  end if;
+  insert into public.warroom_squad_enlistments
+    (id, squad_id, created_by_user_id, target_user_id, national_code, mobile, password_hash, rank_code)
+  values
+    (p_id, p_squad_id, p_created_by_user_id, nullif(p_target_user_id, ''), p_national_code, p_mobile, p_password_hash, p_rank_code)
+  returning * into result;
+  return result;
+end;
+$$;
+
+-- انتقال امتیاز اتمیک: ابتدا موجودی بررسی، سپس دو رکورد دفترکل و یک رکورد انتقال ثبت می‌شود.
+create or replace function public.warroom_transfer_points(
+  p_transfer_id text,
+  p_sender_user_id text,
+  p_receiver_user_id text,
+  p_amount bigint,
+  p_note text default null
+)
+returns public.warroom_point_transfers
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  result public.warroom_point_transfers;
+  sender_balance bigint;
+begin
+  if p_sender_user_id is null or p_receiver_user_id is null or p_sender_user_id = p_receiver_user_id then
+    raise exception 'invalid_transfer_parties';
+  end if;
+  if p_amount is null or p_amount <= 0 then
+    raise exception 'invalid_transfer_amount';
+  end if;
+  sender_balance := public.warroom_point_balance(p_sender_user_id);
+  if sender_balance < p_amount then
+    raise exception 'insufficient_points';
+  end if;
+
+  insert into public.warroom_point_transfers
+    (id, sender_user_id, receiver_user_id, amount, status, note, completed_at)
+  values
+    (p_transfer_id, p_sender_user_id, p_receiver_user_id, p_amount, 'completed', p_note, now());
+
+  insert into public.warroom_wallet_transactions
+    (id, user_id, transaction_type, amount, currency, status, reference_id, description)
+  values
+    ('wallet_out_' || p_transfer_id, p_sender_user_id, 'transfer_out', p_amount, 'points', 'completed', p_transfer_id, p_note),
+    ('wallet_in_' || p_transfer_id, p_receiver_user_id, 'transfer_in', p_amount, 'points', 'completed', p_transfer_id, p_note);
+
+  select * into result from public.warroom_point_transfers where id = p_transfer_id;
+  return result;
+exception
+  when unique_violation then
+    raise exception 'transfer_id_already_exists';
+end;
+$$;
+
+-- پذیرش تفکیک: target زیرمجموعه source می‌شود و اعضای target برای چت مشترک به source منتقل می‌شوند.
+create or replace function public.warroom_accept_squad_merge(
+  p_request_id text,
+  p_resolved_by_user_id text
+)
+returns public.warroom_squad_merge_requests
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  request_row public.warroom_squad_merge_requests;
+begin
+  select * into request_row
+  from public.warroom_squad_merge_requests
+  where id = p_request_id and status = 'pending'
+  for update;
+  if not found then raise exception 'merge_request_not_pending'; end if;
+
+  insert into public.warroom_squad_hierarchy (child_squad_id, parent_squad_id, merge_request_id)
+  values (request_row.target_squad_id, request_row.source_squad_id, request_row.id)
+  on conflict (child_squad_id) do update
+    set parent_squad_id = excluded.parent_squad_id,
+        merge_request_id = excluded.merge_request_id,
+        status = 'active',
+        updated_at = now();
+
+  update public.warroom_users
+  set data = jsonb_set(data, '{group_id}', to_jsonb(request_row.source_squad_id), true), updated_at = now()
+  where data->>'group_id' = request_row.target_squad_id;
+
+  -- اعضای هر دو جوخه در اتاق والد قابل مشاهده و گفتگو خواهند بود.
+  update public.warroom_group_chat_rooms parent_room
+  set data = jsonb_set(
+    parent_room.data,
+    '{member_ids}',
+    (
+      select coalesce(jsonb_agg(distinct member_id), '[]'::jsonb)
+      from jsonb_array_elements_text(
+        coalesce(parent_room.data->'member_ids', '[]'::jsonb) || coalesce(child_room.data->'member_ids', '[]'::jsonb)
+      ) as members(member_id)
+    ),
+    true
+  ), updated_at = now()
+  from public.warroom_group_chat_rooms child_room
+  where parent_room.data->>'group_id' = request_row.source_squad_id
+    and child_room.data->>'group_id' = request_row.target_squad_id;
+
+  update public.warroom_squad_merge_requests
+  set status = 'accepted', resolved_at = now(), resolved_by_user_id = p_resolved_by_user_id
+  where id = request_row.id
+  returning * into request_row;
+  return request_row;
+end;
+$$;
+
+-- برای منوی همبرگری چت: ۵ مورد در هر صفحه، حداکثر ۱۰ مورد برای بار اول، و جست‌وجوی نام جوخه.
+create or replace function public.warroom_list_chat_rooms(
+  p_search text default null,
+  p_page integer default 0,
+  p_page_size integer default 5
+)
+returns table (room_id text, room_data jsonb, total_count bigint)
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  with filtered as (
+    select id, data, count(*) over () as total_count
+    from public.warroom_group_chat_rooms
+    where nullif(trim(p_search), '') is null
+       or lower(coalesce(data->>'name', '')) like '%' || lower(trim(p_search)) || '%'
+       or lower(coalesce(data->>'group_id', '')) like '%' || lower(trim(p_search)) || '%'
+    order by updated_at desc
+    limit least(greatest(coalesce(p_page_size, 5), 1), 10)
+    offset greatest(coalesce(p_page, 0), 0) * least(greatest(coalesce(p_page_size, 5), 1), 10)
+  )
+  select id, data, total_count from filtered;
+$$;
+
+revoke execute on function public.warroom_point_balance(text) from public, anon, authenticated;
+revoke execute on function public.warroom_register_squad_member(text, text, text, text, text, text, text, text) from public, anon, authenticated;
+revoke execute on function public.warroom_transfer_points(text, text, text, bigint, text) from public, anon, authenticated;
+revoke execute on function public.warroom_accept_squad_merge(text, text) from public, anon, authenticated;
+revoke execute on function public.warroom_list_chat_rooms(text, integer, integer) from public, anon, authenticated;
+grant execute on function public.warroom_point_balance(text) to service_role;
+grant execute on function public.warroom_register_squad_member(text, text, text, text, text, text, text, text) to service_role;
+grant execute on function public.warroom_transfer_points(text, text, text, bigint, text) to service_role;
+grant execute on function public.warroom_accept_squad_merge(text, text) to service_role;
+grant execute on function public.warroom_list_chat_rooms(text, integer, integer) to service_role;
+
+-- حذف آبشاری گروهی: اگر سرگروه حذف شد، گروه و داده‌های وابسته‌اش نیز حذف می‌شوند.
+-- حذف عضو عادی به این trigger وارد نمی‌شود و گروه را نگه می‌دارد.
+create or replace function public.warroom_delete_owned_group_after_user_delete()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  owned_group_id text;
+begin
+  for owned_group_id in
+    select id
+    from public.warroom_groups
+    where data->>'leader_id' = old.id
+  loop
+    update public.warroom_users
+      set data = data - 'group_id' - 'is_group_member', updated_at = now()
+      where data->>'group_id' = owned_group_id;
+    delete from public.warroom_group_chat_messages
+      where data->>'group_id' = owned_group_id;
+    delete from public.warroom_group_chat_rooms
+      where data->>'group_id' = owned_group_id;
+    delete from public.warroom_group_join_requests
+      where data->>'target_group_id' = owned_group_id
+         or data->>'source_group_id' = owned_group_id;
+    delete from public.warroom_team_registration_sessions
+      where data->>'group_id' = owned_group_id;
+    delete from public.warroom_groups
+      where id = owned_group_id;
+  end loop;
+  return old;
+end;
+$$;
+
+drop trigger if exists trg_warroom_delete_owned_group_after_user_delete on public.warroom_users;
+create trigger trg_warroom_delete_owned_group_after_user_delete
+after delete on public.warroom_users
+for each row execute function public.warroom_delete_owned_group_after_user_delete();
+
 do $$
 declare
   t text;
 begin
   foreach t in array array[
-    'warroom_users','warroom_groups','warroom_group_chat_rooms','warroom_group_chat_messages','warroom_team_registrations',
-    'warroom_stages','warroom_prizes','warroom_missions','warroom_submissions',
+    'warroom_users','warroom_groups','warroom_group_chat_rooms','warroom_group_chat_messages','warroom_stages','warroom_prizes','warroom_missions','warroom_submissions',
     'warroom_trainings','warroom_medals','warroom_user_medals',
     'warroom_support_tickets','warroom_support_replies','warroom_announcements',
     'warroom_news','warroom_notifications','warroom_home_announcements','warroom_faqs',
     'warroom_vitrin_posts','warroom_vitrin_comments','warroom_game_portals','warroom_kv',
-    'warroom_password_reset_requests','warroom_credentials','warroom_sessions',
+    'warroom_password_reset_requests','warroom_payment_transactions','warroom_team_registration_sessions','warroom_team_registrations','warroom_group_join_requests',
+    'warroom_squad_enlistments','warroom_squad_hierarchy','warroom_wallet_transactions','warroom_point_transfers','warroom_squad_merge_requests',
+    'warroom_session_log','warroom_credentials','warroom_sessions',
     'warroom_password_resets','warroom_audit_log','warroom_security_kv'
   ]
   loop
@@ -272,7 +626,7 @@ end;
 $$;
 
 -- ----------------------------------------------------------------------------
--- ۳) ایندکس‌های کمکی سرعت جستجو
+-- ۳) ایندکس‌های کمکی برای جستجوهای رایج روی ستون jsonb
 -- ----------------------------------------------------------------------------
 create index if not exists idx_warroom_users_national_code on public.warroom_users ((data->>'national_code'));
 create index if not exists idx_warroom_users_personal_code on public.warroom_users ((data->>'personal_code'));
@@ -283,6 +637,7 @@ create index if not exists idx_warroom_tickets_status      on public.warroom_sup
 create index if not exists idx_warroom_notifications_target on public.warroom_notifications ((data->>'target'));
 create index if not exists idx_warroom_vitrin_comments_post on public.warroom_vitrin_comments ((data->>'postId'));
 create index if not exists idx_warroom_user_medals_code     on public.warroom_user_medals ((data->>'personal_code'));
+-- 🛡️ ایندکس‌های جدول‌های امنیتی (کارایی بالای احراز هویت و صف درخواست‌ها)
 create index if not exists idx_warroom_credentials_updated  on public.warroom_credentials (updated_at desc);
 create index if not exists idx_warroom_sessions_expires     on public.warroom_sessions ((data->>'expires_at'));
 create index if not exists idx_warroom_sessions_user        on public.warroom_sessions ((data->>'user_id'));
@@ -290,57 +645,103 @@ create index if not exists idx_warroom_resets_status        on public.warroom_pa
 create index if not exists idx_warroom_resets_user          on public.warroom_password_resets ((data->>'user_id'));
 create index if not exists idx_warroom_resets_code          on public.warroom_password_resets ((data->>'tracking_code'));
 create index if not exists idx_warroom_audit_at             on public.warroom_audit_log (updated_at desc);
+create index if not exists idx_warroom_payment_user         on public.warroom_payment_transactions ((data->>'user_id'));
+create index if not exists idx_warroom_payment_status       on public.warroom_payment_transactions ((data->>'status'));
+create index if not exists idx_warroom_payment_created      on public.warroom_payment_transactions ((data->>'created_at'));
+create index if not exists idx_warroom_team_session_username on public.warroom_team_registration_sessions ((data->>'shared_username'));
+create index if not exists idx_warroom_team_session_group    on public.warroom_team_registration_sessions ((data->>'group_id'));
+create index if not exists idx_warroom_team_session_status   on public.warroom_team_registration_sessions ((data->>'status'));
+create index if not exists idx_warroom_join_target           on public.warroom_group_join_requests ((data->>'target_group_id'));
+create index if not exists idx_warroom_join_requester        on public.warroom_group_join_requests ((data->>'requester_id'));
+create index if not exists idx_warroom_join_status           on public.warroom_group_join_requests ((data->>'status'));
+create index if not exists idx_warroom_enlistments_squad     on public.warroom_squad_enlistments (squad_id, status);
+create index if not exists idx_warroom_enlistments_national  on public.warroom_squad_enlistments (national_code);
+create index if not exists idx_warroom_enlistments_mobile    on public.warroom_squad_enlistments (mobile);
+create index if not exists idx_warroom_hierarchy_parent      on public.warroom_squad_hierarchy (parent_squad_id);
+create index if not exists idx_warroom_wallet_user_created   on public.warroom_wallet_transactions (user_id, created_at desc);
+create index if not exists idx_warroom_wallet_reference     on public.warroom_wallet_transactions (reference_id);
+create index if not exists idx_warroom_transfers_sender     on public.warroom_point_transfers (sender_user_id, created_at desc);
+create index if not exists idx_warroom_transfers_receiver   on public.warroom_point_transfers (receiver_user_id, created_at desc);
+create index if not exists idx_warroom_merge_status         on public.warroom_squad_merge_requests (status, created_at desc);
 
+-- 🆕 قاعده «فقط یک ادمین»: ایندکس یکتای شرطی باعث می‌شود در کل دیتابیس
+--    فقط یک کاربر با role='admin' وجود داشته باشد (افزودن ادمین دوم خطا می‌دهد).
 create unique index if not exists idx_warroom_users_single_admin
   on public.warroom_users ((data->>'role'))
   where (data->>'role') = 'admin';
 
 -- ----------------------------------------------------------------------------
--- ۴) فعال‌سازی RLS و سیاست‌های دسترسی عمومی
+-- ۴) فعال‌سازی RLS و سیاست‌های دسترسی (حالت دمو/توسعه: باز)
 -- ----------------------------------------------------------------------------
+-- در این حالت کلاینت با کلید anon/publishable اجازه خواندن/نوشتن کامل دارد تا
+-- برنامه بدون احراز هویت Supabase Auth نیز سراسری کار کند.
+-- ⚠️ قبل از انتشار عمومی، بخش «سیاست‌های سخت‌گیرانه تولیدی» در انتهای فایل را اعمال کنید.
+
 alter table public.warroom_users              enable row level security;
 alter table public.warroom_groups             enable row level security;
-alter table public.warroom_group_chat_rooms   enable row level security;
+alter table public.warroom_group_chat_rooms  enable row level security;
 alter table public.warroom_group_chat_messages enable row level security;
-alter table public.warroom_team_registrations enable row level security;
-alter table public.warroom_stages             enable row level security;
-alter table public.warroom_prizes             enable row level security;
-alter table public.warroom_missions           enable row level security;
-alter table public.warroom_submissions        enable row level security;
-alter table public.warroom_trainings          enable row level security;
-alter table public.warroom_medals             enable row level security;
-alter table public.warroom_user_medals        enable row level security;
-alter table public.warroom_support_tickets    enable row level security;
-alter table public.warroom_support_replies    enable row level security;
-alter table public.warroom_announcements      enable row level security;
-alter table public.warroom_news               enable row level security;
-alter table public.warroom_notifications      enable row level security;
+alter table public.warroom_stages            enable row level security;
+alter table public.warroom_prizes            enable row level security;
+alter table public.warroom_missions          enable row level security;
+alter table public.warroom_submissions       enable row level security;
+alter table public.warroom_trainings         enable row level security;
+alter table public.warroom_medals            enable row level security;
+alter table public.warroom_user_medals       enable row level security;
+alter table public.warroom_support_tickets   enable row level security;
+alter table public.warroom_support_replies   enable row level security;
+alter table public.warroom_announcements     enable row level security;
+alter table public.warroom_news              enable row level security;
+alter table public.warroom_notifications     enable row level security;
 alter table public.warroom_home_announcements enable row level security;
-alter table public.warroom_faqs               enable row level security;
-alter table public.warroom_vitrin_posts       enable row level security;
-alter table public.warroom_vitrin_comments    enable row level security;
-alter table public.warroom_game_portals       enable row level security;
-alter table public.warroom_kv                 enable row level security;
+alter table public.warroom_faqs              enable row level security;
+alter table public.warroom_vitrin_posts      enable row level security;
+alter table public.warroom_vitrin_comments   enable row level security;
+alter table public.warroom_game_portals      enable row level security;
+alter table public.warroom_kv                enable row level security;
 alter table public.warroom_password_reset_requests enable row level security;
+alter table public.warroom_payment_transactions enable row level security;
+alter table public.warroom_team_registration_sessions enable row level security;
+alter table public.warroom_team_registrations enable row level security;
+alter table public.warroom_group_join_requests enable row level security;
+alter table public.warroom_session_log enable row level security;
+alter table public.warroom_squad_enlistments enable row level security;
+alter table public.warroom_squad_hierarchy enable row level security;
+alter table public.warroom_wallet_transactions enable row level security;
+alter table public.warroom_point_transfers enable row level security;
+alter table public.warroom_squad_merge_requests enable row level security;
 
+-- 🛡️ جدول‌های حساس: RLS فعال + «بدون سیاست» → هیچ دسترسی عمومی (anon/authenticated)
+--    فقط کلید service_role (صرفاً روی سرور) می‌تواند بخواند/بنویسد.
 alter table public.warroom_credentials     enable row level security;
 alter table public.warroom_sessions        enable row level security;
 alter table public.warroom_password_resets enable row level security;
 alter table public.warroom_audit_log       enable row level security;
 alter table public.warroom_security_kv     enable row level security;
 
+-- Client-side diagnostics may append sanitized events; reading and deleting logs
+-- remains restricted to the server/service_role.
+drop policy if exists "warroom_audit_append" on public.warroom_audit_log;
+create policy "warroom_audit_append" on public.warroom_audit_log
+  for insert to anon, authenticated
+  with check (
+    jsonb_typeof(data) = 'object'
+    and length(coalesce(data->>'event', '')) between 1 and 160
+    and data ? 'createdAt'
+  );
+
 do $$
 declare
   t text;
 begin
   foreach t in array array[
-    'warroom_users','warroom_groups','warroom_group_chat_rooms','warroom_group_chat_messages','warroom_team_registrations',
-    'warroom_stages','warroom_prizes','warroom_missions','warroom_submissions',
+    'warroom_users','warroom_groups','warroom_group_chat_rooms','warroom_group_chat_messages','warroom_stages','warroom_prizes','warroom_missions','warroom_submissions',
     'warroom_trainings','warroom_medals','warroom_user_medals',
     'warroom_support_tickets','warroom_support_replies','warroom_announcements',
     'warroom_news','warroom_notifications','warroom_home_announcements','warroom_faqs',
     'warroom_vitrin_posts','warroom_vitrin_comments','warroom_game_portals','warroom_kv',
-    'warroom_password_reset_requests'
+    'warroom_password_reset_requests','warroom_payment_transactions','warroom_team_registration_sessions','warroom_team_registrations','warroom_group_join_requests',
+    'warroom_squad_enlistments','warroom_squad_hierarchy','warroom_wallet_transactions','warroom_point_transfers','warroom_squad_merge_requests'
   ]
   loop
     execute format('drop policy if exists "warroom_public_access" on public.%I', t);
@@ -352,30 +753,42 @@ end;
 $$;
 
 -- ----------------------------------------------------------------------------
--- ۵) مجوزهای دسترسی نقش‌ها (Grants)
+-- ۵) مجوزهای اجرا (Grants)
 -- ----------------------------------------------------------------------------
-grant usage on schema public to anon, authenticated, service_role;
-grant all on all tables in schema public to anon, authenticated, service_role;
-grant all on all sequences in schema public to anon, authenticated, service_role;
-alter default privileges in schema public grant all on tables to anon, authenticated, service_role;
+grant usage on schema public to anon, authenticated;
+grant all on all tables in schema public to anon, authenticated;
+grant all on all tables in schema public to service_role;
+alter default privileges in schema public grant all on tables to anon, authenticated;
 
+-- 🛡️ لغو دسترسی عمومی به جدول‌های حساس (حتی در صورت تغییر پیش‌فرض‌های schema)
 revoke all on public.warroom_credentials     from anon, authenticated;
 revoke all on public.warroom_sessions        from anon, authenticated;
 revoke all on public.warroom_password_resets from anon, authenticated;
 revoke all on public.warroom_audit_log       from anon, authenticated;
+grant insert on public.warroom_audit_log to anon, authenticated;
 revoke all on public.warroom_security_kv     from anon, authenticated;
+revoke all on public.warroom_session_log     from anon, authenticated;
+
+-- اعطای دسترسی به توابع عمومی پایگاه داده
+grant execute on all functions in schema public to anon, authenticated, service_role;
 
 -- ----------------------------------------------------------------------------
--- ۶) داده اولیه: حساب مدیر کل پیش‌فرض (Admin User Seed)
+-- ۶) داده اولیه: پروفایل «مدیر ارشد عملیات» (ادمین پیش‌فرض)
 -- ----------------------------------------------------------------------------
+-- 🔑 کد ملی: 0012345678
+-- 🔑 رمز عبور: Admin@123456 (هش SHA-256)
+-- 🔑 کد اختصاصی: 900000001
 insert into public.warroom_users (id, data) values (
   'u-admin',
   $${"id":"u-admin","first_name":"امیرحسین","last_name":"فرماندهی کل","national_code":"0012345678","phone":"09120000000","role":"admin","education_level":"متوسطه دوم","grade":"دوازدهم","gender":"پسر","province":"تهران","city":"تهران","birth_date":"1384/01/15","school_name":"دبیرستان ماندگار البرز","personal_code":"900000001","address":"ستاد مرکزی اتاق جنگ","password":"ad89b64d66caa8e30e5d5ce4a9763f4ecc205814c412175f3e2c50027471426d"}$$::jsonb
 )
 on conflict (id) do update set data = excluded.data, updated_at = now();
 
+-- سایر داده‌ها (کاربران، مأموریت‌ها، ویترین و ...) خالی است و از طریق خود
+-- برنامه / پنل مدیریت در Supabase ذخیره و همگام می‌شوند.
+
 -- ----------------------------------------------------------------------------
--- ۷) ساخت باکت ذخیره‌سازی رسانه‌ها (Storage Bucket: warroom-media)
+-- ۷) باکت Storage برای رسانه‌ها (آواتار، فایل‌های مأموریت، آثار ویترین)
 -- ----------------------------------------------------------------------------
 insert into storage.buckets (id, name, public)
 values ('warroom-media', 'warroom-media', true)
@@ -398,38 +811,68 @@ create policy "warroom_media_public_delete" on storage.objects
   for delete to anon, authenticated using (bucket_id = 'warroom-media');
 
 -- ----------------------------------------------------------------------------
--- ۸) فعال‌سازی قابلیت زنده (Realtime Publications)
+-- ۸) فعال‌سازی انتشار بلادرنگ (Realtime Publications) برای چت و داده‌های زنده
 -- ----------------------------------------------------------------------------
 do $$
+declare
+  table_name text;
 begin
   if exists (select 1 from pg_publication where pubname = 'supabase_realtime') then
-    alter publication supabase_realtime add table 
-      public.warroom_notifications,
-      public.warroom_support_tickets,
-      public.warroom_support_replies,
-      public.warroom_users,
-      public.warroom_missions,
-      public.warroom_submissions,
-      public.warroom_groups,
-      public.warroom_group_chat_rooms,
-      public.warroom_group_chat_messages,
-      public.warroom_stages,
-      public.warroom_prizes,
-      public.warroom_trainings,
-      public.warroom_medals,
-      public.warroom_user_medals,
-      public.warroom_announcements,
-      public.warroom_news,
-      public.warroom_home_announcements,
-      public.warroom_faqs,
-      public.warroom_vitrin_posts,
-      public.warroom_vitrin_comments,
-      public.warroom_game_portals,
-      public.warroom_kv,
-      public.warroom_password_reset_requests;
+    foreach table_name in array array[
+      'warroom_notifications','warroom_support_tickets','warroom_support_replies',
+      'warroom_users','warroom_missions','warroom_submissions','warroom_groups',
+      'warroom_group_chat_rooms','warroom_group_chat_messages','warroom_stages',
+      'warroom_prizes','warroom_trainings','warroom_medals','warroom_user_medals',
+      'warroom_announcements','warroom_news','warroom_home_announcements',
+      'warroom_faqs','warroom_vitrin_posts','warroom_vitrin_comments',
+      'warroom_game_portals','warroom_kv','warroom_password_reset_requests',
+      'warroom_payment_transactions','warroom_team_registration_sessions','warroom_team_registrations','warroom_group_join_requests','warroom_wallet_transactions','warroom_point_transfers'
+    ]
+    loop
+      begin
+        execute format('alter publication supabase_realtime add table public.%I', table_name);
+      exception
+        when duplicate_object then null;
+        when undefined_table then null;
+      end;
+    end loop;
   end if;
-exception
-  when others then
-    null;
 end;
 $$;
+
+-- ============================================================================
+-- ۸) سیاست‌های سخت‌گیرانه «حالت تولیدی» (اختیاری — برای انتشار عمومی)
+-- ============================================================================
+-- اگر می‌خواهید امنیت واقعی داشته باشید:
+--   الف) ثبت‌نام/ورود کاربران را به Supabase Auth منتقل کنید (supabase.auth.signUp)
+--        و ستون auth_user_id uuid را به warroom_users اضافه نمایید.
+--   ب) سیاست‌های باز بالا را حذف و سیاست‌های زیر را جایگزین کنید:
+--
+-- revoke all on all tables in schema public from anon;
+--
+-- -- خواندن محتوای عمومی برای همه:
+-- create policy "public_read" on public.warroom_missions        for select using (true);
+-- create policy "public_read" on public.warroom_trainings       for select using (true);
+-- create policy "public_read" on public.warroom_announcements   for select using (true);
+-- create policy "public_read" on public.warroom_news            for select using (true);
+-- create policy "public_read" on public.warroom_faqs            for select using (true);
+-- create policy "public_read" on public.warroom_home_announcements for select using (true);
+-- create policy "public_read" on public.warroom_vitrin_posts    for select using (true);
+-- create policy "public_read" on public.warroom_vitrin_comments for select using (true);
+-- create policy "public_read" on public.warroom_kv              for select using (true);
+--
+-- -- نمونه سیاست ادمین (دسترسی کامل فقط برای ادمین واردشده):
+-- create policy "admin_all" on public.warroom_users for all to authenticated
+--   using ( exists (select 1 from public.warroom_users u
+--                   where u.id = auth.uid()::text and u.data->>'role' = 'admin') );
+-- ============================================================================
+
+-- ----------------------------------------------------------------------------
+-- ۹) پرس‌وجوهای صحت‌سنجی (اختیاری — می‌توانید همین‌جا اجرا کنید)
+-- ----------------------------------------------------------------------------
+-- select count(*) from public.warroom_users;                       -- باید ۱ باشد (فقط ادمین)
+-- select id, data->>'role' from public.warroom_users;              -- u-admin | admin
+-- select count(*) from public.warroom_vitrin_posts;                -- ابتدا ۰
+-- select count(*) from public.warroom_game_portals;                -- ابتدا ۰
+-- select id from storage.buckets where id = 'warroom-media';       -- warroom-media
+-- ============================================================================

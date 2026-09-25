@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import { User, Group, Medal as MedalType, UserMedal } from '../types';
 import { formatToPersianDigits } from '../utils/jalali';
+import { getDefaultAvatar } from '../data/avatars';
 
 interface RewardsLeaderboardViewProps {
   users: User[];
@@ -52,7 +53,7 @@ export default function RewardsLeaderboardView({
         city: g.city || g.province || 'کشوری',
         membersCount: g.members_count || groupUsers.length || 1,
         score: totalScore,
-        avatar: leader?.avatar_url || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=300&q=80'
+        avatar: leader?.avatar_url || getDefaultAvatar(leader?.gender)
       };
     }).sort((a, b) => b.score - a.score);
   }, [groups, users]);
@@ -65,7 +66,7 @@ export default function RewardsLeaderboardView({
       city: u.city || u.province || 'کشوری',
       personalCode: u.personal_code,
       score: u.points || 0,
-      avatar: u.avatar_url || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=300&q=80',
+      avatar: u.avatar_url || getDefaultAvatar(u.gender),
       role: u.role === 'admin' ? 'ادمین' : u.role === 'leader' ? 'فرمانده جوخه' : 'رزمنده'
     })).sort((a, b) => b.score - a.score);
   }, [users]);

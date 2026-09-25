@@ -29,10 +29,15 @@ import {
   Grid,
   WalletCards,
   MessageCircle,
-  MessageSquare
+  MessageSquare,
+  Compass
 } from 'lucide-react';
 import { User } from '../types';
 import { formatToPersianDigits } from '../utils/jalali';
+
+// In-project commander character avatars
+import womanCommanderAvatar from '../assets/images/avatar/woman/Commander_giving_orders_2K_202608210108.jpeg';
+import maleCommanderAvatar from '../assets/images/avatar/male/Commander_in_tactical_uniform_ready_202608210056.jpeg';
 
 interface NavbarProps {
   currentUser: User | null;
@@ -107,6 +112,11 @@ export default function Navbar({
   };
 
   const handleSelectTab = (tab: string, isAdmin = false, isNotif = false) => {
+    if (tab === 'GamePortals' && onOpenGamePortal) {
+      setIsMobileMoreOpen(false);
+      onOpenGamePortal();
+      return;
+    }
     if (isNotif && onOpenNotifications) {
       setIsMobileMoreOpen(false);
       onOpenNotifications();
@@ -119,7 +129,8 @@ export default function Navbar({
 
   // Full Desktop Navigation items (Web desktop/laptop) - Dashboard is exclusive to Admin
   const desktopNavItems: { id: string; label: string; icon: any; badge?: string }[] = [
-    { id: 'Journey', label: 'نقشه مراحل بازی', icon: Gamepad2 },
+    { id: 'GamePortals', label: 'انتخاب بازی', icon: Gamepad2 },
+    { id: 'Journey', label: 'نقشه مراحل بازی', icon: Compass },
     { id: 'Rewards', label: 'جوایز و امتیازات', icon: Gift },
     { id: 'Vitrin', label: 'ویترین و آثار', icon: Grid },
     ...(currentUser?.role === 'admin' ? [] : [{ id: 'Wallet', label: 'تراکنش‌ها و پرداختی‌ها', icon: WalletCards }]),
@@ -134,6 +145,12 @@ export default function Navbar({
 
   // Items shown inside the Mobile Android Bottom Sheet (More ...)
   const mobileSheetItems = [
+    {
+      id: 'GamePortals',
+      label: 'انتخاب بازی',
+      desc: 'مشاهده درگاه‌ها و سامانه‌های عملیاتی (اتاق جنگ، کهکشان و سایبری)',
+      icon: Gamepad2,
+    },
     {
       id: 'Chat',
       label: 'چت روم جوخه',
@@ -211,6 +228,42 @@ export default function Navbar({
             {/* User Controls / Status */}
             {currentUser && (
               <>
+                {/* User Profile Avatar Tag */}
+                <div 
+                  onClick={onOpenSquadModal}
+                  className="flex items-center gap-2 px-2 py-1 rounded-xl bg-slate-900/80 hover:bg-slate-850 border border-slate-800 text-slate-300 hover:text-white transition cursor-pointer shadow-sm group"
+                  title="مشاهده اطلاعات کاربری و جوخه"
+                >
+                  <div className={`w-6 h-6 rounded-full overflow-hidden border shrink-0 ${
+                    isGirls ? 'border-pink-400' : 'border-blue-400'
+                  }`}>
+                    <img 
+                      src={currentUser.avatar_url || (isGirls ? womanCommanderAvatar : maleCommanderAvatar)} 
+                      alt={currentUser.first_name}
+                      className="w-full h-full object-cover object-top rounded-full"
+                    />
+                  </div>
+                  <span className="text-[11px] font-bold hidden lg:inline max-w-[100px] truncate text-slate-200 group-hover:text-amber-300">
+                    {currentUser.first_name} {currentUser.last_name}
+                  </span>
+                </div>
+
+                {/* Game Portal Button */}
+                {onOpenGamePortal && currentUser.role !== 'admin' && (
+                  <button
+                    onClick={onOpenGamePortal}
+                    className={`px-2.5 py-1.5 rounded-xl border text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shadow-sm ${
+                      isGirls 
+                        ? 'bg-fuchsia-950/40 border-fuchsia-500/40 text-fuchsia-300 hover:bg-fuchsia-900/60' 
+                        : 'bg-blue-950/40 border-blue-500/40 text-blue-300 hover:bg-blue-900/60'
+                    }`}
+                    title="انتخاب درگاه و سامانه بازی"
+                  >
+                    <Gamepad2 size={15} className="text-cyan-400 animate-pulse" />
+                    <span className="hidden sm:inline">انتخاب بازی</span>
+                  </button>
+                )}
+
                 {/* Chat Room Toggle Button */}
                 {onToggleFloatingChat && currentUser.role !== 'admin' && (
                   <button
@@ -400,29 +453,38 @@ export default function Navbar({
                     </button>
                   );
                 })}
-
-                {/* Leader Squad Management Tile inside Sheet */}
-                {currentUser?.role === 'leader' && (
-                  <button
-                    onClick={() => {
-                      setIsMobileMoreOpen(false);
-                      onOpenSquadModal();
-                    }}
-                    className="w-full p-3 rounded-2xl bg-gradient-to-r from-red-950/80 to-slate-900 border border-red-700/60 hover:border-red-500 transition-all flex items-center justify-between text-right mt-2"
-                  >
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-xl bg-red-900/40 text-red-300 border border-red-700/60 flex items-center justify-center shrink-0">
-                        <Users size={18} strokeWidth={1.6} />
-                      </div>
-                      <div>
-                        <span className="text-xs font-black text-red-200 block">مدیریت و اصلاح اعضای جوخه</span>
-                        <p className="text-[10px] text-red-400/80">تغییر اعضا، بازبینی مشخصات و مدیریت دسترسی جوخه</p>
-                      </div>
-                    </div>
-                    <ChevronLeft size={16} className="text-red-400 shrink-0" />
-                  </button>
-                )}
               </div>
+
+              {/* Game Portal Button in Mobile Drawer */}
+              {onOpenGamePortal && currentUser?.role !== 'admin' && (
+                <button
+                  onClick={() => {
+                    setIsMobileMoreOpen(false);
+                    onOpenGamePortal();
+                  }}
+                  className={`w-full p-3 rounded-2xl border transition-all flex items-center justify-between text-right mt-2 ${
+                    isGirls
+                      ? 'bg-gradient-to-r from-fuchsia-950/80 to-purple-900/60 border-fuchsia-500/50 text-fuchsia-200'
+                      : 'bg-gradient-to-r from-blue-950/80 to-slate-900/80 border-blue-500/50 text-blue-200'
+                  }`}
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-xl bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 flex items-center justify-center shrink-0">
+                      <Gamepad2 size={20} className="animate-pulse" />
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-black text-white">درگاه ورود به بازی‌ها</span>
+                        <span className="text-[9px] font-black bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 px-1.5 py-0.5 rounded-full">
+                          سامانه‌ها
+                        </span>
+                      </div>
+                      <p className="text-[10px] text-slate-300">مشاهده و انتخاب بازی‌های فعال و فصل‌های جدید مسابقه</p>
+                    </div>
+                  </div>
+                  <ChevronLeft size={16} className="text-slate-400 shrink-0" />
+                </button>
+              )}
 
               {/* Bottom Quick Logout */}
               <div className="mt-4 pt-3 border-t border-slate-800 flex items-center justify-between text-xs text-slate-400">

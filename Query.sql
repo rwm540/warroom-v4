@@ -85,7 +85,9 @@ create table if not exists public.warroom_squad_hierarchy (
   check (child_squad_id <> parent_squad_id)
 );
 
--- دفتر تراکنش‌های مالی/امتیازی برای نمایش بخش «تراکنش‌ها و پرداختی‌ها».
+-- دفتر تراکنش‌های مالی/امتیازی (سوابق سیستم).
+-- توجه: انتقال کاربر به کاربر از رابط کاربری حذف شده و سامانه به سمت «رسیدهای پرداخت بانکی»
+-- (warroom_payment_transactions) هدایت شده است؛ این جدول جهت آرشیو و نگهداری یکپارچگی دفترکل حفظ شده است.
 create table if not exists public.warroom_wallet_transactions (
   id                  text primary key,
   user_id             text not null,
@@ -103,7 +105,7 @@ create table if not exists public.warroom_wallet_transactions (
   created_at          timestamptz not null default now()
 );
 
--- انتقال امتیاز بین دو کاربر با شناسه کاربری و ثبت immutable دفترکل.
+-- انتقال امتیاز (آرشیو دفترکل تاریخی)؛ فرم و قابلیت انتقال از UI کلاینت حذف شده است.
 create table if not exists public.warroom_point_transfers (
   id                  text primary key,
   sender_user_id      text not null,
@@ -245,6 +247,20 @@ create table if not exists public.warroom_vitrin_comments (
 
 -- 🆕 درگاه‌های بازی / لینک‌دهی (Game Portals)
 create table if not exists public.warroom_game_portals (
+  id         text primary key,
+  data       jsonb not null default '{}'::jsonb,
+  updated_at timestamptz not null default now()
+);
+
+-- 🆕 چالش‌های روزانه اتاق جنگ (Daily Challenges)
+create table if not exists public.warroom_daily_challenges (
+  id         text primary key,
+  data       jsonb not null default '{}'::jsonb,
+  updated_at timestamptz not null default now()
+);
+
+-- 🆕 موسیقی و رادیو اتاق جنگ (Soundtracks & Radio Tracks)
+create table if not exists public.warroom_soundtracks (
   id         text primary key,
   data       jsonb not null default '{}'::jsonb,
   updated_at timestamptz not null default now()
@@ -610,7 +626,7 @@ begin
     'warroom_trainings','warroom_medals','warroom_user_medals',
     'warroom_support_tickets','warroom_support_replies','warroom_announcements',
     'warroom_news','warroom_notifications','warroom_home_announcements','warroom_faqs',
-    'warroom_vitrin_posts','warroom_vitrin_comments','warroom_game_portals','warroom_kv',
+    'warroom_vitrin_posts','warroom_vitrin_comments','warroom_game_portals','warroom_daily_challenges','warroom_soundtracks','warroom_kv',
     'warroom_password_reset_requests','warroom_payment_transactions','warroom_team_registration_sessions','warroom_team_registrations','warroom_group_join_requests',
     'warroom_squad_enlistments','warroom_squad_hierarchy','warroom_wallet_transactions','warroom_point_transfers','warroom_squad_merge_requests',
     'warroom_session_log','warroom_credentials','warroom_sessions',
@@ -648,6 +664,13 @@ create index if not exists idx_warroom_audit_at             on public.warroom_au
 create index if not exists idx_warroom_payment_user         on public.warroom_payment_transactions ((data->>'user_id'));
 create index if not exists idx_warroom_payment_status       on public.warroom_payment_transactions ((data->>'status'));
 create index if not exists idx_warroom_payment_created      on public.warroom_payment_transactions ((data->>'created_at'));
+create index if not exists idx_warroom_payment_national_code on public.warroom_payment_transactions ((data->>'national_code'));
+create index if not exists idx_warroom_payment_ref_id        on public.warroom_payment_transactions ((data->>'ref_id'));
+create index if not exists idx_warroom_payment_authority     on public.warroom_payment_transactions ((data->>'authority'));
+create index if not exists idx_warroom_game_portals_status   on public.warroom_game_portals ((data->>'status'));
+create index if not exists idx_warroom_game_portals_featured on public.warroom_game_portals ((data->>'featured'));
+create index if not exists idx_warroom_stages_number         on public.warroom_stages ((data->>'number'));
+create index if not exists idx_warroom_prizes_points         on public.warroom_prizes ((data->>'requiredPoints'));
 create index if not exists idx_warroom_team_session_username on public.warroom_team_registration_sessions ((data->>'shared_username'));
 create index if not exists idx_warroom_team_session_group    on public.warroom_team_registration_sessions ((data->>'group_id'));
 create index if not exists idx_warroom_team_session_status   on public.warroom_team_registration_sessions ((data->>'status'));
@@ -663,6 +686,9 @@ create index if not exists idx_warroom_wallet_reference     on public.warroom_wa
 create index if not exists idx_warroom_transfers_sender     on public.warroom_point_transfers (sender_user_id, created_at desc);
 create index if not exists idx_warroom_transfers_receiver   on public.warroom_point_transfers (receiver_user_id, created_at desc);
 create index if not exists idx_warroom_merge_status         on public.warroom_squad_merge_requests (status, created_at desc);
+create index if not exists idx_warroom_daily_challenges_act on public.warroom_daily_challenges ((data->>'isActive'));
+create index if not exists idx_warroom_soundtracks_active   on public.warroom_soundtracks ((data->>'is_active'));
+create index if not exists idx_warroom_soundtracks_order    on public.warroom_soundtracks ((data->>'order'));
 
 -- 🆕 قاعده «فقط یک ادمین»: ایندکس یکتای شرطی باعث می‌شود در کل دیتابیس
 --    فقط یک کاربر با role='admin' وجود داشته باشد (افزودن ادمین دوم خطا می‌دهد).
@@ -698,6 +724,8 @@ alter table public.warroom_faqs              enable row level security;
 alter table public.warroom_vitrin_posts      enable row level security;
 alter table public.warroom_vitrin_comments   enable row level security;
 alter table public.warroom_game_portals      enable row level security;
+alter table public.warroom_daily_challenges  enable row level security;
+alter table public.warroom_soundtracks       enable row level security;
 alter table public.warroom_kv                enable row level security;
 alter table public.warroom_password_reset_requests enable row level security;
 alter table public.warroom_payment_transactions enable row level security;
@@ -739,7 +767,7 @@ begin
     'warroom_trainings','warroom_medals','warroom_user_medals',
     'warroom_support_tickets','warroom_support_replies','warroom_announcements',
     'warroom_news','warroom_notifications','warroom_home_announcements','warroom_faqs',
-    'warroom_vitrin_posts','warroom_vitrin_comments','warroom_game_portals','warroom_kv',
+    'warroom_vitrin_posts','warroom_vitrin_comments','warroom_game_portals','warroom_daily_challenges','warroom_soundtracks','warroom_kv',
     'warroom_password_reset_requests','warroom_payment_transactions','warroom_team_registration_sessions','warroom_team_registrations','warroom_group_join_requests',
     'warroom_squad_enlistments','warroom_squad_hierarchy','warroom_wallet_transactions','warroom_point_transfers','warroom_squad_merge_requests'
   ]
@@ -773,7 +801,7 @@ revoke all on public.warroom_session_log     from anon, authenticated;
 grant execute on all functions in schema public to anon, authenticated, service_role;
 
 -- ----------------------------------------------------------------------------
--- ۶) داده اولیه: پروفایل «مدیر ارشد عملیات» (ادمین پیش‌فرض)
+-- ۶) داده اولیه: پروفایل «مدیر ارشد عملیات»، چالش روزانه پیش‌فرض و موسیقی اتاق جنگ
 -- ----------------------------------------------------------------------------
 -- 🔑 کد ملی: 0012345678
 -- 🔑 رمز عبور: Admin@123456 (هش SHA-256)
@@ -783,6 +811,71 @@ insert into public.warroom_users (id, data) values (
   $${"id":"u-admin","first_name":"امیرحسین","last_name":"فرماندهی کل","national_code":"0012345678","phone":"09120000000","role":"admin","education_level":"متوسطه دوم","grade":"دوازدهم","gender":"پسر","province":"تهران","city":"تهران","birth_date":"1384/01/15","school_name":"دبیرستان ماندگار البرز","personal_code":"900000001","address":"ستاد مرکزی اتاق جنگ","password":"ad89b64d66caa8e30e5d5ce4a9763f4ecc205814c412175f3e2c50027471426d"}$$::jsonb
 )
 on conflict (id) do update set data = excluded.data, updated_at = now();
+
+-- چالش تاکتیکی روزانه پیش‌فرض
+insert into public.warroom_daily_challenges (id, data) values (
+  'daily_challenge_main',
+  $${"id":"daily_challenge_main","title":"چالش تاکتیکی روزانه","description":"با پاسخ به این تست هوش عمیق، ۱۵۰ امتیاز پاداش دریافت کنید.","badge":"tactical_badge","pointsReward":150,"question":"اولین شرط گام برداشتن در مسیر خادمی شهدایی و نبرد سایبری چیست؟","questionText":"اولین شرط گام برداشتن در مسیر خادمی شهدایی و نبرد سایبری چیست؟","options":["داشتن تجهیزات مدرن","اخلاص در نیت و خودسازی فردی","شناخت رقبا","شروع بدون برنامه‌ریزی"],"correctOptionIndex":1,"timeLimitSeconds":10,"isActive":true}$$::jsonb
+)
+on conflict (id) do update set data = excluded.data, updated_at = now();
+
+-- ثبت همزمان چالش روزانه در warroom_kv
+insert into public.warroom_kv (id, value) values (
+  'daily_challenge_config',
+  $${"id":"daily_challenge_main","title":"چالش تاکتیکی روزانه","description":"با پاسخ به این تست هوش عمیق، ۱۵۰ امتیاز پاداش دریافت کنید.","badge":"tactical_badge","pointsReward":150,"question":"اولین شرط گام برداشتن در مسیر خادمی شهدایی و نبرد سایبری چیست؟","questionText":"اولین شرط گام برداشتن در مسیر خادمی شهدایی و نبرد سایبری چیست؟","options":["داشتن تجهیزات مدرن","اخلاص در نیت و خودسازی فردی","شناخت رقبا","شروع بدون برنامه‌ریزی"],"correctOptionIndex":1,"timeLimitSeconds":10,"isActive":true}$$::jsonb
+)
+on conflict (id) do update set value = excluded.value, updated_at = now();
+
+-- 🎵 قطعه موسیقی پیش‌فرض اتاق جنگ (رادیو تاکتیکی)
+insert into public.warroom_soundtracks (id, data) values (
+  'track_epic_march_default',
+  $${"id":"track_epic_march_default","title":"مارش حماسی اتاق جنگ","subtitle":"تولید سینت‌سایزر هوشمند فرکانسی","tag":"حماسی / رزمی","color":"from-amber-500 to-yellow-400","sourceType":"synth","synthTrackId":"epic_march","durationSeconds":90,"is_active":true,"order":1}$$::jsonb
+)
+on conflict (id) do update set data = excluded.data, updated_at = now();
+
+-- ثبت همزمان تنظیمات موسیقی در warroom_kv
+insert into public.warroom_kv (id, value) values (
+  'soundtracks',
+  $${"items":[{"id":"track_epic_march_default","title":"مارش حماسی اتاق جنگ","subtitle":"تولید سینت‌سایزر هوشمند فرکانسی","tag":"حماسی / رزمی","color":"from-amber-500 to-yellow-400","sourceType":"synth","synthTrackId":"epic_march","durationSeconds":90,"is_active":true,"order":1}]}$$::jsonb
+)
+on conflict (id) do update set value = excluded.value, updated_at = now();
+
+-- 🎮 درگاه‌های ورود به بازی (Game Portals)
+-- درگاه فعال و اصلی: «اتاق جنگ» (پیش‌نیاز انتخاب توسط رزمنده پیش از ورود به پنل کاربری)
+insert into public.warroom_game_portals (id, data) values (
+  'warroom',
+  $${"id":"warroom","title":"اتاق جنگ","subtitle":"سامانه اصلی رقابت و ارزیابی استراتژیک","description":"حل مأموریت‌های هوشمند، رقابت در جدول برترین‌های کشور، دریافت کریستال‌ها و هدایای ویژه ۵۰ میلیارد ریالی.","status":"active","badgeText":"فعال • در حال برگزاری","badgeColor":"bg-emerald-500/20 text-emerald-300 border-emerald-500/50","link":"/journey","targetAudience":"all","tag":"بازی اصلی رویداد","featured":true}$$::jsonb
+),
+(
+  'galaxy',
+  $${"id":"galaxy","title":"عملیات کهکشان","subtitle":"نبرد فضایی و تسخیر سیارات دانش‌آموزی","description":"شبیه‌ساز فرماندهی ناوگان فضایی و مدیریت منابع انرژی در قلمروهای دوردست.","status":"coming_soon","badgeText":"به‌زودی • فصل ۲","badgeColor":"bg-amber-500/15 text-amber-300 border-amber-500/40","link":"https://galaxy.warroom.ir","targetAudience":"all","tag":"به‌زودی","featured":false}$$::jsonb
+),
+(
+  'cyber',
+  $${"id":"cyber","title":"نبرد سایبری","subtitle":"چالش رمزنگاری و نفوذ هوشمند","description":"مسابقه دفاع سایبری، کشف کدهای نفوذ و تحلیل امنیتی داده‌های استراتژیک.","status":"coming_soon","badgeText":"به‌زودی • فصل ۳","badgeColor":"bg-purple-500/15 text-purple-300 border-purple-500/40","link":"https://cyber.warroom.ir","targetAudience":"all","tag":"به‌زودی","featured":false}$$::jsonb
+)
+on conflict (id) do update set data = excluded.data, updated_at = now();
+
+-- ثبت همزمان لیست درگاه‌های بازی در warroom_kv
+insert into public.warroom_kv (id, value) values (
+  'warroom_game_portals_list',
+  $$[{"id":"warroom","title":"اتاق جنگ","subtitle":"سامانه اصلی رقابت و ارزیابی استراتژیک","description":"حل مأموریت‌های هوشمند، رقابت در جدول برترین‌های کشور، دریافت کریستال‌ها و هدایای ویژه ۵۰ میلیارد ریالی.","status":"active","badgeText":"فعال • در حال برگزاری","badgeColor":"bg-emerald-500/20 text-emerald-300 border-emerald-500/50","link":"/journey","targetAudience":"all","tag":"بازی اصلی رویداد","featured":true},{"id":"galaxy","title":"عملیات کهکشان","subtitle":"نبرد فضایی و تسخیر سیارات دانش‌آموزی","description":"شبیه‌ساز فرماندهی ناوگان فضایی و مدیریت منابع انرژی در قلمروهای دوردست.","status":"coming_soon","badgeText":"به‌زودی • فصل ۲","badgeColor":"bg-amber-500/15 text-amber-300 border-amber-500/40","link":"https://galaxy.warroom.ir","targetAudience":"all","tag":"به‌زودی","featured":false},{"id":"cyber","title":"نبرد سایبری","subtitle":"چالش رمزنگاری و نفوذ هوشمند","description":"مسابقه دفاع سایبری، کشف کدهای نفوذ و تحلیل امنیتی داده‌های استراتژیک.","status":"coming_soon","badgeText":"به‌زودی • فصل ۳","badgeColor":"bg-purple-500/15 text-purple-300 border-purple-500/40","link":"https://cyber.warroom.ir","targetAudience":"all","tag":"به‌زودی","featured":false}]$$::jsonb
+)
+on conflict (id) do update set value = excluded.value, updated_at = now();
+
+-- 💳 تنظیمات پیش‌فرض درگاه پرداخت بانکی (زرین‌پال / دستی) در warroom_kv
+insert into public.warroom_kv (id, value) values (
+  'payment_settings',
+  $${"id":"payment_settings","enabled":false,"amount":0,"currency":"IRR","gateway":"zarinpal","api_key":"","redirect_url":"","callback_url":"","description":"هزینه ثبت‌نام مسابقه اتاق جنگ","updated_at":"2026-09-25T12:00:00.000Z"}$$::jsonb
+)
+on conflict (id) do update set value = excluded.value, updated_at = now();
+
+-- ⚙️ تنظیمات پایه صفحه اصلی و سامانه در warroom_kv
+insert into public.warroom_kv (id, value) values (
+  'site_settings',
+  $${"siteName":"اتاق جنگ","siteTagline":"سامانه جامع مسابقات، مأموریت‌ها و ارزیابی هوشمند","badgeText":"پرونده ماجراجویی هفت‌خوان","heroTitle":"مأموریت اصلی: مسابقه بزرگ اتاق جنگ","heroProgress":"۷۲٪","heroCountdown":"۰۲:۱۴:۳۹:۱۵","heroButtonText":"ورود و ثبت‌نام","contactPhone":"۰۲۱-۸۸۹۹۷۷۶۶","contactEmail":"info@warroom.ir","telegram":"WarRoom_Support","baleLink":"https://bale.ai/warroom","eitaaLink":"https://eitaa.com/warroom","address":"تهران، بزرگراه شهید همت، ستاد مرکزی قرارگاه فضای مجازی","aboutText":"پلتفرم اتاق جنگ یک سامانه تعاملی، رقابتی و آموزشی است که با هدف پرورش تفکر استراتژیک، افزایش توان تحلیل مسئله و تقویت روحیه کار تیمی در میان نوجوانان و جوانان طراحی شده است.","prizeTitle":"جایزه‌ها و هدایای مسابقه بزرگ","prizeDescription":"کریستال جمع کن و جایزه‌های نفیس اعم از کنسول بازی، تبلت و گوشی برنده شو!"}$$::jsonb
+)
+on conflict (id) do update set value = excluded.value, updated_at = now();
 
 -- سایر داده‌ها (کاربران، مأموریت‌ها، ویترین و ...) خالی است و از طریق خود
 -- برنامه / پنل مدیریت در Supabase ذخیره و همگام می‌شوند.
@@ -825,7 +918,7 @@ begin
       'warroom_prizes','warroom_trainings','warroom_medals','warroom_user_medals',
       'warroom_announcements','warroom_news','warroom_home_announcements',
       'warroom_faqs','warroom_vitrin_posts','warroom_vitrin_comments',
-      'warroom_game_portals','warroom_kv','warroom_password_reset_requests',
+      'warroom_game_portals','warroom_daily_challenges','warroom_soundtracks','warroom_kv','warroom_password_reset_requests',
       'warroom_payment_transactions','warroom_team_registration_sessions','warroom_team_registrations','warroom_group_join_requests','warroom_wallet_transactions','warroom_point_transfers'
     ]
     loop
@@ -872,7 +965,11 @@ $$;
 -- ----------------------------------------------------------------------------
 -- select count(*) from public.warroom_users;                       -- باید ۱ باشد (فقط ادمین)
 -- select id, data->>'role' from public.warroom_users;              -- u-admin | admin
+-- select id, data->>'title', data->>'status' from public.warroom_game_portals; -- ۳ درگاه: warroom (فعال)، galaxy (به‌زودی)، cyber (به‌زودی)
+-- select count(*) from public.warroom_soundtracks;                 -- ۱ قطعه موسیقی مارش حماسی پیش‌فرض
+-- select count(*) from public.warroom_daily_challenges;            -- ۱ چالش روزانه پیش‌فرض
+-- select count(*) from public.warroom_payment_transactions;        -- رسیدها و تراکنش‌های بانکی کاربران
+-- select id, value->>'gateway' from public.warroom_kv where id = 'payment_settings'; -- تنظیمات درگاه پرداخت
 -- select count(*) from public.warroom_vitrin_posts;                -- ابتدا ۰
--- select count(*) from public.warroom_game_portals;                -- ابتدا ۰
 -- select id from storage.buckets where id = 'warroom-media';       -- warroom-media
 -- ============================================================================

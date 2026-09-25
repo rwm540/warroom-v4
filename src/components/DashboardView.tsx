@@ -34,7 +34,8 @@ import {
   Headphones,
   MessageSquare,
   ArrowRight,
-  WalletCards
+  WalletCards,
+  Gamepad2
 } from 'lucide-react';
 import { User, Group, Mission, MissionSubmission, Announcement, News, Medal, UserMedal, SupportTicket, SupportReply, JourneyStage } from '../types';
 import { formatToPersianDigits } from '../utils/jalali';
@@ -220,9 +221,17 @@ export default function DashboardView({
       <div className="flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-slate-800 bg-slate-950/60 p-3">
         <div>
           <h2 className="text-sm font-black text-white">مرکز عملیات کاربر</h2>
-          <p className="mt-1 text-[10px] text-slate-500">دسترسی سریع به ارتباطات جوخه و امتیازها</p>
+          <p className="mt-1 text-[10px] text-slate-500">دسترسی سریع به بازی‌ها، ارتباطات جوخه و امتیازها</p>
         </div>
         <div className="flex flex-wrap gap-2">
+          <button 
+            type="button" 
+            onClick={() => onNavigate('GamePortals')} 
+            className="flex items-center gap-1.5 rounded-xl border border-cyan-500/40 bg-cyan-950/40 px-3 py-2 text-xs font-bold text-cyan-300 hover:bg-cyan-900/60 transition shadow-sm cursor-pointer"
+          >
+            <Gamepad2 size={15} className="text-cyan-400 animate-pulse" />
+            انتخاب بازی
+          </button>
           <button type="button" onClick={() => onNavigate('Wallet')} className="flex items-center gap-1.5 rounded-xl border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs font-bold text-amber-300"><WalletCards size={15} /> تراکنش‌ها و پرداختی‌ها</button>
         </div>
       </div>

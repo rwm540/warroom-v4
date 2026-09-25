@@ -409,9 +409,18 @@ export function useSyncedSetting<T extends Record<string, any>>(options: {
   settingKey: string;
   initial: T | (() => T);
 }): [T, Dispatch<SetStateAction<T>>] {
-  const { settingKey, initial } = options;
+  const { settingKey, initial, storageKey } = options;
 
   const [value, setValue] = useState<T>(() => {
+    if (storageKey) {
+      try {
+        const cached = localStorage.getItem(storageKey);
+        if (cached) {
+          const parsed = JSON.parse(cached);
+          if (parsed && typeof parsed === 'object') return parsed;
+        }
+      } catch {}
+    }
     return typeof initial === 'function' ? (initial as () => T)() : initial;
   });
 
@@ -438,7 +447,15 @@ export function useSyncedSetting<T extends Record<string, any>>(options: {
         if (cancelled) return;
         if (data?.value && typeof data.value === 'object') {
           pendingSkipRef.current = true;
-          setValue(prev => ({ ...prev, ...data.value }));
+          setValue(prev => {
+            const merged = { ...prev, ...data.value };
+            if (storageKey) {
+              try {
+                localStorage.setItem(storageKey, JSON.stringify(merged));
+              } catch {}
+            }
+            return merged;
+          });
         } else {
           // اگر مقدار در Supabase وجود نداشت، مقدار اولیه را در Supabase ثبت کن
           const initVal = typeof initial === 'function' ? (initial as () => T)() : initial;
@@ -453,10 +470,17 @@ export function useSyncedSetting<T extends Record<string, any>>(options: {
     return () => {
       cancelled = true;
     };
-  }, [settingKey]);
+  }, [settingKey, storageKey]);
 
-  // ذخیره مستقیم در Supabase با تاخیر کم
+  // ذخیره مستقیم در localStorage و Supabase با تاخیر کم
   useEffect(() => {
+    // ذخیره آنی در localStorage
+    if (storageKey) {
+      try {
+        localStorage.setItem(storageKey, JSON.stringify(value));
+      } catch {}
+    }
+
     if (firstRunRef.current) {
       firstRunRef.current = false;
       return;
@@ -480,7 +504,7 @@ export function useSyncedSetting<T extends Record<string, any>>(options: {
     return () => {
       if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
     };
-  }, [value, settingKey]);
+  }, [value, settingKey, storageKey]);
 
   return [value, setValue];
 }
@@ -550,6 +574,248 @@ export async function saveSupportReplyToSupabase(reply: any): Promise<boolean> {
     console.warn('[WarRoom Supabase] استثنا در ثبت پاسخ تیکت:', err);
     return false;
   }
+}
+
+/* ------------------------------------------------------------------ */
+/* مدیریت و ثبت مستقیم چالش‌های روزانه در دیتابیس ابری Supabase          */
+/* ------------------------------------------------------------------ */
+export async function saveDailyChallengeToSupabase(challenge: any): Promise<boolean> {
+  if (!challenge || !challenge.id) return false;
+
+  // ۱. ذخیره در localStorage برای دسترسی فوری آفلاین
+  try {
+    const savedList = localStorage.getItem('warroom_all_daily_challenges');
+    let list: any[] = savedList ? JSON.parse(savedList) : [];
+    const idx = list.findIndex(c => c.id === challenge.id);
+    if (idx >= 0) {
+      list[idx] = challenge;
+    } else {
+      list.unshift(challenge);
+    }
+    localStorage.setItem('warroom_all_daily_challenges', JSON.stringify(list));
+
+    if (challenge.isActive) {
+      localStorage.setItem('warroom_daily_challenge_config', JSON.stringify(challenge));
+    }
+  } catch {}
+
+  // ۲. ذخیره در جدول اختصاصی warroom_daily_challenges در Supabase
+  if (isSupabaseEnabled && supabase) {
+    try {
+      const { error: err1 } = await supabase
+        .from('warroom_daily_challenges')
+        .upsert({
+          id: challenge.id,
+          data: challenge,
+          updated_at: new Date().toISOString()
+        });
+
+      if (err1) {
+        console.warn('[WarRoom Supabase] خطا در ثبت در جدول warroom_daily_challenges:', err1.message);
+      }
+
+      // ۳. اگر چالش فعال است، آن را به عنوان پیکربندی چالش جاری در warroom_kv نیز ذخیره کن
+      if (challenge.isActive) {
+        await supabase
+          .from('warroom_kv')
+          .upsert({
+            id: 'daily_challenge_config',
+            value: challenge
+          });
+      }
+      return true;
+    } catch (e) {
+      console.warn('[WarRoom Supabase] استثنا در ذخیره چالش روزانه:', e);
+      return false;
+    }
+  }
+  return true;
+}
+
+export async function deleteDailyChallengeFromSupabase(id: string): Promise<boolean> {
+  if (!id) return false;
+
+  // ۱. حذف از localStorage
+  try {
+    const savedList = localStorage.getItem('warroom_all_daily_challenges');
+    if (savedList) {
+      const list: any[] = JSON.parse(savedList);
+      const filtered = list.filter(c => c.id !== id);
+      localStorage.setItem('warroom_all_daily_challenges', JSON.stringify(filtered));
+    }
+  } catch {}
+
+  // ۲. حذف از Supabase
+  if (isSupabaseEnabled && supabase) {
+    try {
+      const { error } = await supabase
+        .from('warroom_daily_challenges')
+        .delete()
+        .eq('id', id);
+
+      if (error) {
+        console.warn('[WarRoom Supabase] خطا در حذف چالش روزانه:', error.message);
+        return false;
+      }
+      return true;
+    } catch (e) {
+      console.warn('[WarRoom Supabase] استثنا در حذف چالش روزانه:', e);
+      return false;
+    }
+  }
+  return true;
+}
+
+export async function fetchDailyChallengesFromSupabase(): Promise<any[]> {
+  if (isSupabaseEnabled && supabase) {
+    try {
+      const { data, error } = await supabase
+        .from('warroom_daily_challenges')
+        .select('*')
+        .order('updated_at', { ascending: false });
+
+      if (!error && Array.isArray(data) && data.length > 0) {
+        return data.map(row => (row.data ? { ...row.data, id: row.id } : row));
+      }
+    } catch (e) {
+      console.warn('[WarRoom Supabase] خطا در واکشی چالش‌ها از دیتابیس:', e);
+    }
+  }
+
+  // فال‌بک localStorage
+  try {
+    const local = localStorage.getItem('warroom_all_daily_challenges');
+    if (local) return JSON.parse(local);
+  } catch {}
+  return [];
+}
+
+/* ------------------------------------------------------------------ */
+/* مدیریت و ثبت قطعات موسیقی در دیتابیس Supabase و آپلود فایل صوتی      */
+/* ------------------------------------------------------------------ */
+export async function saveSoundtrackToSupabase(track: any): Promise<boolean> {
+  if (!track || !track.id) return false;
+  if (!isSupabaseEnabled || !supabase) return true;
+  try {
+    const { error } = await supabase
+      .from('warroom_soundtracks')
+      .upsert({
+        id: track.id,
+        data: track,
+        updated_at: new Date().toISOString()
+      });
+    if (error) {
+      console.warn('[WarRoom Supabase] خطا در ثبت قطعه موسیقی در warroom_soundtracks:', error.message);
+      return false;
+    }
+    return true;
+  } catch (e) {
+    console.warn('[WarRoom Supabase] استثنا در ذخیره قطعه موسیقی:', e);
+    return false;
+  }
+}
+
+export async function deleteSoundtrackFromSupabase(id: string): Promise<boolean> {
+  if (!id) return false;
+  if (!isSupabaseEnabled || !supabase) return true;
+  try {
+    const { error } = await supabase
+      .from('warroom_soundtracks')
+      .delete()
+      .eq('id', id);
+    if (error) {
+      console.warn('[WarRoom Supabase] خطا در حذف قطعه موسیقی از warroom_soundtracks:', error.message);
+      return false;
+    }
+    return true;
+  } catch (e) {
+    console.warn('[WarRoom Supabase] استثنا در حذف قطعه موسیقی:', e);
+    return false;
+  }
+}
+
+export async function fetchSoundtracksFromSupabase(): Promise<any[]> {
+  if (isSupabaseEnabled && supabase) {
+    try {
+      const { data, error } = await supabase
+        .from('warroom_soundtracks')
+        .select('*')
+        .order('updated_at', { ascending: false });
+
+      if (!error && Array.isArray(data) && data.length > 0) {
+        return data.map(row => (row.data ? { ...row.data, id: row.id } : row));
+      }
+    } catch (e) {
+      console.warn('[WarRoom Supabase] خطا در واکشی قطعات از warroom_soundtracks:', e);
+    }
+
+    try {
+      const { data } = await supabase
+        .from('warroom_kv')
+        .select('value')
+        .eq('id', 'soundtracks')
+        .maybeSingle();
+
+      if (Array.isArray((data?.value as any)?.items) && (data!.value as any).items.length > 0) {
+        return (data!.value as any).items;
+      }
+    } catch {}
+  }
+
+  // فال‌بک localStorage
+  try {
+    const local = localStorage.getItem('warroom_soundtracks');
+    if (local) return JSON.parse(local);
+  } catch {}
+  return [];
+}
+
+/**
+ * آپلود فایل صوتی در باکت warroom-media در Supabase
+ * در صورت عدم اتصال یا مشکل دسترسی، فایل به صورت Base64 Data URL ذخیره می‌شود
+ */
+export async function uploadAudioFileToSupabase(file: File): Promise<{ success: boolean; url: string; error?: string }> {
+  if (!file) return { success: false, url: '', error: 'فایلی انتخاب نشده است.' };
+
+  // تلاش برای آپلود در باکت Supabase Storage
+  if (isSupabaseEnabled && supabase) {
+    try {
+      const sanitizedName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
+      const filePath = `soundtracks/${Date.now()}_${sanitizedName}`;
+
+      const { data, error } = await supabase.storage
+        .from('warroom-media')
+        .upload(filePath, file, {
+          cacheControl: '3600',
+          upsert: true,
+          contentType: file.type || 'audio/mpeg'
+        });
+
+      if (!error && data?.path) {
+        const { data: pubData } = supabase.storage
+          .from('warroom-media')
+          .getPublicUrl(data.path);
+
+        if (pubData?.publicUrl) {
+          return { success: true, url: pubData.publicUrl };
+        }
+      }
+    } catch (e) {
+      console.warn('[WarRoom Supabase] آپلود مستقیم در استوریج با خطا مواجه شد، استفاده از فال‌بک داده صوتی:', e);
+    }
+  }
+
+  // فال‌بک سریع: تبدیل به DataURL
+  return new Promise((resolve) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      resolve({ success: true, url: reader.result as string });
+    };
+    reader.onerror = () => {
+      resolve({ success: false, url: '', error: 'خطا در خواندن فایل صوتی محلی.' });
+    };
+    reader.readAsDataURL(file);
+  });
 }
 
 

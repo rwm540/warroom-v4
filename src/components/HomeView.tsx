@@ -29,6 +29,7 @@ interface HomeViewProps {
   onLogout: () => void;
   onOpenSquadModal: () => void;
   onOpenNotifications?: () => void;
+  onOpenGamePortal?: () => void;
   unreadNotificationsCount?: number;
   triggerAlert: (msg: string) => void;
   siteSettings?: any;
@@ -49,6 +50,7 @@ export default function HomeView({
   onLogout,
   onOpenSquadModal,
   onOpenNotifications,
+  onOpenGamePortal,
   unreadNotificationsCount = 0,
   triggerAlert,
   siteSettings,
@@ -119,6 +121,12 @@ export default function HomeView({
   const isGirls = themeMode === 'girls';
 
   const handleStartMission = () => {
+    if (currentUser) {
+      if (currentUser.role === 'admin') {
+        setActiveTab('Admin');
+        return;
+      }
+    }
     setActiveTab('Journey');
   };
 
@@ -176,12 +184,14 @@ export default function HomeView({
                 onGoToDashboard={() => {
                   if (currentUser?.role === 'admin') {
                     setActiveTab('Admin');
-                  } else {
-                    setActiveTab('Dashboard');
+                    return;
                   }
-                  if (currentUser) {
-                    triggerAlert(`ورود مستقیم به پنل: ${currentUser.first_name} ${currentUser.last_name}`);
+                  const hasGame = typeof window !== 'undefined' ? sessionStorage.getItem('warroom_selected_game_id') : null;
+                  if (!hasGame && onOpenGamePortal) {
+                    onOpenGamePortal();
+                    return;
                   }
+                  setActiveTab('Journey');
                 }}
               />
             </section>

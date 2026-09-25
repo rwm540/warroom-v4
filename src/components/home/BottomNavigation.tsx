@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion } from 'motion/react';
 import { 
   Gamepad2, 
@@ -8,10 +8,10 @@ import {
   MessageCircle,
   WalletCards,
   MoreHorizontal,
-  Users,
   X
 } from 'lucide-react';
 import { User } from '../../types';
+import { prefetchViewChunk } from '../../App';
 
 export interface BottomNavigationProps {
   activeTab: string;
@@ -33,6 +33,13 @@ export default function BottomNavigation({
   const isGirls = campaignTheme === 'girls' || currentUser?.gender === 'دختر';
   const [isMoreOpen, setIsMoreOpen] = useState(false);
 
+  useEffect(() => {
+    // Warm up chunks for instant navigation without loading delays
+    prefetchViewChunk('Journey');
+    prefetchViewChunk('Rewards');
+    prefetchViewChunk('Vitrin');
+  }, []);
+
   const primaryItems = [
     { id: 'Journey', label: 'نقشه بازی', icon: Gamepad2, isAdmin: false },
     { id: 'Rewards', label: 'جوایز', icon: Gift, isAdmin: false },
@@ -41,17 +48,12 @@ export default function BottomNavigation({
 
   const secondaryItems = [
     { id: 'Chat', label: 'چت روم', icon: MessageCircle },
-    ...(currentUser?.role === 'admin' ? [] : [{ id: 'Wallet', label: 'تراکنش‌ها', icon: WalletCards }]),
-    ...(currentUser?.group_id ? [{ id: 'Squad', label: 'مدیریت جوخه', icon: Users }] : []),
+    ...(currentUser?.role === 'admin' ? [] : [{ id: 'Wallet', label: 'رسیدها و پرداختی‌ها', icon: WalletCards }]),
     ...(currentUser?.role === 'admin' ? [{ id: 'Admin', label: 'ستاد', icon: SlidersHorizontal }] : [])
   ];
 
   const handleSelectTab = (item: { id: string; isAdmin?: boolean }) => {
     setIsMoreOpen(false);
-    if (item.id === 'Squad') {
-      window.dispatchEvent(new CustomEvent('warroom_open_squad_modal'));
-      return;
-    }
     if (item.isAdmin || item.id === 'Admin') {
       if (setIsAdminMode) {
         setIsAdminMode(true);
@@ -80,14 +82,27 @@ export default function BottomNavigation({
           initial={{ opacity: 0, y: 14, scale: 0.96 }}
           animate={{ opacity: 1, y: 0, scale: 1 }}
           exit={{ opacity: 0, y: 14, scale: 0.96 }}
-          className="absolute bottom-[calc(100%+10px)] left-1/2 z-50 grid w-[min(92vw,340px)] -translate-x-1/2 grid-cols-3 gap-2 rounded-2xl border border-cyan-500/30 bg-[#071126]/95 p-3 shadow-[0_0_35px_rgba(34,211,238,0.25)] backdrop-blur-xl"
+          className="absolute bottom-[calc(100%+10px)] left-1/2 z-50 grid w-[min(92vw,340px)] -translate-x-1/2 grid-cols-2 gap-2 rounded-2xl border border-cyan-500/30 bg-[#071126]/95 p-3 shadow-[0_0_35px_rgba(34,211,238,0.25)] backdrop-blur-xl"
         >
           {secondaryItems.map(item => {
             const Icon = item.icon;
             const active = item.id === 'Admin' ? Boolean(isAdminMode || activeTab === 'Admin') : activeTab === item.id && !isAdminMode;
-            return <motion.button type="button" key={item.id} whileTap={{ scale: 0.9 }} onClick={() => handleSelectTab(item)} className={`flex flex-col items-center gap-1 rounded-xl border p-2 text-[10px] font-bold ${active ? 'border-cyan-400/60 bg-cyan-400/15 text-cyan-200' : 'border-slate-700 bg-slate-900/80 text-slate-300'}`}><Icon size={18} /><span>{item.label}</span></motion.button>;
+            return (
+              <motion.button 
+                type="button" 
+                key={item.id} 
+                whileTap={{ scale: 0.9 }} 
+                onClick={() => handleSelectTab(item)} 
+                className={`flex flex-col items-center gap-1 rounded-xl border p-2 text-[10px] font-bold ${active ? 'border-cyan-400/60 bg-cyan-400/15 text-cyan-200' : 'border-slate-700 bg-slate-900/80 text-slate-300'}`}
+              >
+                <Icon size={18} />
+                <span>{item.label}</span>
+              </motion.button>
+            );
           })}
-          <button type="button" onClick={() => setIsMoreOpen(false)} className="col-span-3 flex items-center justify-center gap-1 rounded-xl border border-slate-700 py-1.5 text-[10px] text-slate-400"><X size={14} /> بستن</button>
+          <button type="button" onClick={() => setIsMoreOpen(false)} className="col-span-2 flex items-center justify-center gap-1 rounded-xl border border-slate-700 py-1.5 text-[10px] text-slate-400">
+            <X size={14} /> بستن
+          </button>
         </motion.div>
       )}
 
@@ -104,6 +119,8 @@ export default function BottomNavigation({
               key={item.id}
               whileTap={{ scale: 0.88 }}
               onClick={() => handleSelectTab(item)}
+              onMouseEnter={() => prefetchViewChunk(item.id)}
+              onTouchStart={() => prefetchViewChunk(item.id)}
               aria-label={item.label}
               title={item.label}
               className={`relative flex flex-col items-center justify-center py-1.5 px-0.5 rounded-2xl transition-all w-full select-none cursor-pointer focus:outline-none ${
@@ -176,7 +193,17 @@ export default function BottomNavigation({
             </motion.button>
           );
         })}
-        <motion.button type="button" whileTap={{ scale: 0.88 }} onClick={() => setIsMoreOpen(value => !value)} aria-label="بیشتر" title="بیشتر" className={`relative flex w-full flex-col items-center justify-center rounded-2xl py-1.5 text-[9.5px] font-bold ${isMoreOpen ? 'text-cyan-200' : 'text-slate-400'}`}><MoreHorizontal size={20} /><span className="mt-1">بیشتر</span></motion.button>
+        <motion.button 
+          type="button" 
+          whileTap={{ scale: 0.88 }} 
+          onClick={() => setIsMoreOpen(value => !value)} 
+          aria-label="بیشتر" 
+          title="بیشتر" 
+          className={`relative flex w-full flex-col items-center justify-center rounded-2xl py-1.5 text-[9.5px] font-bold cursor-pointer transition-colors ${isMoreOpen ? 'text-cyan-200' : 'text-slate-400 hover:text-slate-200'}`}
+        >
+          <MoreHorizontal size={20} />
+          <span className="mt-1">بیشتر</span>
+        </motion.button>
       </div>
     </nav>
   );

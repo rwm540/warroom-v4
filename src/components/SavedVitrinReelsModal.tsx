@@ -7,6 +7,7 @@ import {
 import { VitrinPost, VitrinComment, getAllComments, saveComment, toggleCommentLike, getVitrinPostsFromStore, getSavedPostIds, savePostId } from '../data/vitrinData';
 import { formatToPersianDigits } from '../utils/jalali';
 import { User } from '../types';
+import { getDefaultAvatar } from '../data/avatars';
 
 interface SavedVitrinReelsModalProps {
   isOpen: boolean;
@@ -142,7 +143,7 @@ export default function SavedVitrinReelsModal({
       id: 'c_' + Date.now(),
       postId,
       authorName: currentUser ? `${currentUser.first_name} ${currentUser.last_name}` : 'رزمنده دلاور',
-      authorAvatar: currentUser?.avatar_url || 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=150&q=80',
+      authorAvatar: currentUser?.avatar_url || getDefaultAvatar(currentUser?.gender),
       authorSquad: currentUser?.role === 'leader' ? 'فرمانده جوخه' : 'جوخه صاعقه ۱۲',
       content: text,
       createdAt: 'هم‌اکنون',
@@ -491,9 +492,9 @@ export default function SavedVitrinReelsModal({
                           <div className="flex items-center gap-2 pt-1.5">
                             <div className="w-7 h-7 rounded-full bg-slate-800 border border-cyan-500/50 overflow-hidden shrink-0 shadow-sm">
                               <img
-                                src={currentUser?.avatar_url || 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=150&q=80'}
+                                src={currentUser?.avatar_url || getDefaultAvatar(currentUser?.gender)}
                                 alt="آواتار شما"
-                                className="w-full h-full object-cover"
+                                className="w-full h-full object-cover object-top"
                               />
                             </div>
                             <input

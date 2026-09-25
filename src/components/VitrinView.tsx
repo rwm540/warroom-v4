@@ -24,6 +24,7 @@ import { formatToPersianDigits } from '../utils/jalali';
 import { playTacticalSound } from '../utils/epicBgmEngine';
 import RadarLoading from './RadarLoading';
 import SavedVitrinReelsModal from './SavedVitrinReelsModal';
+import { getDefaultAvatar } from '../data/avatars';
 import { 
   VitrinPost, 
   VitrinComment, 
@@ -63,8 +64,8 @@ export default function VitrinView({
     if (commentsMapProp) setCommentsMap(commentsMapProp);
   }, [commentsMapProp]);
 
-  // Lazy Loading for Vitrin Feed: Display 1 post initially, load 1 next post per scroll/trigger
-  const [visiblePostsCount, setVisiblePostsCount] = useState<number>(1);
+  // Instant Initial Vitrin Feed: Display 3 posts immediately without blank delay, load next smoothly
+  const [visiblePostsCount, setVisiblePostsCount] = useState<number>(() => Math.min(posts.length, 3));
   const [isLoadingNextPost, setIsLoadingNextPost] = useState<boolean>(false);
   const bottomSentinelRef = useRef<HTMLDivElement | null>(null);
 
@@ -82,16 +83,16 @@ export default function VitrinView({
         [postId]: (prev[postId] || 5) + 5
       }));
       setLoadingCommentsPostId(null);
-    }, 280);
+    }, 120);
   };
 
   const loadNextPost = () => {
     if (visiblePostsCount >= posts.length || isLoadingNextPost) return;
     setIsLoadingNextPost(true);
     setTimeout(() => {
-      setVisiblePostsCount(prev => Math.min(posts.length, prev + 1));
+      setVisiblePostsCount(prev => Math.min(posts.length, prev + 2));
       setIsLoadingNextPost(false);
-    }, 450);
+    }, 60);
   };
 
   // IntersectionObserver to auto-load next post when scrolling to the bottom sentinel
@@ -287,9 +288,7 @@ export default function VitrinView({
       ? 'ستاد فرماندهی' 
       : (currentUser?.gender === 'دختر' ? 'جوخه نسترن' : 'جوخه صاعقه');
 
-    const defaultAvatar = currentUser?.gender === 'دختر'
-      ? 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=150&q=80'
-      : 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=150&q=80';
+    const defaultAvatar = getDefaultAvatar(currentUser?.gender);
 
     const newComment: VitrinComment = {
       id: `c_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
@@ -900,11 +899,11 @@ export default function VitrinView({
                             <div className="flex items-start gap-2.5">
                               <div className="w-8 h-8 rounded-full bg-slate-800 border border-cyan-500/40 ring-1 ring-cyan-500/20 overflow-hidden shrink-0 shadow-sm">
                                 <img 
-                                  src={comment.authorAvatar || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=150&q=80'} 
+                                  src={comment.authorAvatar || getDefaultAvatar()} 
                                   alt={comment.authorName} 
-                                  className="w-full h-full object-cover"
+                                  className="w-full h-full object-cover object-top"
                                   onError={(e) => {
-                                    (e.target as HTMLImageElement).src = 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=150&q=80';
+                                    (e.target as HTMLImageElement).src = getDefaultAvatar();
                                   }}
                                 />
                               </div>

@@ -24,8 +24,6 @@ import {
   PaymentSettings,
   PaymentTransaction,
   GroupJoinRequest
-  ,WalletTransaction,
-  PointTransfer
 } from './types';
 import { initialJourneyStages, initialDailyChallengeConfig } from './data/initialStages';
 
@@ -394,9 +392,6 @@ export default function App() {
     initial: []
   });
 
-  const [walletTransactions, setWalletTransactions] = useState<WalletTransaction[]>([]);
-  const [pointTransfers, setPointTransfers] = useState<PointTransfer[]>([]);
-
   // 🎁 مدیریت سیستم جوایز و کریستال‌ها — همگام با Supabase
   const [prizes, setPrizes] = useSyncedCollection<PrizeItem>({
     storageKey: 'warroom_prizes_list',
@@ -435,15 +430,16 @@ export default function App() {
     setCurrentUser(safeUser);
     setMustChangePassword(false);
     setShowAuthScreen(false);
-    setShowGamePortal(false);
 
     if (safeUser.role === 'admin') {
       setIsAdminMode(true);
       setActiveTab('Admin');
+      setShowGamePortal(false);
       return;
     }
 
     setIsAdminMode(false);
+    setShowGamePortal(false);
     setActiveTab('Journey');
   };
 
@@ -610,6 +606,7 @@ export default function App() {
 
   const [showAuthScreen, setShowAuthScreen] = useState<boolean>(false);
   const [showGamePortal, setShowGamePortal] = useState<boolean>(false);
+  const [isGamePortalMandatory, setIsGamePortalMandatory] = useState<boolean>(false);
   /** 🛡️ الزام تغییر رمز پیش‌فرض/موقت (اعلام‌شده توسط سرور) */
   const [mustChangePassword, setMustChangePassword] = useState<boolean>(false);
   const [authMode, setAuthMode] = useState<'login' | 'register_individual' | 'register_group'>('register_individual');
@@ -659,6 +656,11 @@ export default function App() {
 
   const handleTabChange = (tab: string) => {
     setShowAuthScreen(false);
+    if (tab === 'GamePortals') {
+      setIsGamePortalMandatory(false);
+      setShowGamePortal(true);
+      return;
+    }
     setShowGamePortal(false);
     setIsAdminMode(tab === 'Admin');
     setActiveTab(tab);
@@ -714,6 +716,23 @@ export default function App() {
       window.removeEventListener('warroom_open_notifications', openNotifications);
       window.removeEventListener('warroom_open_chat_modal', openChat);
     };
+  }, []);
+
+  // Pre-warm lazy-loaded navigation modules on idle for zero-lag instant tab switching
+  useEffect(() => {
+    const warmup = () => {
+      prefetchViewChunk('Journey');
+      prefetchViewChunk('Rewards');
+      prefetchViewChunk('Vitrin');
+      prefetchViewChunk('Prizes');
+    };
+    if (typeof window !== 'undefined') {
+      if ('requestIdleCallback' in window) {
+        (window as any).requestIdleCallback(warmup);
+      } else {
+        setTimeout(warmup, 80);
+      }
+    }
   }, []);
 
   // Eligibility checker for real-time notifications
@@ -801,7 +820,7 @@ export default function App() {
     triggerAlert('خروج از سامانه اتاق جنگ با موفقیت انجام شد.');
   };
 
-  const handleLoginSuccess = async (user: User, _meta?: { mustChangePassword?: boolean }) => {
+  const handleLoginSuccess = async (user: User, _meta?: { mustChangePassword?: boolean; isNewRegistration?: boolean }) => {
     const safeUser: User = { ...user, password: '' };
     const sessionId = `warroom_session_${safeUser.id}_${Date.now()}`;
     const sessionPayload = {
@@ -813,7 +832,6 @@ export default function App() {
 
     setCurrentUser(safeUser);
     setShowAuthScreen(false);
-    setShowGamePortal(false);
     setMustChangePassword(Boolean(_meta?.mustChangePassword || user.mustChangePassword));
     localStorage.setItem('warroom_current_user_data', JSON.stringify(safeUser));
     localStorage.setItem('warroom_current_user_id', safeUser.id);
@@ -835,17 +853,32 @@ export default function App() {
     if (safeUser.role === 'admin') {
       setIsAdminMode(true);
       setActiveTab('Admin');
+      setShowGamePortal(false);
       triggerAlert(`خوش آمدید مدیر کل ${safeUser.first_name} ${safeUser.last_name} — وارد پنل مدیریت شدید.`);
       return;
     }
 
+    // کاربران عادی: درگاه بازی فقط بلافاصله پس از ثبت‌نام جدید باز می‌شود
     setIsAdminMode(false);
     setActiveTab('Journey');
-    triggerAlert(`خوش آمدید رزمنده ${safeUser.first_name} ${safeUser.last_name} — وارد پنل کاربری شدید.`);
+
+    if (_meta?.isNewRegistration) {
+      setIsGamePortalMandatory(true);
+      setShowGamePortal(true);
+      triggerAlert(`ثبت‌نام با موفقیت انجام شد. خوش آمدید رزمنده ${safeUser.first_name} ${safeUser.last_name} — لطفاً درگاه ورود به بازی را انتخاب فرمایید.`);
+    } else {
+      setIsGamePortalMandatory(false);
+      setShowGamePortal(false);
+      triggerAlert(`خوش آمدید رزمنده ${safeUser.first_name} ${safeUser.last_name} — به سامانه اتاق جنگ خوش آمدید.`);
+    }
   };
 
-  const handleSelectWarRoom = () => {
+  const handleSelectWarRoom = (game?: GamePortal) => {
+    setIsGamePortalMandatory(false);
     setShowGamePortal(false);
+    if (typeof window !== 'undefined') {
+      sessionStorage.setItem('warroom_selected_game_id', game?.id || 'warroom');
+    }
     const user = currentUser;
 
     if (user) {
@@ -857,8 +890,15 @@ export default function App() {
         setActiveTab('Journey');
         setShowOnboardingTutorial(true); // Launch Commander Guided Tutorial
       }
-      triggerAlert(`ورود موفقیت‌آمیز به اتاق جنگ`);
+      triggerAlert(`ورود موفقیت‌آمیز به سامانه بازی «${game?.title || 'اتاق جنگ'}»`);
+    } else {
+      setActiveTab('Journey');
     }
+  };
+
+  const handleCloseGamePortal = () => {
+    setIsGamePortalMandatory(false);
+    setShowGamePortal(false);
   };
 
   const handleOpenAuth = (mode: 'login' | 'register_individual' | 'register_group') => {
@@ -1022,6 +1062,7 @@ export default function App() {
               onOpenAuth={handleOpenAuth}
               onLogout={handleLogout}
               onOpenSquadModal={() => setShowSquadModal(true)}
+              onOpenGamePortal={() => setShowGamePortal(true)}
               triggerAlert={triggerAlert}
               siteSettings={siteSettings}
               homeAnnouncements={homeAnnouncements}
@@ -1333,13 +1374,10 @@ export default function App() {
                     {activeTab === 'Wallet' && currentUser && (
                       <WalletTransfersView
                         currentUser={currentUser}
-                        users={users}
-                        setUsers={setUsers}
-                        transactions={walletTransactions}
-                        setTransactions={setWalletTransactions}
-                        transfers={pointTransfers}
-                        setTransfers={setPointTransfers}
+                        paymentTransactions={paymentTransactions}
+                        paymentSettings={paymentSettings}
                         triggerAlert={triggerAlert}
+                        onNavigate={(tab) => handleTabChange(tab)}
                       />
                     )}
 
@@ -1557,11 +1595,12 @@ export default function App() {
         {/* Game / Campaign Selection Portal Modal */}
         <GameSelectionPortalModal 
           isOpen={showGamePortal}
-          onClose={() => setShowGamePortal(false)}
+          onClose={handleCloseGamePortal}
           currentUser={currentUser}
           onSelectWarRoom={handleSelectWarRoom}
           campaignTheme={campaignTheme}
           portals={gamePortals}
+          isMandatory={isGamePortalMandatory}
         />
 
         {mustChangePassword && currentUser && (

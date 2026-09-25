@@ -1,7 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
-  Sparkles, 
   ArrowLeft, 
   ArrowRight, 
   Check, 
@@ -12,9 +11,15 @@ import {
   Trophy, 
   Shield, 
   Zap,
-  Volume2
+  Target,
+  Sparkles,
+  Compass
 } from 'lucide-react';
-import { User, Gender } from '../types';
+import { User } from '../types';
+
+// In-project commander character avatars
+import womanCommanderAvatar from '../assets/images/avatar/woman/Commander_giving_orders_2K_202608210108.jpeg';
+import maleCommanderAvatar from '../assets/images/avatar/male/Commander_in_tactical_uniform_ready_202608210056.jpeg';
 
 interface OnboardingCommanderTutorialProps {
   currentUser: User | null;
@@ -29,81 +34,83 @@ export default function OnboardingCommanderTutorial({
 }: OnboardingCommanderTutorialProps) {
   const [currentStep, setCurrentStep] = useState(0);
 
-  React.useEffect(() => {
-    window.dispatchEvent(new CustomEvent('warroom_modal_active_change', { detail: { active: true } }));
-    return () => {
-      window.dispatchEvent(new CustomEvent('warroom_modal_active_change', { detail: { active: false } }));
-    };
-  }, []);
-
   const isGirls = currentUser?.gender === 'دختر' || localStorage.getItem('hisstory_theme_mode') === 'girls';
 
-  // Two Commander Character Avatars
+  // Commander Character Profiles
   const commander = isGirls
     ? {
         name: 'فرمانده نگار (ستاد نور)',
         title: 'راهنمای ارشد عملیات دختران',
-        avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=400&q=80',
+        avatar: womanCommanderAvatar,
         badgeColor: 'from-pink-500 to-rose-600',
-        borderColor: 'border-pink-500',
-        glowColor: 'shadow-[0_0_30px_rgba(244,63,94,0.6)]'
+        borderColor: 'border-pink-500/50',
+        glowColor: 'shadow-[0_0_30px_rgba(244,63,94,0.4)]',
+        accentText: 'text-pink-400',
+        accentBg: 'bg-pink-500/20',
+        neonBtn: 'girls-button-neon'
       }
     : {
         name: 'فرمانده کاوه (ستاد فاتحان)',
         title: 'راهنمای ارشد عملیات پسران',
-        avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=400&q=80',
+        avatar: maleCommanderAvatar,
         badgeColor: 'from-cyan-500 to-blue-600',
-        borderColor: 'border-cyan-400',
-        glowColor: 'shadow-[0_0_30px_rgba(6,182,212,0.6)]'
+        borderColor: 'border-cyan-500/50',
+        glowColor: 'shadow-[0_0_30px_rgba(6,182,212,0.4)]',
+        accentText: 'text-cyan-400',
+        accentBg: 'bg-cyan-500/20',
+        neonBtn: 'boys-button-tactical'
       };
 
   const steps = [
     {
       targetTab: 'Journey',
-      icon: Gamepad2,
-      title: `سلام رزمنده ${currentUser?.first_name || 'عزیز'}! به قرارگاه اتاق جنگ خوش اومدی`,
-      text: 'من فرمانده و راهنمای تاکتیکی تو هستم. وظیفه من اینه که تو رو برای ورود به بزرگ‌ترین میدان ماجراجویی و چالش‌های هفت‌گانه کشور آماده کنم. آماده‌ای؟',
-      highlightArea: 'مرکز فرماندهی'
+      icon: Compass,
+      targetLabel: 'مرکز فرماندهی و آمادگی عملیات',
+      title: `سلام رزمنده ${currentUser?.first_name || 'عزیز'}! خوش اومدی`,
+      text: 'من راهنمای تاکتیکی تو در اتاق جنگ هستم. بیا با هم امکانات اصلی و مسیر مسابقه رو در چند ثانیه مرور کنیم.',
     },
     {
       targetTab: 'Journey',
       icon: Gamepad2,
-      title: '۱. نقشه مراحل بازی (Game Map)',
-      text: 'اینجا نقشه اصلی بازیه! مثل هفت‌خوان، ۷ مرحله هیجان‌انگیز داری. مرحله اول با نور نئون روشن و فعاله و بقیه مراحل به مرور با کسب امتیاز و ارسال ماموریت‌ها باز میشن.',
-      highlightArea: 'نقشه عملیاتی و مرحله فعال'
+      targetLabel: 'نقشه مراحل هفت‌گانه (Journey Map)',
+      title: '۱. نقشه مراحل بازی',
+      text: 'اینجا نقشه اصلی بازیه؛ ۷ مرحله هیجان‌انگیز داری. هر مرحله شامل چالش‌های امتیازی، سوالات هوشمند و ارسال آثار است.',
     },
     {
       targetTab: 'Rewards',
       icon: Gift,
-      title: '۲. جوایز و امتیازات (Prizes & Points)',
-      text: 'توی بخش جوایز، هدایا و جوایز ارزنده‌ای که توسط مدیر سامانه تعیین شده منتظرته! با انجام مأموریت‌ها و مراحل، کریستال و امتیاز جمع کن و قفل جایزه‌ت رو باز کن.',
-      highlightArea: 'ویترین جوایز و کریستال‌ها'
+      targetLabel: 'ویترین جوایز و کریستال‌ها (Rewards)',
+      title: '۲. جوایز و امتیازات',
+      text: 'در این بخش هدایا و جوایز ارزنده‌ای که توسط مدیر سامانه تعیین شده قرار داره. با کسب امتیاز و کریستال قفل جوایز رو باز کن.',
     },
     {
       targetTab: 'Vitrin',
       icon: Grid,
-      title: '۳. ویترین افتخارات (Vitrin / Explore)',
-      text: 'اینجا مثل اکسپلور اینستاگرام، ویدیوها، دست‌سازه‌ها و خلاقیت‌های بچه‌های سراسر ایران رو می‌بینی. می‌تونی با دبل‌تپ (دوبار کلیک) لایک کنی یا بهشون ۱ تا ۵ ستاره بدی!',
-      highlightArea: 'اکسپلور اینستاگرامی و امتیازدهی'
+      targetLabel: 'ویترین و اکسپلور دست‌سازه‌ها (Vitrin)',
+      title: '۳. ویترین و آثار دانش‌آموزی',
+      text: 'در این بخش ویدیوها و دست‌سازه‌های ارسالی بچه‌های سراسر کشور رو می‌بینی و می‌تونی لایک کنی و ستاره بدی.',
     },
     {
       targetTab: 'Leaderboard',
       icon: Trophy,
-      title: '۴. جدول رده‌بندی و سکوی ۵ تیم برتر',
-      text: 'روی سکوی قهرمانی، ۵ تیم برتر ایران می‌درخشند! تلاش کن با سرگروه و هم‌تیمی‌هات به جمع برترین‌های تالار افتخارات ملحق بشی.',
-      highlightArea: 'سکوی جام قهرمانی'
+      targetLabel: 'سکوی برترین‌های کشور (Leaderboard)',
+      title: '۴. جدول رده‌بندی و قهرمانان',
+      text: 'روی سکوی قهرمانی، تیم‌های برتر ایران می‌درخشند. تلاش کن با کسب بیشترین امتیاز به صدر جدول ملحق بشی.',
     }
   ];
 
   const currentStepData = steps[currentStep];
 
+  // Auto switch tab in background when step changes
+  useEffect(() => {
+    if (onNavigateTab && currentStepData.targetTab) {
+      onNavigateTab(currentStepData.targetTab);
+    }
+  }, [currentStep]);
+
   const handleNext = () => {
     if (currentStep < steps.length - 1) {
-      const nextStep = currentStep + 1;
-      setCurrentStep(nextStep);
-      if (onNavigateTab && steps[nextStep].targetTab) {
-        onNavigateTab(steps[nextStep].targetTab);
-      }
+      setCurrentStep(prev => prev + 1);
     } else {
       onComplete();
     }
@@ -111,129 +118,141 @@ export default function OnboardingCommanderTutorial({
 
   const handlePrev = () => {
     if (currentStep > 0) {
-      const prevStep = currentStep - 1;
-      setCurrentStep(prevStep);
-      if (onNavigateTab && steps[prevStep].targetTab) {
-        onNavigateTab(steps[prevStep].targetTab);
-      }
+      setCurrentStep(prev => prev - 1);
     }
   };
 
+  const Icon = currentStepData.icon;
+
   return (
-    <div className="fixed inset-0 z-[100] pointer-events-auto bg-black/85 backdrop-blur-sm flex flex-col justify-center items-center p-3 sm:p-6 dir-rtl font-sans select-none animate-in fade-in duration-300 overflow-y-auto">
+    <div className="fixed inset-0 z-50 pointer-events-none flex flex-col justify-end p-3 sm:p-6 dir-rtl font-sans select-none">
       
-      {/* Clash of Clans Style Commander Dialog Box */}
+      {/* Light subtle backdrop overlay - allows background page to be visible */}
+      <div 
+        onClick={onComplete}
+        className="absolute inset-0 bg-slate-950/40 backdrop-blur-[2px] pointer-events-auto transition-opacity duration-300"
+      />
+
+      {/* Floating Tactical Spotlight Focus Indicator (Pointers towards top/center) */}
+      <motion.div 
+        key={`beacon-${currentStep}`}
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        exit={{ opacity: 0 }}
+        className="max-w-xl mx-auto w-full mb-2 flex items-center justify-center pointer-events-auto relative z-20"
+      >
+        <div className={`inline-flex items-center gap-2 px-3.5 py-1 rounded-full text-xs font-black border shadow-lg backdrop-blur-md ${
+          isGirls 
+            ? 'bg-pink-950/80 text-pink-300 border-pink-500/40 shadow-[0_0_15px_rgba(244,63,94,0.3)]' 
+            : 'bg-cyan-950/80 text-cyan-300 border-cyan-500/40 shadow-[0_0_15px_rgba(6,182,212,0.3)]'
+        }`}>
+          <Target size={13} className="animate-spin text-amber-400" style={{ animationDuration: '4s' }} />
+          <span>راهنما: {currentStepData.targetLabel}</span>
+        </div>
+      </motion.div>
+
+      {/* Floating Tactical Commander HUD Box (Bottom Floating Coach Card) */}
       <motion.div 
         key={currentStep}
-        initial={{ opacity: 0, y: 15, scale: 0.95 }}
+        initial={{ opacity: 0, y: 25, scale: 0.96 }}
         animate={{ opacity: 1, y: 0, scale: 1 }}
-        exit={{ opacity: 0, y: 20 }}
-        transition={{ duration: 0.25 }}
-        className={`w-full max-w-xl bg-[#090e21] border-2 ${commander.borderColor} rounded-3xl p-4 sm:p-6 shadow-2xl relative ${commander.glowColor} overflow-hidden max-h-[85vh] sm:max-h-[88vh] overflow-y-auto my-auto`}
+        exit={{ opacity: 0, y: 25, scale: 0.96 }}
+        transition={{ type: 'spring', damping: 25, stiffness: 320 }}
+        className={`w-full max-w-2xl mx-auto bg-[#070d1e]/95 border-2 ${commander.borderColor} rounded-3xl p-4 sm:p-5 shadow-2xl relative ${commander.glowColor} pointer-events-auto backdrop-blur-xl z-20 mb-2 sm:mb-4`}
       >
-        {/* Background Subtle Tech Grid */}
-        <div className="absolute inset-0 radar-grid opacity-30 pointer-events-none" />
+        {/* Subtle Tech Hologram Lines */}
+        <div className="absolute inset-0 radar-grid opacity-20 pointer-events-none rounded-3xl" />
 
-        {/* Skip Tutorial Button */}
+        {/* Dismiss / Close Tutorial */}
         <button
           onClick={onComplete}
-          className="absolute top-3 left-3 p-1.5 rounded-full bg-slate-900/80 hover:bg-slate-800 text-slate-400 hover:text-white transition z-20 border border-slate-700 text-xs flex items-center gap-1"
+          className="absolute top-3 left-3 p-1.5 rounded-full bg-slate-900/80 hover:bg-slate-800 text-slate-400 hover:text-white transition z-30 border border-slate-700/80 text-xs flex items-center gap-1 cursor-pointer"
+          title="پایان راهنما"
         >
-          <span>رد کردن آموزش</span>
-          <X size={14} />
+          <span className="text-[10px] hidden sm:inline">رد کردن</span>
+          <X size={13} />
         </button>
 
-        {/* Commander Character Row (Avatar on Left, Speech Bubble on Right) */}
-        <div className="flex flex-col sm:flex-row items-center sm:items-start gap-4 relative z-10">
+        {/* Content Row: Commander Avatar + Interactive Speech Balloon */}
+        <div className="flex flex-row items-center sm:items-start gap-3.5 relative z-10">
           
-          {/* Commander Character Portrait Frame */}
+          {/* Commander Character Avatar with Tactical Rank Badge */}
           <div className="relative shrink-0 flex flex-col items-center">
-            <div className={`w-20 h-20 sm:w-24 sm:h-24 rounded-2xl p-1 bg-gradient-to-tr ${commander.badgeColor} shadow-xl border border-white/20 relative group`}>
+            <div className={`w-16 h-16 sm:w-20 sm:h-20 rounded-2xl p-0.5 bg-gradient-to-tr ${commander.badgeColor} shadow-xl border border-white/20 relative group overflow-hidden`}>
               <img 
                 src={commander.avatar} 
                 alt={commander.name}
-                className="w-full h-full object-cover rounded-xl"
+                className="w-full h-full object-cover rounded-xl object-top"
               />
-              <div className="absolute -bottom-2 -right-1 bg-amber-500 text-slate-950 p-1 rounded-full shadow-lg">
-                <Shield size={14} className="fill-slate-950" />
+              <div className="absolute -bottom-1 -right-1 bg-amber-500 text-slate-950 p-1 rounded-full shadow-lg">
+                <Shield size={12} className="fill-slate-950" />
               </div>
             </div>
             
-            <div className="text-center mt-1.5">
-              <span className="text-[11px] font-black text-white block">{commander.name}</span>
-              <span className={`text-[9px] font-bold ${isGirls ? 'text-pink-300' : 'text-cyan-300'}`}>
-                {commander.title}
-              </span>
+            <div className="text-center mt-1 hidden sm:block">
+              <span className="text-[10px] font-black text-white block truncate max-w-[90px]">{commander.name}</span>
             </div>
           </div>
 
-          {/* Speech Dialog Body */}
-          <div className="flex-1 space-y-2.5 text-right w-full">
+          {/* Speech & Navigation Body */}
+          <div className="flex-1 min-w-0 space-y-2 text-right">
             
-            {/* Step Progress Pill */}
-            <div className="flex items-center justify-between">
-              <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-black border ${
-                isGirls 
-                  ? 'bg-pink-950/80 text-pink-300 border-pink-500/50' 
-                  : 'bg-cyan-950/80 text-cyan-300 border-cyan-500/50'
-              }`}>
-                مرحله آموزش {currentStep + 1} از {steps.length}
-              </span>
+            {/* Header: Title + Progress Bar */}
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex items-center gap-1.5 min-w-0">
+                <div className={`p-1 rounded-lg ${commander.accentBg} ${commander.accentText} shrink-0`}>
+                  <Icon size={15} />
+                </div>
+                <h3 className="text-xs sm:text-sm font-black text-white truncate">
+                  {currentStepData.title}
+                </h3>
+              </div>
 
-              <div className="flex gap-1">
+              {/* Progress Dots */}
+              <div className="flex items-center gap-1 shrink-0 pl-7 sm:pl-0">
                 {steps.map((_, idx) => (
                   <span 
                     key={idx} 
-                    className={`w-2 h-2 rounded-full transition-all ${
+                    className={`h-1.5 rounded-full transition-all duration-300 ${
                       idx === currentStep 
-                        ? isGirls ? 'bg-pink-500 w-4' : 'bg-cyan-400 w-4'
+                        ? isGirls ? 'bg-pink-500 w-3.5' : 'bg-cyan-400 w-3.5'
                         : idx < currentStep 
-                          ? 'bg-slate-500' 
-                          : 'bg-slate-800'
+                          ? 'bg-slate-500 w-1.5' 
+                          : 'bg-slate-800 w-1.5'
                     }`} 
                   />
                 ))}
               </div>
             </div>
 
-            {/* Dialog Heading */}
-            <div className="flex items-center gap-2">
-              <div className={`p-1.5 rounded-xl ${isGirls ? 'bg-pink-500/20 text-pink-400' : 'bg-cyan-500/20 text-cyan-400'}`}>
-                <currentStepData.icon size={18} />
-              </div>
-              <h3 className="text-sm sm:text-base font-black text-white">
-                {currentStepData.title}
-              </h3>
-            </div>
-
-            {/* Speech Text Bubble */}
-            <div className="bg-[#050917]/90 rounded-2xl p-3 sm:p-3.5 border border-slate-800 text-xs sm:text-sm text-slate-200 leading-relaxed">
+            {/* Speech Text Content */}
+            <div className="bg-[#030611]/80 rounded-2xl p-2.5 sm:p-3 border border-slate-800/80 text-xs text-slate-200 leading-relaxed font-medium">
               {currentStepData.text}
             </div>
 
-            {/* Action Buttons */}
-            <div className="flex items-center justify-between pt-2 gap-2">
+            {/* Controls Bar: Prev & Next Buttons */}
+            <div className="flex items-center justify-between pt-1 gap-2">
               <button
                 onClick={handlePrev}
                 disabled={currentStep === 0}
-                className={`px-3 py-1.5 rounded-xl text-xs font-bold border border-slate-700 text-slate-300 transition flex items-center gap-1 ${
-                  currentStep === 0 ? 'opacity-30 cursor-not-allowed' : 'hover:bg-slate-800 hover:text-white'
+                className={`px-3 py-1 rounded-xl text-xs font-bold border border-slate-800 text-slate-400 transition flex items-center gap-1 ${
+                  currentStep === 0 ? 'opacity-25 cursor-not-allowed' : 'hover:bg-slate-800 hover:text-white cursor-pointer'
                 }`}
               >
-                <ArrowRight size={14} />
+                <ArrowRight size={13} />
                 <span>قبلی</span>
               </button>
 
               <button
                 onClick={handleNext}
-                className={`px-4 py-2 rounded-xl text-xs sm:text-sm font-black transition flex items-center gap-1.5 shadow-lg transform hover:scale-105 active:scale-95 ${
+                className={`px-4 py-1.5 rounded-xl text-xs font-black transition flex items-center gap-1.5 shadow-lg transform active:scale-95 cursor-pointer text-white ${
                   isGirls
-                    ? 'bg-gradient-to-r from-pink-500 to-rose-600 text-white shadow-pink-900/50'
-                    : 'bg-gradient-to-r from-cyan-400 to-blue-600 text-slate-950 shadow-cyan-900/50'
+                    ? 'girls-button-neon border border-pink-400/50 shadow-pink-900/40'
+                    : 'boys-button-tactical border border-blue-400/50 shadow-blue-900/40'
                 }`}
               >
-                <span>{currentStep === steps.length - 1 ? 'ورود به میدان و شروع ماجراجویی' : 'مرحله بعد'}</span>
-                {currentStep === steps.length - 1 ? <Check size={16} /> : <ArrowLeft size={16} />}
+                <span>{currentStep === steps.length - 1 ? 'شروع مأموریت' : 'مرحله بعد'}</span>
+                {currentStep === steps.length - 1 ? <Check size={14} /> : <ArrowLeft size={14} />}
               </button>
             </div>
 
@@ -242,6 +261,7 @@ export default function OnboardingCommanderTutorial({
         </div>
 
       </motion.div>
+
     </div>
   );
 }

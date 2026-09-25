@@ -5,6 +5,7 @@ import { User, Medal, UserMedal } from '../types';
 import { formatToPersianDigits } from '../utils/jalali';
 import { getSavedPostIds } from '../data/vitrinData';
 import SavedVitrinReelsModal from './SavedVitrinReelsModal';
+import { getAvatarsByGender, getDefaultAvatar } from '../data/avatars';
 
 interface ProfileModalProps {
   isOpen: boolean;
@@ -17,15 +18,6 @@ interface ProfileModalProps {
   onNavigateTab?: (tab: string) => void;
 }
 
-const PREDEFINED_AVATARS = [
-  { id: 'av1', name: 'رزمنده سایبری ۱', url: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=300&q=80' },
-  { id: 'av2', name: 'فرمانده جوخه', url: 'https://images.unsplash.com/photo-1522075469751-3a6694fb2f61?auto=format&fit=crop&w=300&q=80' },
-  { id: 'av3', name: 'رزمنده پیشتاز', url: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=300&q=80' },
-  { id: 'av4', name: 'افسر ارشد', url: 'https://images.unsplash.com/photo-1517841905240-472988babdf9?auto=format&fit=crop&w=300&q=80' },
-  { id: 'av5', name: 'تکاور سایبری', url: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=300&q=80' },
-  { id: 'av6', name: 'پیشگام عملیات', url: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&w=300&q=80' },
-];
-
 export default function ProfileModal({
   isOpen,
   onClose,
@@ -36,7 +28,11 @@ export default function ProfileModal({
   triggerAlert,
   onNavigateTab
 }: ProfileModalProps) {
-  const [selectedAvatar, setSelectedAvatar] = useState(currentUser?.avatar_url || PREDEFINED_AVATARS[0].url);
+  const isGirls = currentUser?.gender === 'دختر';
+  const availableAvatars = getAvatarsByGender(currentUser?.gender);
+  const defaultAv = getDefaultAvatar(currentUser?.gender);
+
+  const [selectedAvatar, setSelectedAvatar] = useState(currentUser?.avatar_url || defaultAv);
   const [showSavedReels, setShowSavedReels] = useState(false);
   const [savedCount, setSavedCount] = useState(0);
 
@@ -195,23 +191,27 @@ export default function ProfileModal({
               </label>
             </div>
 
-            <div className="grid grid-cols-3 gap-3">
-              {PREDEFINED_AVATARS.map((av) => {
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+              {availableAvatars.map((av) => {
                 const isSelected = selectedAvatar === av.url;
                 return (
                   <div
                     key={av.id}
                     onClick={() => setSelectedAvatar(av.url)}
-                    className={`relative cursor-pointer rounded-xl p-2.5 bg-slate-900/90 border transition flex flex-col items-center gap-2 ${
-                      isSelected ? 'border-cyan-400 shadow-[0_0_15px_rgba(6,182,212,0.3)] bg-cyan-950/30' : 'border-slate-800 hover:border-slate-700'
+                    className={`relative cursor-pointer rounded-xl p-2 bg-slate-900/90 border transition flex flex-col items-center gap-1.5 ${
+                      isSelected 
+                        ? isGirls
+                          ? 'border-pink-400 shadow-[0_0_15px_rgba(255,19,137,0.3)] bg-pink-950/30'
+                          : 'border-cyan-400 shadow-[0_0_15px_rgba(6,182,212,0.3)] bg-cyan-950/30' 
+                        : 'border-slate-800 hover:border-slate-700'
                     }`}
                   >
                     <div className="w-14 h-14 rounded-full overflow-hidden border border-slate-700">
-                      <img src={av.url} alt={av.name} className="w-full h-full object-cover" />
+                      <img src={av.url} alt={av.name} className="w-full h-full object-cover object-top" />
                     </div>
-                    <span className="text-[11px] font-bold text-slate-200">{av.name}</span>
+                    <span className="text-[10px] font-bold text-slate-200 text-center truncate max-w-full">{av.name}</span>
                     {isSelected && (
-                      <div className="absolute top-2 left-2 w-5 h-5 bg-cyan-500 text-slate-950 rounded-full flex items-center justify-center font-bold shadow">
+                      <div className={`absolute top-1.5 left-1.5 w-5 h-5 ${isGirls ? 'bg-pink-500' : 'bg-cyan-500'} text-slate-950 rounded-full flex items-center justify-center font-bold shadow`}>
                         <Check size={12} />
                       </div>
                     )}

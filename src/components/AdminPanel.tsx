@@ -85,6 +85,7 @@ import {
 import { PasswordResetRequest } from '../types';
 import { showInternalToast, confirmInternal } from '../lib/appDialog';
 import AdminSoundtrackManager from './AdminSoundtrackManager';
+import AdminDailyChallengeManager from './AdminDailyChallengeManager';
 import PasswordResetsAdmin from './PasswordResetsAdmin';
 import AdminPaymentsPanel from './AdminPaymentsPanel';
 import AdminChatRoomsPanel from './AdminChatRoomsPanel';
@@ -247,7 +248,7 @@ export default function AdminPanel({
   onNavigate
 }: AdminPanelProps) {
   const [activeAdminTab, setActiveAdminTab] = useState<
-    'overview' | 'submissions' | 'users' | 'missions' | 'trainings' | 'medals' | 'tickets' | 'news' | 'site_editor' | 'notifications' | 'chat_control' | 'soundtracks' | 'portals' | 'vitrins' | 'password_resets' | 'stage_builder' | 'prizes' | 'payments'
+    'overview' | 'submissions' | 'users' | 'missions' | 'trainings' | 'medals' | 'tickets' | 'news' | 'site_editor' | 'notifications' | 'chat_control' | 'soundtracks' | 'portals' | 'vitrins' | 'password_resets' | 'stage_builder' | 'prizes' | 'payments' | 'daily_challenges'
   >('submissions');
 
   // 🛡️ وضعیت بک‌اند امن (برای مدیریت امن رمز کاربران)
@@ -1947,6 +1948,19 @@ export default function AdminPanel({
         >
           <MapPin size={15} className="text-cyan-400" />
           <span>ایجاد مسیر و مراحل ({stages.length})</span>
+        </button>
+
+        <button
+          onClick={() => setActiveAdminTab('daily_challenges')}
+          className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl whitespace-nowrap shrink-0 transition border relative ${
+            activeAdminTab === 'daily_challenges' 
+              ? 'bg-gradient-to-r from-amber-500 via-yellow-400 to-amber-500 text-slate-950 border-amber-400 font-black shadow-[0_0_20px_rgba(245,158,11,0.5)]' 
+              : 'bg-[#080d21] text-amber-300 border-amber-500/40 hover:border-amber-400 hover:text-white'
+          }`}
+          id="btn-tab-daily-challenges"
+        >
+          <Zap size={15} className="text-amber-400 animate-pulse" />
+          <span>طراحی و مدیریت چالش روزانه</span>
         </button>
 
         <button
@@ -6257,132 +6271,50 @@ export default function AdminPanel({
       )}
 
       {/* ==================================================================== */}
+      {/* 13.5 ⚡ DAILY CHALLENGE MANAGEMENT TAB                                */}
+      {/* ==================================================================== */}
+      {activeAdminTab === 'daily_challenges' && (
+        <AdminDailyChallengeManager
+          currentConfig={dailyChallengeConfig}
+          onConfigChange={setDailyChallengeConfig}
+          triggerAlert={triggerAlert}
+        />
+      )}
+
+      {/* ==================================================================== */}
       {/* 14. 🗺️ STAGE & PATH BUILDER TAB (مدیریت مراحل نقشه و چالش روزانه)       */}
       {/* ==================================================================== */}
       {activeAdminTab === 'stage_builder' && (
         <div className="space-y-6 dir-rtl font-sans">
 
           {/* Section 1: Daily Challenge Configuration */}
-          <div className="bg-[#080d21] border border-slate-800 rounded-3xl p-5 sm:p-6 space-y-4 shadow-xl">
-            <div className="flex items-center justify-between border-b border-slate-800/80 pb-3">
+          <div className="bg-[#080d21] border border-amber-500/40 rounded-3xl p-5 sm:p-6 space-y-4 shadow-xl">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-800/80 pb-4">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-amber-400 flex items-center justify-center shrink-0">
-                  <Zap size={20} />
+                <div className="w-12 h-12 rounded-2xl bg-amber-500/20 border border-amber-500/40 text-amber-400 flex items-center justify-center shrink-0 shadow-[0_0_15px_rgba(245,158,11,0.2)]">
+                  <Zap size={24} className="animate-pulse" />
                 </div>
                 <div>
-                  <h3 className="text-sm font-black text-white">مدیریت چالش تاکتیکی روزانه</h3>
-                  <p className="text-[11px] text-slate-400">تنظیم سوال و پاداش امتیاز چالش روزانه رزمندگان</p>
+                  <h3 className="text-base font-black text-white">طراحی و مدیریت چالش تاکتیکی روزانه</h3>
+                  <p className="text-xs text-slate-400">همگام‌سازی مستقیم در جدول warroom_daily_challenges و تنظیم سوالات تست هوش رزمندگان</p>
                 </div>
               </div>
 
-              <span className={`px-3 py-1 rounded-full text-[10px] font-bold border ${
-                dailyForm.isActive 
-                  ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30' 
-                  : 'bg-rose-500/10 text-rose-400 border-rose-500/30'
-              }`}>
-                {dailyForm.isActive ? 'چالش فعال است' : 'چالش غیرفعال'}
-              </span>
+              <button
+                type="button"
+                onClick={() => setActiveAdminTab('daily_challenges')}
+                className="px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-xs transition shadow-lg flex items-center gap-2 shrink-0"
+              >
+                <Plus size={15} />
+                <span>مشاهده تب اختصاصی چالش‌ها</span>
+              </button>
             </div>
 
-            <form onSubmit={handleSaveDailyChallenge} className="space-y-4">
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                <div>
-                  <label className="block text-[11px] font-bold text-slate-300 mb-1">عنوان چالش</label>
-                  <input
-                    type="text"
-                    value={dailyForm.title}
-                    onChange={e => setDailyForm(prev => ({ ...prev, title: e.target.value }))}
-                    className="w-full bg-slate-950 border border-slate-800 focus:border-amber-400 rounded-xl px-3 py-2 text-xs text-white outline-none"
-                    placeholder="چالش تاکتیکی روزانه"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-[11px] font-bold text-slate-300 mb-1">پاداش امتیاز (Points)</label>
-                  <input
-                    type="number"
-                    value={dailyForm.pointsReward}
-                    onChange={e => setDailyForm(prev => ({ ...prev, pointsReward: Number(e.target.value) || 0 }))}
-                    className="w-full bg-slate-950 border border-slate-800 focus:border-amber-400 rounded-xl px-3 py-2 text-xs text-amber-300 font-mono outline-none"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-[11px] font-bold text-slate-300 mb-1">مهلت تایمر پاسخگویی (۵ تا ۶۰۰ ثانیه)</label>
-                  <input
-                    type="number"
-                    min={5}
-                    max={600}
-                    value={dailyForm.timeLimitSeconds || 10}
-                    onChange={e => {
-                      const val = Math.max(5, Math.min(600, Number(e.target.value) || 5));
-                      setDailyForm(prev => ({ ...prev, timeLimitSeconds: val }));
-                    }}
-                    className="w-full bg-slate-950 border border-slate-800 focus:border-amber-400 rounded-xl px-3 py-2 text-xs text-amber-400 font-mono outline-none"
-                    placeholder="10"
-                  />
-                </div>
-
-                <div className="sm:col-span-2 lg:col-span-1">
-                  <label className="block text-[11px] font-bold text-slate-300 mb-1">توضیحات مختصر</label>
-                  <input
-                    type="text"
-                    value={dailyForm.description}
-                    onChange={e => setDailyForm(prev => ({ ...prev, description: e.target.value }))}
-                    className="w-full bg-slate-950 border border-slate-800 focus:border-amber-400 rounded-xl px-3 py-2 text-xs text-white outline-none"
-                  />
-                </div>
-
-                <div className="sm:col-span-2 lg:col-span-3">
-                  <label className="block text-[11px] font-bold text-slate-300 mb-1">متن سوال چالش روزانه *</label>
-                  <input
-                    type="text"
-                    value={dailyForm.questionText}
-                    onChange={e => setDailyForm(prev => ({ ...prev, questionText: e.target.value }))}
-                    className="w-full bg-slate-950 border border-slate-800 focus:border-amber-400 rounded-xl px-3 py-2.5 text-xs text-white outline-none"
-                    placeholder="متن سوال را وارد نمایید..."
-                  />
-                </div>
-
-                {dailyForm.options.map((opt, optIdx) => (
-                  <div key={optIdx}>
-                    <div className="flex items-center justify-between mb-1">
-                      <label className="text-[10px] font-bold text-slate-400">گزینه {optIdx + 1}</label>
-                      <label className="flex items-center gap-1 cursor-pointer">
-                        <input
-                          type="radio"
-                          name="correct_option"
-                          checked={dailyForm.correctOptionIndex === optIdx}
-                          onChange={() => setDailyForm(prev => ({ ...prev, correctOptionIndex: optIdx }))}
-                          className="accent-amber-400"
-                        />
-                        <span className="text-[10px] text-amber-300">پاسخ صحیح</span>
-                      </label>
-                    </div>
-                    <input
-                      type="text"
-                      value={opt}
-                      onChange={e => {
-                        const newOpts = [...dailyForm.options];
-                        newOpts[optIdx] = e.target.value;
-                        setDailyForm(prev => ({ ...prev, options: newOpts }));
-                      }}
-                      className="w-full bg-slate-950 border border-slate-800 focus:border-amber-400 rounded-xl px-3 py-2 text-xs text-white outline-none"
-                    />
-                  </div>
-                ))}
-              </div>
-
-              <div className="flex justify-end pt-2">
-                <button
-                  type="submit"
-                  className="px-5 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-xs transition shadow-lg flex items-center gap-2"
-                >
-                  <Check size={14} />
-                  <span>ذخیره چالش روزانه</span>
-                </button>
-              </div>
-            </form>
+            <AdminDailyChallengeManager
+              currentConfig={dailyChallengeConfig}
+              onConfigChange={setDailyChallengeConfig}
+              triggerAlert={triggerAlert}
+            />
           </div>
 
           {/* Section 2: Stages Management List */}

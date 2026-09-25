@@ -56,7 +56,7 @@ interface AuthViewProps {
   setUsers: React.Dispatch<React.SetStateAction<User[]>>;
   groups: Group[];
   setGroups: React.Dispatch<React.SetStateAction<Group[]>>;
-  onLoginSuccess: (user: User, meta?: { mustChangePassword?: boolean }) => void;
+  onLoginSuccess: (user: User, meta?: { mustChangePassword?: boolean; isNewRegistration?: boolean }) => void;
   /** ثبت درخواست تغییر رمز در «حالت محلی» (زمانی که بک‌اند امن در دسترس نیست) */
   createLocalPasswordResetRequest?: (input: {
     nationalCode: string;
@@ -362,7 +362,7 @@ export default function AuthView({
       return;
     }
     triggerAlert(`گروه «${group.name}» ساخته شد. ظرفیت گروه ${MAX_GROUP_MEMBERS} نفر است. نام کاربری: ${group.shared_username} | رمز: ${group.shared_password}`);
-    onLoginSuccess(leaderUser, { mustChangePassword: res.data.mustChangePassword });
+    onLoginSuccess(leaderUser, { mustChangePassword: res.data.mustChangePassword, isNewRegistration: true });
   };
 
   // Handle Login Submission

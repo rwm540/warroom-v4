@@ -53,6 +53,12 @@ import { initialJourneyStages } from '../data/initialStages';
 import SavedVitrinReelsModal from './SavedVitrinReelsModal';
 import StageQuizModal from './StageQuizModal';
 import DailyChallengeModal from './DailyChallengeModal';
+import { getAvatarsByGender, getDefaultAvatar } from '../data/avatars';
+
+// Project commander character avatars
+import womanCommanderAvatar from '../assets/images/avatar/woman/Commander_giving_orders_2K_202608210108.jpeg';
+import maleCommanderAvatar from '../assets/images/avatar/male/Commander_in_tactical_uniform_ready_202608210056.jpeg';
+
 // پس‌زمینه تاکتیکی نقشه و مراحل بازی (تصویر بهینه‌شده وب‌پک)
 const tacticalMapBg = '/images/backgrounds/tactical_war_map_background.webp';
 
@@ -120,6 +126,19 @@ export default function JourneyView({
     return localStorage.getItem(`warroom_daily_challenge_${todayKey}`) === 'true';
   });
 
+  useEffect(() => {
+    const handleUpdate = () => {
+      const tKey = new Date().toISOString().slice(0, 10);
+      setIsDailyChallengeDone(localStorage.getItem(`warroom_daily_challenge_${tKey}`) === 'true');
+    };
+    window.addEventListener('warroom_daily_challenge_updated', handleUpdate);
+    window.addEventListener('warroom_daily_challenge_deleted', handleUpdate);
+    return () => {
+      window.removeEventListener('warroom_daily_challenge_updated', handleUpdate);
+      window.removeEventListener('warroom_daily_challenge_deleted', handleUpdate);
+    };
+  }, []);
+
   // Integrated Profile state
   const [showProfileDrawer, setShowProfileDrawer] = useState(initialOpenProfile);
   const [copiedCode, setCopiedCode] = useState(false);
@@ -183,14 +202,7 @@ export default function JourneyView({
     }
   };
 
-  const PREDEFINED_AVATARS = [
-    { id: 'av1', name: 'رزمنده سایبری ۱', url: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=300&q=80' },
-    { id: 'av2', name: 'فرمانده جوخه', url: 'https://images.unsplash.com/photo-1522075469751-3a6694fb2f61?auto=format&fit=crop&w=300&q=80' },
-    { id: 'av3', name: 'رزمنده پیشتاز', url: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=300&q=80' },
-    { id: 'av4', name: 'افسر ارشد', url: 'https://images.unsplash.com/photo-1517841905240-472988babdf9?auto=format&fit=crop&w=300&q=80' },
-    { id: 'av5', name: 'تکاور سایبری', url: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=300&q=80' },
-    { id: 'av6', name: 'پیشگام عملیات', url: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&w=300&q=80' },
-  ];
+  const PREDEFINED_AVATARS = getAvatarsByGender(currentUser?.gender, isGirls ? 'girls' : 'boys');
 
   const userGroup = groups.find(g => g.id === currentUser?.group_id);
   const earnedUserMedals = userMedals.filter(um => um.personal_code === currentUser?.personal_code);
@@ -422,16 +434,54 @@ export default function JourneyView({
       <div className="w-full max-w-4xl mx-auto flex flex-col gap-3 pb-36 md:pb-16 px-1.5 sm:px-3 relative z-10">
 
         {/* ========================================================================= */}
-        {/* 1. STICKY TOP HUD BAR: 4 Stats Cards */}
+        {/* 1. STICKY TOP HUD BAR: User Profile Avatar & 4 Stats Cards */}
         {/* ========================================================================= */}
-        <div className={`sticky top-0 z-30 w-full pt-1.5 pb-1.5 px-2 rounded-2xl backdrop-blur-xl border shadow-xl flex flex-col gap-2 transition-all duration-300 ${
+        <div className={`sticky top-0 z-30 w-full p-2 sm:p-2.5 rounded-2xl backdrop-blur-xl border shadow-xl flex flex-col md:flex-row items-center justify-between gap-2.5 transition-all duration-300 ${
           isGirls 
-            ? 'bg-[#150220]/90 border-fuchsia-500/30 shadow-[0_10px_30px_rgba(0,0,0,0.8),0_0_20px_rgba(255,19,137,0.2)]'
-            : 'bg-[#060c20]/90 border-blue-500/30 shadow-[0_10px_30px_rgba(0,0,0,0.8),0_0_20px_rgba(37,99,235,0.2)]'
+            ? 'bg-[#150220]/92 border-fuchsia-500/35 shadow-[0_10px_30px_rgba(0,0,0,0.8),0_0_20px_rgba(255,19,137,0.2)]'
+            : 'bg-[#060c20]/92 border-blue-500/35 shadow-[0_10px_30px_rgba(0,0,0,0.8),0_0_20px_rgba(37,99,235,0.2)]'
         }`}>
 
+          {/* User Profile Card with in-project Avatar */}
+          <div 
+            onClick={() => {
+              setProfileSubTab('dossier');
+              setShowProfileDrawer(true);
+            }}
+            className="w-full md:w-auto flex items-center justify-between md:justify-start gap-3 px-3 py-1.5 rounded-xl bg-[#090e1a]/85 border border-slate-800/80 hover:border-amber-400/50 cursor-pointer transition group shadow-md shrink-0"
+            title="مشاهده و ویرایش پرونده رزمنده"
+          >
+            <div className="flex items-center gap-2.5">
+              <div className={`relative w-10 h-10 sm:w-11 sm:h-11 rounded-full p-0.5 overflow-hidden border-2 shadow-md shrink-0 transition-transform group-hover:scale-105 ${
+                isGirls ? 'border-pink-400 shadow-[0_0_12px_rgba(255,19,137,0.5)]' : 'border-cyan-400 shadow-[0_0_12px_rgba(6,182,212,0.5)]'
+              }`}>
+                <img 
+                  src={currentUser?.avatar_url || (isGirls ? womanCommanderAvatar : maleCommanderAvatar)} 
+                  alt={currentUser?.first_name || 'کاربر'} 
+                  className="w-full h-full object-cover object-top rounded-full"
+                />
+              </div>
+
+              <div className="text-right">
+                <div className="flex items-center gap-1.5">
+                  <span className="text-xs sm:text-sm font-black text-white group-hover:text-amber-300 transition">
+                    {currentUser ? `${currentUser.first_name} ${currentUser.last_name}` : 'رزمنده عملیات'}
+                  </span>
+                </div>
+                <div className="flex items-center gap-1 text-[10px] text-slate-400 font-medium">
+                  <span className={`w-1.5 h-1.5 rounded-full ${isGirls ? 'bg-pink-400' : 'bg-cyan-400'}`} />
+                  <span>{userGroup?.name ? `جوخه: ${userGroup.name}` : 'پروفایل و پرونده'}</span>
+                </div>
+              </div>
+            </div>
+
+            <span className="text-[10px] font-bold px-2 py-0.5 rounded-lg bg-slate-800 text-slate-300 border border-slate-700 group-hover:bg-amber-500/20 group-hover:text-amber-300 group-hover:border-amber-500/40 transition">
+              پروفایل
+            </span>
+          </div>
+
           {/* Stats Bar (4 Columns: سطح شما, امتیاز کل, نشان‌ها, درصد مسیر) — کاملاً پویا از Supabase */}
-          <section className="shrink-0 grid grid-cols-4 gap-1.5 sm:gap-2 bg-[#0d1524]/90 border border-slate-800/80 rounded-xl p-1.5 sm:p-2 backdrop-blur-md shadow-md">
+          <section className="w-full md:flex-1 grid grid-cols-4 gap-1.5 sm:gap-2 bg-[#0d1524]/90 border border-slate-800/80 rounded-xl p-1.5 sm:p-2 backdrop-blur-md shadow-md">
             
             {/* 1. سطح شما */}
             <div className="flex flex-col items-center justify-center text-center p-1 rounded-lg bg-[#090e1a]/60 border border-slate-800/40">
@@ -506,7 +556,71 @@ export default function JourneyView({
           </section>
         </div>
 
-        {/* 2.5 QUICK DAILY CHALLENGE BANNER / MENU (REMOVED AS REQUESTED) */}
+        {/* ========================================================================= */}
+        {/* 2. TACTICAL DAILY CHALLENGE BANNER (چالش تاکتیکی روزانه اتاق جنگ)         */}
+        {/* ========================================================================= */}
+        <div className="w-full">
+          <button
+            type="button"
+            onClick={() => setShowDailyChallengeModal(true)}
+            className={`w-full p-3 sm:p-3.5 rounded-2xl border transition-all duration-300 flex items-center justify-between gap-3 text-right shadow-xl group cursor-pointer ${
+              isDailyChallengeDone
+                ? 'bg-emerald-950/40 border-emerald-500/50 hover:border-emerald-400 text-emerald-200'
+                : isGirls
+                ? 'bg-gradient-to-r from-fuchsia-950/70 via-[#180a2b] to-slate-900 border-fuchsia-500/60 hover:border-fuchsia-400 text-white shadow-[0_0_25px_rgba(236,72,153,0.25)]'
+                : 'bg-gradient-to-r from-amber-950/70 via-[#111936] to-slate-900 border-amber-500/60 hover:border-amber-400 text-white shadow-[0_0_25px_rgba(245,158,11,0.25)]'
+            }`}
+          >
+            <div className="flex items-center gap-3 min-w-0">
+              <div className={`w-11 h-11 rounded-xl flex items-center justify-center shrink-0 border ${
+                isDailyChallengeDone
+                  ? 'bg-emerald-500/20 border-emerald-500/40 text-emerald-400'
+                  : isGirls
+                  ? 'bg-fuchsia-500/20 border-fuchsia-500/50 text-fuchsia-300 shadow-[0_0_15px_rgba(236,72,153,0.4)]'
+                  : 'bg-amber-500/20 border-amber-500/50 text-amber-400 shadow-[0_0_15px_rgba(245,158,11,0.4)]'
+              }`}>
+                <Flame size={22} className={isDailyChallengeDone ? '' : 'animate-bounce'} />
+              </div>
+              <div className="min-w-0">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="text-xs sm:text-sm font-black text-white group-hover:text-amber-300 transition truncate">
+                    {dailyChallengeConfig?.title || 'چالش تاکتیکی روزانه'}
+                  </span>
+                  {isDailyChallengeDone ? (
+                    <span className="flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 shrink-0">
+                      <CheckCircle2 size={12} />
+                      انجام شده امروز
+                    </span>
+                  ) : (
+                    <span className="flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/40 animate-pulse shrink-0">
+                      <Zap size={12} />
+                      آماده پاسخگویی
+                    </span>
+                  )}
+                </div>
+                <p className="text-[11px] text-slate-300 line-clamp-1 mt-0.5">
+                  {dailyChallengeConfig?.description || 'با پاسخ به این تست هوش عمیق، کریستال پاداش دریافت کنید.'}
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2 shrink-0">
+              <div className="text-left font-mono hidden sm:block">
+                <span className="text-xs sm:text-sm font-black text-amber-400">
+                  +{formatToPersianDigits(dailyChallengeConfig?.pointsReward || 150)}
+                </span>
+                <span className="text-[10px] text-slate-400 block">کریستال پاداش</span>
+              </div>
+              <div className={`p-2 rounded-xl border transition ${
+                isDailyChallengeDone 
+                  ? 'bg-emerald-900/40 border-emerald-600 text-emerald-300' 
+                  : 'bg-amber-500 text-slate-950 border-amber-400 font-black shadow-md group-hover:scale-105'
+              }`}>
+                <ArrowLeft size={16} />
+              </div>
+            </div>
+          </button>
+        </div>
 
         {/* ========================================================================= */}
         {/* 3. MAIN INTERACTIVE SERPENTINE JOURNEY MAP (Fixed Background, Smooth Scroll) */}
@@ -1167,7 +1281,7 @@ export default function JourneyView({
                     </label>
                   </div>
 
-                  <div className="grid grid-cols-3 gap-3">
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
                     {PREDEFINED_AVATARS.map(avatar => {
                       const isSelected = (selectedAvatarUrl || currentUser?.avatar_url) === avatar.url;
                       return (
@@ -1176,18 +1290,20 @@ export default function JourneyView({
                           onClick={() => handleSaveAvatar(avatar.url)}
                           className={`relative rounded-2xl p-2 cursor-pointer border transition text-center space-y-1.5 ${
                             isSelected
-                              ? 'border-cyan-400 bg-cyan-950/60 shadow-[0_0_15px_rgba(6,182,212,0.4)]'
+                              ? isGirls
+                                ? 'border-pink-400 bg-pink-950/60 shadow-[0_0_15px_rgba(255,19,137,0.4)]'
+                                : 'border-cyan-400 bg-cyan-950/60 shadow-[0_0_15px_rgba(6,182,212,0.4)]'
                               : 'border-slate-800 bg-slate-900/60 hover:border-slate-700'
                           }`}
                         >
                           <div className="w-14 h-14 rounded-full mx-auto overflow-hidden ring-2 ring-slate-700">
-                            <img src={avatar.url} alt={avatar.name} className="w-full h-full object-cover" />
+                            <img src={avatar.url} alt={avatar.name} className="w-full h-full object-cover object-top" />
                           </div>
                           <span className="text-[10px] font-bold text-slate-300 block truncate">
                             {avatar.name}
                           </span>
                           {isSelected && (
-                            <span className="absolute top-1.5 right-1.5 p-1 rounded-full bg-cyan-500 text-slate-950">
+                            <span className={`absolute top-1.5 right-1.5 p-1 rounded-full ${isGirls ? 'bg-pink-500' : 'bg-cyan-500'} text-slate-950`}>
                               <Check size={10} strokeWidth={3} />
                             </span>
                           )}

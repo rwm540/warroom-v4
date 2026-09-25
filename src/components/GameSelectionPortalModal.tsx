@@ -1,32 +1,33 @@
 import React from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
-  Gamepad2, 
-  Rocket, 
-  ShieldAlert, 
   Lock, 
-  Sparkles, 
   ArrowLeft, 
   CheckCircle2, 
-  Trophy, 
-  Users, 
   X, 
-  User as UserIcon,
-  Crown,
   Zap,
-  Flame,
-  ShieldCheck
+  Sparkles
 } from 'lucide-react';
 import { User, GamePortal } from '../types';
 import { getGamePortals } from '../data/portalData';
+
+// Official in-project character avatar assets
+import womanCommanderAvatar from '../assets/images/avatar/woman/Commander_giving_orders_2K_202608210108.jpeg';
+import womanTacticalAvatar from '../assets/images/avatar/woman/Tactical_commander_character_design_2K_202608210119.jpeg';
+import womanVictoryAvatar from '../assets/images/avatar/woman/Female_commander_in_victory_pose_202608210116.jpeg';
+
+import maleCommanderAvatar from '../assets/images/avatar/male/Commander_in_tactical_uniform_ready_202608210056.jpeg';
+import maleTacticalAvatar from '../assets/images/avatar/male/Commander_wearing_tactical_uniform_2K_202608210049.jpeg';
+import maleVictoryAvatar from '../assets/images/avatar/male/Commander_doing_victory_pose_2K_202608210056.jpeg';
 
 interface GameSelectionPortalModalProps {
   isOpen: boolean;
   onClose: () => void;
   currentUser: User | null;
-  onSelectWarRoom: () => void;
+  onSelectWarRoom: (game?: GamePortal) => void;
   campaignTheme?: 'girls' | 'boys';
   portals?: GamePortal[];
+  isMandatory?: boolean;
 }
 
 export default function GameSelectionPortalModal({
@@ -35,7 +36,8 @@ export default function GameSelectionPortalModal({
   currentUser,
   onSelectWarRoom,
   campaignTheme = 'boys',
-  portals: customPortals
+  portals: customPortals,
+  isMandatory = false
 }: GameSelectionPortalModalProps) {
   React.useEffect(() => {
     if (isOpen) {
@@ -49,7 +51,30 @@ export default function GameSelectionPortalModal({
   if (!isOpen) return null;
 
   const isGirls = campaignTheme === 'girls' || currentUser?.gender === 'دختر';
-  const portalsList = customPortals || getGamePortals();
+
+  // Dynamic portals based on Admin settings / Supabase / localStorage
+  const sourcePortals = (customPortals && customPortals.length > 0) ? customPortals : getGamePortals();
+  
+  // Filter portals by active status and audience target
+  const portalsList = sourcePortals.filter(portal => {
+    if (portal.status === 'disabled') return false;
+    if (portal.targetAudience === 'girls' && !isGirls) return false;
+    if (portal.targetAudience === 'boys' && isGirls) return false;
+    return true;
+  });
+
+  // Pick commander avatar asset based on theme and index/game
+  const primaryAvatar = currentUser?.avatar_url || (isGirls ? womanCommanderAvatar : maleCommanderAvatar);
+  
+  const getPortalAvatar = (index: number) => {
+    if (isGirls) {
+      const avatars = [womanCommanderAvatar, womanTacticalAvatar, womanVictoryAvatar];
+      return avatars[index % avatars.length];
+    } else {
+      const avatars = [maleCommanderAvatar, maleTacticalAvatar, maleVictoryAvatar];
+      return avatars[index % avatars.length];
+    }
+  };
 
   const handleLaunchGame = (game: GamePortal) => {
     if (game.status !== 'active') return;
@@ -57,21 +82,21 @@ export default function GameSelectionPortalModal({
       window.open(game.link, '_blank');
       onClose();
     } else {
-      onSelectWarRoom();
+      onSelectWarRoom(game);
     }
   };
 
   return (
     <AnimatePresence>
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 dir-rtl font-sans">
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 dir-rtl font-sans select-none">
         
-        {/* Backdrop overlay with blur */}
+        {/* Backdrop overlay with blur - non-dismissible when mandatory */}
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
-          onClick={onClose}
-          className="absolute inset-0 bg-black/80 backdrop-blur-md"
+          onClick={isMandatory ? undefined : onClose}
+          className="absolute inset-0 bg-black/85 backdrop-blur-md"
         />
 
         {/* Modal Window Container */}
@@ -88,52 +113,60 @@ export default function GameSelectionPortalModal({
         >
           {/* Top Decorative Ambient Glow */}
           <div className={`absolute top-0 left-1/2 -translate-x-1/2 w-96 h-32 blur-[80px] rounded-full pointer-events-none ${
-            isGirls ? 'bg-[#ff1389]/30' : 'bg-[#2563eb]/30'
+            isGirls ? 'bg-[#ff1389]/25' : 'bg-[#2563eb]/25'
           }`} />
 
-          {/* Close / Dismiss Button */}
-          <button
-            onClick={onClose}
-            className="absolute top-4 left-4 p-2 rounded-2xl bg-slate-900/80 hover:bg-slate-800 border border-slate-700/60 text-slate-400 hover:text-white transition z-20"
-            title="بستن پنجره"
-          >
-            <X size={20} />
-          </button>
+          {/* Close / Dismiss Button - REMOVED during registration / mandatory mode */}
+          {!isMandatory && (
+            <button
+              onClick={onClose}
+              className="absolute top-4 left-4 p-2 rounded-2xl bg-slate-900/80 hover:bg-slate-800 border border-slate-700/60 text-slate-400 hover:text-white transition z-20 cursor-pointer"
+              title="بستن پنجره"
+            >
+              <X size={20} />
+            </button>
+          )}
 
           {/* Modal Header */}
-          <div className="text-center space-y-2 pb-6 border-b border-slate-800/80 relative z-10">
-            <div className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full text-xs font-bold border shadow-sm ${
-              isGirls 
-                ? 'bg-fuchsia-950/70 border-fuchsia-500/50 text-fuchsia-300' 
-                : 'bg-blue-950/70 border-blue-500/50 text-blue-300'
-            }">
-              <Sparkles size={14} className="animate-pulse" />
-              <span>درگاه ورود به رویدادها و بازی‌ها</span>
-            </div>
-
-            <h2 className="text-xl sm:text-2xl md:text-3xl font-black text-white tracking-tight pt-1">
+          <div className="text-center space-y-2 pb-5 border-b border-slate-800/80 relative z-10">
+            <h2 className="text-xl sm:text-2xl md:text-3xl font-black text-white tracking-tight">
               انتخاب سامانه و مأموریت عملیاتی
             </h2>
 
             {currentUser && (
-              <p className="text-xs sm:text-sm text-slate-300 font-medium flex items-center justify-center gap-1.5 pt-1">
-                <UserIcon size={15} className={isGirls ? 'text-pink-400' : 'text-blue-400'} />
-                <span>رزمنده فعال:</span>
-                <span className="text-amber-300 font-bold">{currentUser.first_name} {currentUser.last_name}</span>
-                {currentUser.role === 'admin' && (
-                  <span className="px-2 py-0.5 rounded-md bg-amber-500/20 text-amber-300 text-[10px] border border-amber-500/40">
-                    مدیر کل
-                  </span>
-                )}
-              </p>
+              <div className="pt-1 flex items-center justify-center gap-2.5">
+                <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-full overflow-hidden border-2 border-amber-400 shadow-md shrink-0">
+                  <img
+                    src={primaryAvatar}
+                    alt={currentUser.first_name}
+                    className="w-full h-full object-cover object-top"
+                  />
+                </div>
+                <div className="text-xs sm:text-sm text-slate-300 font-medium flex items-center gap-1.5">
+                  <span>رزمنده:</span>
+                  <span className="text-amber-300 font-bold">{currentUser.first_name} {currentUser.last_name}</span>
+                  {currentUser.role === 'admin' && (
+                    <span className="px-2 py-0.5 rounded-md bg-amber-500/20 text-amber-300 text-[10px] border border-amber-500/40">
+                      مدیر کل
+                    </span>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {isMandatory && (
+              <div className="mt-2 inline-flex items-center gap-2 px-3.5 py-1.5 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-300 text-xs font-bold">
+                <Zap size={14} className="text-amber-400 animate-pulse shrink-0" />
+                <span>لطفاً برای شروع و ورود به پنل، درگاه بازی مورد نظر خود را انتخاب کنید.</span>
+              </div>
             )}
           </div>
 
-          {/* Games Selection Grid */}
+          {/* Games Selection Grid - Fully dynamic based on Admin Panel Portals */}
           <div className="py-6 grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-5 relative z-10">
-            {portalsList.map((game) => {
-              const Icon = game.id === 'galaxy' ? Rocket : game.id === 'cyber' ? ShieldCheck : Gamepad2;
+            {portalsList.map((game, index) => {
               const isActive = game.status === 'active';
+              const cardAvatar = getPortalAvatar(index);
               const badgeClass = game.badgeColor || (isActive 
                 ? (isGirls ? 'bg-fuchsia-500/20 text-fuchsia-300 border-fuchsia-500/50' : 'bg-emerald-500/20 text-emerald-300 border-emerald-500/50')
                 : 'bg-amber-500/15 text-amber-300 border-amber-500/40');
@@ -159,20 +192,24 @@ export default function GameSelectionPortalModal({
 
                   <div className="space-y-4">
                     
-                    {/* Card Header: Icon & Status Badge */}
+                    {/* Card Header: Avatar Character Thumbnail & Status Badge */}
                     <div className="flex items-center justify-between gap-2">
-                      <div className={`w-12 h-12 rounded-2xl p-2.5 flex items-center justify-center border shadow-lg ${
+                      <div className={`w-13 h-13 rounded-2xl overflow-hidden border-2 shadow-lg shrink-0 ${
                         isActive
                           ? isGirls 
-                            ? 'bg-gradient-to-br from-fuchsia-500 to-pink-600 border-pink-300 text-white shadow-[0_0_20px_rgba(255,19,137,0.6)]' 
-                            : 'bg-gradient-to-br from-blue-600 to-indigo-600 border-blue-300 text-white shadow-[0_0_20px_rgba(37,99,235,0.6)]'
-                          : 'bg-slate-800/80 border-slate-700 text-slate-400'
+                            ? 'border-pink-400 shadow-[0_0_20px_rgba(255,19,137,0.6)] ring-2 ring-pink-500/30' 
+                            : 'border-blue-400 shadow-[0_0_20px_rgba(37,99,235,0.6)] ring-2 ring-blue-500/30'
+                          : 'border-slate-700 opacity-60'
                       }`}>
-                        <Icon size={24} />
+                        <img 
+                          src={cardAvatar} 
+                          alt={game.title} 
+                          className="w-full h-full object-cover object-top"
+                        />
                       </div>
 
                       <span className={`px-2.5 py-1 rounded-full text-[10px] font-black border ${badgeClass}`}>
-                        {game.badgeText}
+                        {game.badgeText || (isActive ? 'فعال • در حال برگزاری' : 'به‌زودی')}
                       </span>
                     </div>
 
@@ -186,15 +223,19 @@ export default function GameSelectionPortalModal({
                           <CheckCircle2 size={16} className={isGirls ? 'text-pink-400' : 'text-blue-400'} />
                         )}
                       </div>
-                      <p className="text-[11px] text-amber-300/90 font-medium mt-0.5">
-                        {game.subtitle}
-                      </p>
+                      {game.subtitle && (
+                        <p className="text-[11px] text-amber-300/90 font-medium mt-0.5">
+                          {game.subtitle}
+                        </p>
+                      )}
                     </div>
 
                     {/* Description */}
-                    <p className="text-xs text-slate-300 leading-relaxed text-right">
-                      {game.description}
-                    </p>
+                    {game.description && (
+                      <p className="text-xs text-slate-300 leading-relaxed text-right">
+                        {game.description}
+                      </p>
+                    )}
 
                   </div>
 
@@ -206,13 +247,13 @@ export default function GameSelectionPortalModal({
                           e.stopPropagation();
                           handleLaunchGame(game);
                         }}
-                        className={`w-full py-3 px-4 rounded-2xl font-black text-xs sm:text-sm text-white border shadow-xl flex items-center justify-center gap-2 transition transform group-hover:scale-[1.02] active:scale-[0.98] ${
+                        className={`w-full py-3 px-4 rounded-2xl font-black text-xs sm:text-sm text-white border shadow-xl flex items-center justify-center gap-2 transition transform group-hover:scale-[1.02] active:scale-[0.98] cursor-pointer ${
                           isGirls
                             ? 'girls-button-neon border-pink-300/60 shadow-[0_0_25px_rgba(255,19,137,0.7)]'
                             : 'boys-button-tactical border-blue-300/60 shadow-[0_0_25px_rgba(37,99,235,0.7)]'
                         }`}
                       >
-                        <Zap size={17} className="animate-pulse" />
+                        <Zap size={16} className="animate-pulse" />
                         <span>ورود به سامانه {game.title}</span>
                         <ArrowLeft size={16} className="group-hover:-translate-x-1 transition-transform" />
                       </button>
@@ -227,15 +268,6 @@ export default function GameSelectionPortalModal({
                 </div>
               );
             })}
-          </div>
-
-          {/* Footer Note */}
-          <div className="pt-4 border-t border-slate-800/80 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-slate-400">
-            <div className="flex items-center gap-2">
-              <ShieldAlert size={16} className={isGirls ? 'text-fuchsia-400' : 'text-blue-400'} />
-              <span>سامانه اتاق جنگ تنها بازی فعال حال حاضر رویداد می‌باشد.</span>
-            </div>
-            <p className="text-[11px] text-slate-500">پشتیبانی آنلاین ۲۴ ساعته ستاد برگزاری</p>
           </div>
 
         </motion.div>

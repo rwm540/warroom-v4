@@ -14,7 +14,7 @@ export default function LoadingScreen({ onComplete, isGirls }: LoadingScreenProp
   useEffect(() => {
     let isMounted = true;
 
-    // Ultra-fast instant loading sequence (completes in ~100ms)
+    // Ultra-fast instant loading sequence (completes in ~60ms)
     const interval = setInterval(() => {
       if (!isMounted) return;
       setProgress(prev => {
@@ -22,9 +22,9 @@ export default function LoadingScreen({ onComplete, isGirls }: LoadingScreenProp
           clearInterval(interval);
           return 100;
         }
-        return prev + 35;
+        return prev + 45;
       });
-    }, 20);
+    }, 15);
 
     const timer = setTimeout(() => {
       if (!isMounted) return;
@@ -35,8 +35,8 @@ export default function LoadingScreen({ onComplete, isGirls }: LoadingScreenProp
         if (isMounted) {
           onComplete();
         }
-      }, 60);
-    }, 110);
+      }, 30);
+    }, 60);
 
     return () => {
       isMounted = false;

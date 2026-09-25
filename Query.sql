@@ -281,7 +281,12 @@ create table if not exists public.warroom_password_reset_requests (
   updated_at timestamptz not null default now()
 );
 
--- پرداخت‌ها و تراکنش‌های ثبت‌نام؛ هر تغییر وضعیت در data ثبت و قابل audit است.
+-- پرداخت‌ها، فاکتورها و تراکنش‌های ثبت‌نام (warroom_payment_transactions)؛
+-- 💳 سناریوی فاکتور و پرداخت:
+-- ۱. پس از اتمام ثبت‌نام کاربر، سامانه بررسی می‌کند که آیا هزینه ثبت‌نام در پنل مدیریت فعال شده است یا خیر (تنظیمات در warroom_kv با کلید payment_settings).
+-- ۲. در صورت فعال بودن هزینه، کاربر پیش از ورود به پنل کاربری به صفحه فاکتور و پرداخت هدایت می‌شود.
+-- ۳. پس از تایید فاکتور، کاربر به سمت درگاه پرداخت (با مسیرهای رفت و برگشت تعیین‌شده توسط ادمین در تنظیمات) هدایت می‌شود.
+-- ۴. پس از پرداخت موفق، تراکنش در جدول warroom_payment_transactions ثبت شده و کاربر به درگاه انتخاب بازی (warroom_game_portals) هدایت می‌شود.
 create table if not exists public.warroom_payment_transactions (
   id         text primary key,
   data       jsonb not null default '{}'::jsonb,

@@ -655,6 +655,17 @@ export default function App() {
   };
 
   const handleTabChange = (tab: string) => {
+    const payRequired = Boolean(paymentSettings?.enabled && paymentSettings.amount > 0);
+    const hasPaid = currentUser && currentUser.role !== 'admin'
+      ? paymentTransactions.some(tx => (tx.user_id === currentUser.id || tx.national_code === currentUser.national_code) && tx.status === 'paid')
+      : true;
+
+    if (currentUser && currentUser.role !== 'admin' && payRequired && !hasPaid && tab !== 'Wallet' && tab !== 'Home') {
+      triggerAlert('برای دسترسی به سامانه، ابتدا باید هزینه ثبت‌نام را از طریق صفحه فاکتور و پرداخت واریز نمایید.');
+      setActiveTab('Wallet');
+      return;
+    }
+
     setShowAuthScreen(false);
     if (tab === 'GamePortals') {
       setIsGamePortalMandatory(false);
@@ -858,8 +869,18 @@ export default function App() {
       return;
     }
 
-    // کاربران عادی: درگاه بازی فقط بلافاصله پس از ثبت‌نام جدید باز می‌شود
     setIsAdminMode(false);
+    const payRequired = Boolean(paymentSettings?.enabled && paymentSettings.amount > 0);
+    const hasPaid = paymentTransactions.some(tx => (tx.user_id === safeUser.id || tx.national_code === safeUser.national_code) && tx.status === 'paid');
+
+    if (payRequired && !hasPaid) {
+      setActiveTab('Wallet');
+      setIsGamePortalMandatory(false);
+      setShowGamePortal(false);
+      triggerAlert(`خوش آمدید رزمنده ${safeUser.first_name} ${safeUser.last_name} — لطفاً پیش از ورود به سامانه، فاکتور هزینه ثبت‌نام را پرداخت فرمایید.`);
+      return;
+    }
+
     setActiveTab('Journey');
 
     if (_meta?.isNewRegistration) {
@@ -872,6 +893,17 @@ export default function App() {
       triggerAlert(`خوش آمدید رزمنده ${safeUser.first_name} ${safeUser.last_name} — به سامانه اتاق جنگ خوش آمدید.`);
     }
   };
+
+  // Guard: if user hasn't paid and payment is required, redirect to Wallet
+  useEffect(() => {
+    if (currentUser && currentUser.role !== 'admin') {
+      const payRequired = Boolean(paymentSettings?.enabled && paymentSettings.amount > 0);
+      const hasPaid = paymentTransactions.some(tx => (tx.user_id === currentUser.id || tx.national_code === currentUser.national_code) && tx.status === 'paid');
+      if (payRequired && !hasPaid && activeTab !== 'Wallet' && activeTab !== 'Home') {
+        setActiveTab('Wallet');
+      }
+    }
+  }, [currentUser, paymentSettings, paymentTransactions, activeTab]);
 
   const handleSelectWarRoom = (game?: GamePortal) => {
     setIsGamePortalMandatory(false);

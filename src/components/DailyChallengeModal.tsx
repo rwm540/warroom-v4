@@ -134,6 +134,38 @@ export default function DailyChallengeModal({
 
   if (!isOpen) return null;
 
+  if (!config || config.isActive === false || !config.title) {
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/80 backdrop-blur-md">
+        <motion.div
+          initial={{ opacity: 0, scale: 0.92, y: 20 }}
+          animate={{ opacity: 1, scale: 1, y: 0 }}
+          exit={{ opacity: 0, scale: 0.92, y: 20 }}
+          className="relative w-full max-w-md bg-[#070d1e] border border-amber-500/40 rounded-3xl p-6 shadow-[0_0_50px_rgba(245,158,11,0.2)] text-white text-right dir-rtl"
+        >
+          <div className="flex items-center justify-between pb-4 border-b border-slate-800">
+            <h3 className="font-black text-base text-white">چالش تاکتیکی روزانه</h3>
+            <button onClick={onClose} className="w-8 h-8 rounded-xl bg-slate-900 text-slate-400 hover:text-white flex items-center justify-center border border-slate-800 cursor-pointer">
+              <X size={18} />
+            </button>
+          </div>
+          <div className="py-8 text-center">
+            <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-amber-400">
+              <Zap size={32} />
+            </div>
+            <h4 className="text-base font-bold text-white mb-2">هیچ چالش فعالی وجود ندارد</h4>
+            <p className="text-xs text-slate-400">در حال حاضر چالش روزانه توسط فرمانده کل حذف شده یا غیرفعال است. لطفاً منتظر انتشار چالش جدید باشید.</p>
+          </div>
+          <div className="pt-4 border-t border-slate-800 text-center">
+            <button onClick={onClose} className="px-6 py-2.5 rounded-xl bg-gradient-to-r from-amber-500 to-yellow-500 text-slate-950 font-black text-sm hover:brightness-110 transition cursor-pointer">
+              متوجه شدم
+            </button>
+          </div>
+        </motion.div>
+      </div>
+    );
+  }
+
   const handleSubmitAnswer = () => {
     if (selectedOption === null) {
       triggerAlert('لطفاً یکی از گزینه‌ها را انتخاب کنید.');

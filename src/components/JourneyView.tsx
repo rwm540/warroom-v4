@@ -539,7 +539,7 @@ export default function JourneyView({
         {/* ========================================================================= */}
         {/* 2. TACTICAL DAILY CHALLENGE BANNER (چالش تاکتیکی روزانه اتاق جنگ)         */}
         {/* ========================================================================= */}
-        {dailyChallengeConfig && dailyChallengeConfig.isActive !== false && (
+        {dailyChallengeConfig && dailyChallengeConfig.isActive !== false && Boolean(dailyChallengeConfig.title) && (
           <div className="w-full">
             <button
               type="button"

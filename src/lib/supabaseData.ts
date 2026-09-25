@@ -73,23 +73,23 @@ export const supabase: SupabaseClient | null = (() => {
  */
 export async function checkSupabaseHealth(): Promise<{ ok: boolean; message: string }> {
   if (!isSupabaseEnabled || !supabase) {
-    return { ok: false, message: 'Supabase پیکربندی نشده است — حالت محلی (localStorage).' };
+    return { ok: false, message: 'سرور ابری پیکربندی نشده است — حالت محلی.' };
   }
   try {
     const { error } = await supabase.from('warroom_kv').select('id').limit(1);
     if (error) {
       const hint = error.code === '42P01'
-        ? ' ⚠️ جدول‌ها وجود ندارند — فایل Query.sql را در SQL Editor Supabase اجرا کنید.'
+        ? ' ⚠️ جدول‌های سرور وجود ندارند — فایل Query.sql را در ویرایشگر SQL اجرا کنید.'
         : error.message?.includes('JWT') || error.code?.startsWith('401')
-          ? ' ⚠️ کلید API نامعتبر است — کلیدها را از Project Settings → API بررسی کنید.'
+          ? ' ⚠️ کلید API نامعتبر است — تنظیمات دسترسی API را بررسی کنید.'
           : '';
-      console.warn(`[WarRoom ➜ Supabase] Health Check ناموفق: ${error.message}.${hint}`, error);
+      console.warn(`[WarRoom ➜ Server] بررسی سلامت ناموفق: ${error.message}.${hint}`, error);
       return { ok: false, message: error.message + hint };
     }
-    console.info('%c[WarRoom ➜ Supabase] Health Check موفق — دیتابیس در دسترس است.', 'color:#34d399;font-weight:bold');
-    return { ok: true, message: 'دیتابیس Supabase متصل و در دسترس است.' };
+    console.info('%c[WarRoom ➜ Server] بررسی سلامت موفق — دیتابیس در دسترس است.', 'color:#34d399;font-weight:bold');
+    return { ok: true, message: 'دیتابیس ابری قرارگاه متصل و در دسترس است.' };
   } catch (err: any) {
-    console.warn('[WarRoom ➜ Supabase] Health Check با خطا مواجه شد:', err);
+    console.warn('[WarRoom ➜ Server] بررسی سلامت با خطا مواجه شد:', err);
     return { ok: false, message: err?.message || 'خطای شبکه' };
   }
 }
@@ -251,12 +251,6 @@ export function useSyncedCollection<T extends { id: string }>(options: {
           }
           pendingSkipRef.current = true;
           setValue(rows);
-        } else if (table !== 'warroom_users' && table !== 'warroom_stages' && table !== 'warroom_prizes' && initial && initial.length > 0) {
-          // اگر جدول خالی بود، داده‌های پیش‌فرض را در Supabase ثبت کن (به‌جز کاربران، مراحل و جوایز)
-          const rowsToInsert = await Promise.all(
-            initial.map(r => normalizeRowForDb(table, { id: r.id, data: r }))
-          );
-          await supabase!.from(table).upsert(rowsToInsert);
         } else {
           setValue([]);
         }
@@ -643,6 +637,13 @@ export async function deleteDailyChallengeFromSupabase(id: string): Promise<bool
       const filtered = list.filter(c => c.id !== id);
       localStorage.setItem('warroom_all_daily_challenges', JSON.stringify(filtered));
     }
+    const activeRaw = localStorage.getItem('warroom_daily_challenge_config');
+    if (activeRaw) {
+      const activeObj = JSON.parse(activeRaw);
+      if (activeObj?.id === id) {
+        localStorage.removeItem('warroom_daily_challenge_config');
+      }
+    }
   } catch {}
 
   // ۲. حذف از Supabase
@@ -654,12 +655,14 @@ export async function deleteDailyChallengeFromSupabase(id: string): Promise<bool
         .eq('id', id);
 
       if (error) {
-        console.warn('[WarRoom Supabase] خطا در حذف چالش روزانه:', error.message);
+        console.warn('[WarRoom] خطا در حذف چالش روزانه:', error.message);
         return false;
       }
+
+      await supabase.from('warroom_kv').delete().eq('id', 'daily_challenge_config');
       return true;
     } catch (e) {
-      console.warn('[WarRoom Supabase] استثنا در حذف چالش روزانه:', e);
+      console.warn('[WarRoom] استثنا در حذف چالش روزانه:', e);
       return false;
     }
   }

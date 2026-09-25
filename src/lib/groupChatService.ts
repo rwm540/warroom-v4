@@ -147,6 +147,20 @@ export function isMessageForRoom(message: GroupChatMessage, roomId: string, grou
   return msgRoomCanonical === targetCanonical || msgGroupCanonical === targetCanonical;
 }
 
+/** مقایسه دو لیست پیام برای جلوگیری از ری‌رندر بی‌دلیل و لگ */
+export function areMessagesEqual(a: GroupChatMessage[], b: GroupChatMessage[]): boolean {
+  if (a === b) return true;
+  if (!a || !b) return false;
+  if (a.length !== b.length) return false;
+  if (a.length === 0) return true;
+  for (let i = a.length - 1; i >= 0; i--) {
+    if (a[i].id !== b[i].id || a[i].text !== b[i].text || a[i].updated_at !== b[i].updated_at) {
+      return false;
+    }
+  }
+  return true;
+}
+
 /** دریافت کلید ذخیره‌سازی اتاق در Store */
 function findStoreKeyForRoom(store: ChatStore, roomId: string, groupId?: string): string {
   const targetCanonical = getCanonicalRoomId(roomId || groupId || '');
@@ -522,7 +536,7 @@ export function deleteGroupChatMessage(roomOrGroupId: string, messageId: string,
   return true;
 }
 
-export function editGroupChatMessage(roomOrGroupId: string, messageId: string, authorId: string, text: string): boolean {
+export function editGroupChatMessage(roomOrGroupId: string, messageId: string, authorId: string, text: string, isAdmin = false): boolean {
   const trimmed = text.trim();
   if (!trimmed) return false;
 
@@ -530,7 +544,8 @@ export function editGroupChatMessage(roomOrGroupId: string, messageId: string, a
   const store = readStore();
   const key = findStoreKeyForRoom(store, canonical);
   const targetMessage = (store[key]?.messages ?? []).find(message => message.id === messageId);
-  if (!targetMessage || targetMessage.user_id !== authorId) return false;
+  if (!targetMessage) return false;
+  if (!isAdmin && targetMessage.user_id !== authorId) return false;
 
   const updatedMessage: GroupChatMessage = {
     ...targetMessage,
@@ -968,13 +983,26 @@ export function subscribeGlobalChat(onChange: (messages: GroupChatMessage[]) => 
       activeSupabaseChannels.set('global', channel);
     }
 
-    // پولینگ منظم برای پنل مانیتورینگ ادمین
+    // پولینگ منظم برای پنل مانیتورینگ ادمین (فقط در صورت وجود پیام جدید)
     if (!activePollingIntervals.has('global')) {
+      let lastFetchedSig = '';
       const poll = setInterval(() => {
         void fetchAllRecentMessagesFromSupabase(200).then((msgs) => {
-          onChange(msgs);
+          if (!msgs || msgs.length === 0) return;
+          const currentMsgs = listAllGroupChatMessages();
+          if (!areMessagesEqual(currentMsgs, msgs)) {
+            for (const m of msgs) {
+              addOrUpdateMessageInStore(m);
+            }
+            const updated = listAllGroupChatMessages();
+            const sig = updated.map(m => m.id).join(',');
+            if (sig !== lastFetchedSig) {
+              lastFetchedSig = sig;
+              onChange(updated);
+            }
+          }
         }).catch(() => undefined);
-      }, 3000);
+      }, 3500);
       activePollingIntervals.set('global', poll);
     }
   }

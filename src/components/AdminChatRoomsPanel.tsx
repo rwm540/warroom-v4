@@ -13,12 +13,16 @@ import {
   Crown,
   X,
   Shield,
-  Layers
+  Layers,
+  ChevronDown,
+  Pencil,
+  Check
 } from 'lucide-react';
 import { Group, GroupChatMessage, User } from '../types';
 import {
   appendGroupChatMessage,
   deleteGroupChatMessage,
+  editGroupChatMessage,
   ensureGroupChatRoom,
   getCanonicalRoomId,
   listAllGroupChatMessages,
@@ -51,11 +55,16 @@ export default function AdminChatRoomsPanel({
   const [messages, setMessages] = useState<GroupChatMessage[]>([]);
   const [draft, setDraft] = useState('');
   const [messageFilter, setMessageFilter] = useState('');
+  const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
+  const [editingText, setEditingText] = useState<string>('');
   const [squadToDelete, setSquadToDelete] = useState<Group | null>(null);
   const [isDeletingSquad, setIsDeletingSquad] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
 
-  const messagesEndRef = useRef<HTMLDivElement | null>(null);
+  const messagesContainerRef = useRef<HTMLDivElement | null>(null);
+  const [isAtBottom, setIsAtBottom] = useState<boolean>(true);
+  const [hasUnreadBelow, setHasUnreadBelow] = useState<boolean>(false);
+  const prevMessagesCountRef = useRef<number>(0);
 
   // Valid groups list
   const validGroups = useMemo(() => groups.filter(g => Boolean(g?.id)), [groups]);
@@ -78,9 +87,48 @@ export default function AdminChatRoomsPanel({
     return users.find(u => u.id === currentSquad.leader_id);
   }, [currentSquad, users]);
 
-  // Scroll to bottom smoothly on message update
+  // Scroll ONLY the chat box container to bottom (never window)
+  const scrollToBottom = (smooth = true) => {
+    const container = messagesContainerRef.current;
+    if (!container) return;
+    container.scrollTo({
+      top: container.scrollHeight,
+      behavior: smooth ? 'smooth' : 'auto',
+    });
+    setIsAtBottom(true);
+    setHasUnreadBelow(false);
+  };
+
+  // Scroll listener on container
+  const handleContainerScroll = () => {
+    const container = messagesContainerRef.current;
+    if (!container) return;
+    const { scrollTop, scrollHeight, clientHeight } = container;
+    const distanceFromBottom = scrollHeight - scrollTop - clientHeight;
+    const atBottom = distanceFromBottom < 80;
+    setIsAtBottom(atBottom);
+    if (atBottom) {
+      setHasUnreadBelow(false);
+    }
+  };
+
+  // On target room change -> instant scroll to bottom inside container
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    scrollToBottom(false);
+    prevMessagesCountRef.current = messages.length;
+  }, [selectedTarget]);
+
+  // On new messages received -> scroll container if user is at bottom
+  useEffect(() => {
+    if (messages.length === 0) return;
+    if (messages.length > prevMessagesCountRef.current) {
+      if (isAtBottom) {
+        scrollToBottom(true);
+      } else {
+        setHasUnreadBelow(true);
+      }
+    }
+    prevMessagesCountRef.current = messages.length;
   }, [messages]);
 
   // Real-time synchronization according to selected room mode
@@ -143,6 +191,7 @@ export default function AdminChatRoomsPanel({
     });
 
     setDraft('');
+    setTimeout(() => scrollToBottom(true), 50);
   };
 
   // Delete message as admin
@@ -450,8 +499,12 @@ export default function AdminChatRoomsPanel({
           </div>
         </div>
 
-        {/* Messages Scroll Area (Identical background gradient & padding to GroupChatPanel) */}
-        <div className="flex-1 space-y-2.5 overflow-y-auto bg-[radial-gradient(circle_at_top,_rgba(34,211,238,0.06),_transparent_40%)] p-3 min-h-0">
+        {/* Messages Scroll Area (Container-only scrolling, no window scroll) */}
+        <div 
+          ref={messagesContainerRef}
+          onScroll={handleContainerScroll}
+          className="relative flex-1 space-y-2.5 overflow-y-auto bg-[radial-gradient(circle_at_top,_rgba(34,211,238,0.06),_transparent_40%)] p-3 min-h-0"
+        >
           {displayedMessages.length === 0 ? (
             <div className="rounded-2xl border border-dashed border-slate-700 bg-slate-900/50 p-6 text-center text-xs leading-6 text-slate-400">
               {messageFilter ? 'هیچ پیامی منطبق با جستجوی شما یافت نشد.' : 'هنوز پیامی در این اتاق ثبت نشده است.'}
@@ -493,6 +546,19 @@ export default function AdminChatRoomsPanel({
                             minute: '2-digit',
                           })}
                         </span>
+                        {/* Admin Edit Message Button */}
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setEditingMessageId(message.id);
+                            setEditingText(message.text);
+                          }}
+                          className="rounded-md p-1 text-slate-500 transition hover:bg-cyan-500/15 hover:text-cyan-300"
+                          title="ویرایش متن این پیام"
+                          aria-label="ویرایش پیام"
+                        >
+                          <Pencil size={12} />
+                        </button>
                         {/* Admin Delete Message Button for any message */}
                         <button
                           type="button"
@@ -506,13 +572,72 @@ export default function AdminChatRoomsPanel({
                       </div>
                     </div>
 
-                    <p className="text-[12px] leading-6 text-slate-100 whitespace-pre-wrap">{message.text}</p>
+                    {editingMessageId === message.id ? (
+                      <form
+                        onSubmit={e => {
+                          e.preventDefault();
+                          const trimmed = editingText.trim();
+                          if (!trimmed) return;
+                          editGroupChatMessage(message.room_id || message.group_id, message.id, currentUser.id, trimmed, true);
+                          setEditingMessageId(null);
+                          if (triggerAlert) {
+                            triggerAlert('متن پیام با موفقیت ویرایش شد.');
+                          }
+                        }}
+                        className="mt-2 space-y-2"
+                      >
+                        <textarea
+                          value={editingText}
+                          onChange={e => setEditingText(e.target.value)}
+                          autoFocus
+                          rows={2}
+                          className="w-full rounded-xl border border-cyan-500/50 bg-slate-950 p-2 text-xs text-white outline-none focus:border-cyan-400"
+                          placeholder="متن جدید پیام را وارد نمایید..."
+                        />
+                        <div className="flex items-center justify-end gap-1.5">
+                          <button
+                            type="button"
+                            onClick={() => setEditingMessageId(null)}
+                            className="rounded-lg bg-slate-800 px-2.5 py-1 text-[10px] font-bold text-slate-300 hover:bg-slate-700 transition"
+                          >
+                            لغو
+                          </button>
+                          <button
+                            type="submit"
+                            className="flex items-center gap-1 rounded-lg bg-cyan-500 px-2.5 py-1 text-[10px] font-black text-slate-950 hover:bg-cyan-400 transition"
+                          >
+                            <Check size={12} />
+                            <span>ذخیره ویرایش</span>
+                          </button>
+                        </div>
+                      </form>
+                    ) : (
+                      <p className="text-[12px] leading-6 text-slate-100 whitespace-pre-wrap">
+                        {message.text}
+                        {message.updated_at && (
+                          <span className="mr-1.5 text-[9px] text-cyan-400/80 font-normal">
+                            (ویرایش‌شده)
+                          </span>
+                        )}
+                      </p>
+                    )}
                   </div>
                 </div>
               );
             })
           )}
-          <div ref={messagesEndRef} />
+
+          {/* Floating Jump to Bottom Button */}
+          {(!isAtBottom || hasUnreadBelow) && (
+            <button
+              type="button"
+              onClick={() => scrollToBottom(true)}
+              className="sticky bottom-2 left-1/2 -translate-x-1/2 z-20 mx-auto flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-cyan-500 text-slate-950 font-black text-xs shadow-[0_0_20px_rgba(34,211,238,0.5)] border border-cyan-300 transition hover:scale-105 active:scale-95 cursor-pointer"
+            >
+              <ChevronDown size={14} />
+              <span>{hasUnreadBelow ? 'پیام‌های جدید دریافت شد 👇' : 'پرش به آخرین پیام‌ها'}</span>
+            </button>
+          )}
         </div>
 
         {/* Input Message Form (Identical to GroupChatPanel) */}

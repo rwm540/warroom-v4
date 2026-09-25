@@ -182,7 +182,7 @@ export default function AdminSoundtrackManager({ triggerAlert }: AdminSoundtrack
     if (targetTrack) {
       await saveSoundtrackToSupabase(targetTrack);
     }
-    triggerAlert('وضعیت فعال‌سازی قطعه در Supabase به‌روزرسانی شد.');
+    triggerAlert('وضعیت فعال‌سازی قطعه در سرور مرکزی به‌روزرسانی شد.');
   };
 
   const handleDelete = async (id: string) => {
@@ -195,7 +195,7 @@ export default function AdminSoundtrackManager({ triggerAlert }: AdminSoundtrack
     if (updated.length === 0) {
       triggerAlert('کلیه قطعات حذف شدند. هم‌اکنون هیچ موسیقی‌ای پخش نمی‌شود و آیکون شناور کنار صفحه محو شد.');
     } else {
-      triggerAlert('قطعه موسیقی با موفقیت از دیتابیس Supabase و لیست پخش سراسری حذف شد.');
+      triggerAlert('قطعه موسیقی با موفقیت از دیتابیس مرکزی و لیست پخش سراسری حذف شد.');
     }
   };
 
@@ -298,7 +298,7 @@ export default function AdminSoundtrackManager({ triggerAlert }: AdminSoundtrack
     }
 
     setIsUploading(true);
-    setUploadProgress('در حال خواندن و آپلود در Supabase Storage...');
+    setUploadProgress('در حال خواندن و آپلود در مخزن رسانه‌های سرور...');
 
     try {
       // تشخیص طول زمان فایل
@@ -322,7 +322,7 @@ export default function AdminSoundtrackManager({ triggerAlert }: AdminSoundtrack
       if (res.success && res.url) {
         setNewUrl(res.url);
         setUploadedFileName(file.name);
-        triggerAlert(`فایل صوتی «${file.name}» با موفقیت در Supabase Storage آپلود گردید.`);
+        triggerAlert(`فایل صوتی «${file.name}» با موفقیت در مخزن رسانه‌های سرور آپلود گردید.`);
       } else {
         triggerAlert(`خطا در آپلود فایل صوتی: ${res.error || 'مشکل در ارتباط با سرور'}`);
       }
@@ -350,7 +350,7 @@ export default function AdminSoundtrackManager({ triggerAlert }: AdminSoundtrack
     const newTrack: SoundtrackItem = {
       id: `track-${Date.now()}`,
       title: newTitle.trim(),
-      subtitle: newSubtitle.trim() || (sourceType !== 'synth' ? 'موسیقی آپلود شده توسط ادمین در Supabase' : 'تولید سینت سایزر هوشمند'),
+      subtitle: newSubtitle.trim() || (sourceType !== 'synth' ? 'موسیقی آپلود شده توسط ادمین در سرور' : 'تولید سینت سایزر هوشمند'),
       tag: newTag.trim() || 'سفارشی / ادمین',
       color: newColor,
       sourceType: sourceType === 'synth' ? 'synth' : 'url',
@@ -378,7 +378,7 @@ export default function AdminSoundtrackManager({ triggerAlert }: AdminSoundtrack
       setTestingUrl(false);
     }
 
-    triggerAlert(`🎵 قطعه «${newTrack.title}» با موفقیت افزوده و در Supabase ثبت گردید.`);
+    triggerAlert(`🎵 قطعه «${newTrack.title}» با موفقیت افزوده و در سرور مرکزی ثبت گردید.`);
   };
 
   // باز کردن مودال ویرایش
@@ -457,7 +457,7 @@ export default function AdminSoundtrackManager({ triggerAlert }: AdminSoundtrack
     await saveSoundtrackToSupabase(updatedTrack);
 
     setEditingTrack(null);
-    triggerAlert(`قطعه «${updatedTrack.title}» با موفقیت در دیتابیس Supabase به‌روزرسانی شد.`);
+    triggerAlert(`قطعه «${updatedTrack.title}» با موفقیت در دیتابیس مرکزی به‌روزرسانی شد.`);
   };
 
   return (
@@ -476,7 +476,7 @@ export default function AdminSoundtrackManager({ triggerAlert }: AdminSoundtrack
               <h3 className="text-base sm:text-lg font-black text-white flex items-center gap-2 flex-wrap">
                 <span>مرکز کنترل موسیقی و رادیو سراسری اتاق جنگ</span>
                 <span className="text-[10px] px-2 py-0.5 rounded-full bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 font-mono">
-                  Supabase Powered Audio
+                  شبکه پخش آنلاین قرارگاه
                 </span>
                 {isSupabaseEnabled && (
                   <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 font-semibold flex items-center gap-1">
@@ -497,7 +497,7 @@ export default function AdminSoundtrackManager({ triggerAlert }: AdminSoundtrack
               onClick={loadTracksFromSupabase}
               disabled={isLoadingFromDb}
               className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-cyan-300 hover:text-white hover:border-cyan-500 text-xs font-bold transition cursor-pointer"
-              title="بارگذاری مجدد لیست قطعات از دیتابیس Supabase"
+              title="بارگذاری مجدد لیست قطعات از دیتابیس مرکزی"
             >
               <RefreshCw size={13} className={isLoadingFromDb ? 'animate-spin' : ''} />
               <span>همگام‌سازی از سرور</span>
@@ -609,7 +609,7 @@ export default function AdminSoundtrackManager({ triggerAlert }: AdminSoundtrack
                 <span>افزودن و آپلود قطعه موسیقی جدید</span>
               </h4>
               <span className="text-[10px] text-slate-400 bg-slate-900 px-2 py-0.5 rounded-md border border-slate-800">
-                ذخیره در Supabase
+                ذخیره در سرور مرکزی
               </span>
             </div>
 
@@ -690,7 +690,7 @@ export default function AdminSoundtrackManager({ triggerAlert }: AdminSoundtrack
                   <div className="flex items-center justify-between">
                     <label className="text-amber-300 font-bold flex items-center gap-1.5">
                       <FileAudio size={15} />
-                      <span>آپلود فایل موسیقی در دیتابیس Supabase:</span>
+                      <span>آپلود فایل موسیقی در دیتابیس قرارگاه:</span>
                     </label>
                     <span className="text-[10px] text-slate-400 font-mono">MP3, WAV, OGG</span>
                   </div>
@@ -722,7 +722,7 @@ export default function AdminSoundtrackManager({ triggerAlert }: AdminSoundtrack
                     ) : (
                       <div className="space-y-0.5">
                         <span className="text-xs font-bold text-slate-200 block">برای انتخاب و آپلود فایل صوتی کلیک کنید</span>
-                        <span className="text-[10px] text-slate-500 block">ذخیره خودکار در مخزن رسانه‌های Supabase</span>
+                        <span className="text-[10px] text-slate-500 block">ذخیره خودکار در مخزن رسانه‌های سرور</span>
                       </div>
                     )}
                   </div>
@@ -852,7 +852,7 @@ export default function AdminSoundtrackManager({ triggerAlert }: AdminSoundtrack
                 className="w-full bg-gradient-to-r from-amber-500 via-yellow-400 to-amber-500 text-slate-950 font-black py-3 rounded-2xl shadow-lg hover:shadow-[0_0_25px_rgba(245,158,11,0.4)] transition flex items-center justify-center gap-2 cursor-pointer text-sm disabled:opacity-50"
               >
                 <Plus size={16} />
-                <span>افزودن و ذخیره قطعه در دیتابیس Supabase</span>
+                <span>افزودن و ذخیره قطعه در دیتابیس مرکزی</span>
               </button>
 
             </form>
@@ -880,7 +880,7 @@ export default function AdminSoundtrackManager({ triggerAlert }: AdminSoundtrack
               {isLoadingFromDb ? (
                 <div className="text-center py-12 px-4 bg-slate-950/60 rounded-2xl border border-slate-800 space-y-3">
                   <RefreshCw size={28} className="animate-spin mx-auto text-cyan-400" />
-                  <p className="text-xs text-slate-400">در حال همگام‌سازی قطعات از Supabase...</p>
+                  <p className="text-xs text-slate-400">در حال همگام‌سازی قطعات از سرور مرکزی...</p>
                 </div>
               ) : playlist.length === 0 ? (
                 <div className="text-center py-12 px-4 bg-slate-950/60 rounded-2xl border border-slate-800 space-y-3">
@@ -1130,7 +1130,7 @@ export default function AdminSoundtrackManager({ triggerAlert }: AdminSoundtrack
                   {isEditUploading && (
                     <div className="flex items-center gap-2 text-amber-300 py-1">
                       <RefreshCw size={13} className="animate-spin" />
-                      <span>در حال آپلود فایل صوتی در Supabase Storage...</span>
+                      <span>در حال آپلود فایل صوتی در مخزن رسانه‌های سرور...</span>
                     </div>
                   )}
                   <input
@@ -1215,7 +1215,7 @@ export default function AdminSoundtrackManager({ triggerAlert }: AdminSoundtrack
                   className="px-5 py-2 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 font-bold shadow-lg shadow-amber-500/20 transition flex items-center gap-1.5"
                 >
                   <Check size={14} />
-                  <span>ذخیره تغییرات در دیتابیس Supabase</span>
+                  <span>ذخیره تغییرات در دیتابیس مرکزی</span>
                 </button>
               </div>
             </form>

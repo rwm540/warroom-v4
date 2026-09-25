@@ -1263,7 +1263,7 @@ export default function AuthView({
         <RadarLoading
           size="fullscreen"
           label={activeTab === 'register' ? 'در حال ثبت اطلاعات در پایگاه داده و آماده‌سازی رادار...' : 'در حال اعتبارسنجی مشخصات و ورود به اتاق جنگ...'}
-          subLabel="اتصال به پایگاه ابری امن Supabase"
+          subLabel="اتصال به پایگاه داده ابری امن قرارگاه"
         />
       )}
 

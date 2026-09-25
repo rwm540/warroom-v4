@@ -61,7 +61,8 @@ export default function StageQuizModal({
         correctOptionIndex: q.correctAnswer ?? 0,
         explanation: 'پاسخ صحیح بر اساس گزینه‌های انتخاب‌شده در سامانه تعریف شده است.',
         rewardPoints: Math.round((stage?.requiredPoints || 100) / (stage.quizQuestions?.length || 1)),
-        timeLimitSeconds: q.timeLimitSeconds && q.timeLimitSeconds >= 5 && q.timeLimitSeconds <= 600 ? q.timeLimitSeconds : 30
+        timeLimitSeconds: q.timeLimitSeconds && q.timeLimitSeconds >= 5 && q.timeLimitSeconds <= 600 ? q.timeLimitSeconds : 30,
+        wrongAnswerPenalty: q.wrongAnswerPenalty || stage?.wrongAnswerPenalty || 10
       }))
     : [];
 
@@ -182,7 +183,9 @@ export default function StageQuizModal({
       setScoreEarned((prev) => prev + currentQ.rewardPoints);
       triggerAlert(`پاسخ صحیح بود! +${formatToPersianDigits(currentQ.rewardPoints)} کریستال به شما تعلق گرفت.`);
     } else {
-      triggerAlert('پاسخ نادرست بود. تحلیل راهبردی ستاد را مطالعه کنید.');
+      const penalty = Math.max(1, currentQ.wrongAnswerPenalty || stage?.wrongAnswerPenalty || 10);
+      setScoreEarned((prev) => prev - penalty);
+      triggerAlert(`پاسخ نادرست بود! ⚠️ ${formatToPersianDigits(penalty)}- امتیاز نمره منفی کسر گردید.`);
     }
   };
 

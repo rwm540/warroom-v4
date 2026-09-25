@@ -567,7 +567,7 @@ export default function AdminPanel({
     const file = e.target.files?.[0];
     if (!file) return;
     if (!isSupabaseEnabled) {
-      triggerAlert('آپلود فایل نیازمند اتصال Supabase است. لطفاً به‌جای آن لینک مستقیم رسانه را وارد کنید.');
+      triggerAlert('آپلود فایل نیازمند اتصال به سرور ابری است. لطفاً به‌جای آن لینک مستقیم رسانه را وارد کنید.');
       return;
     }
     if (file.size > 25 * 1024 * 1024) {
@@ -584,7 +584,7 @@ export default function AdminPanel({
         setVitrinForm(prev => prev.mediaType === 'video'
           ? { ...prev, videoSourceUrl: result.publicUrl, mediaUrl: result.publicUrl }
           : { ...prev, mediaUrl: result.publicUrl });
-        triggerAlert('رسانه با موفقیت در Supabase Storage آپلود شد.');
+        triggerAlert('رسانه با موفقیت در مخزن رسانه‌های سرور آپلود شد.');
       } else {
         triggerAlert('آپلود رسانه ناموفق بود. لطفا از لینک مستقیم استفاده کنید.');
       }
@@ -625,7 +625,7 @@ export default function AdminPanel({
         likesCount: Math.max(0, Number(vitrinForm.likesCount) || 0),
         ratingAverage: Math.min(5, Math.max(1, Number(vitrinForm.ratingAverage) || 5))
       } : p));
-      triggerAlert(`اثر ویترین «${vitrinForm.title}» با موفقیت بروزرسانی شد و در Supabase ذخیره گردید.`);
+      triggerAlert(`اثر ویترین «${vitrinForm.title}» با موفقیت بروزرسانی شد و در دیتابیس مرکزی ذخیره گردید.`);
     } else {
       const newPost: VitrinPost = {
         id: `vit_${Date.now()}`,
@@ -647,7 +647,7 @@ export default function AdminPanel({
         createdAtTimestamp: Date.now()
       };
       setVitrinPosts(prev => [newPost, ...prev]);
-      triggerAlert(`ویترین جدید «${vitrinForm.title}» ایجاد شد و در Supabase ذخیره گردید.`);
+      triggerAlert(`ویترین جدید «${vitrinForm.title}» ایجاد شد و در دیتابیس مرکزی ذخیره گردید.`);
     }
     setShowVitrinModal(false);
   };
@@ -658,7 +658,7 @@ export default function AdminPanel({
       confirmText: 'حذف اثر',
       onConfirm: () => {
         setVitrinPosts(prev => prev.filter(p => p.id !== post.id));
-        triggerAlert(`اثر «${post.title}» از ویترین حذف و از Supabase حذف گردید.`);
+        triggerAlert(`اثر «${post.title}» از ویترین حذف و از دیتابیس مرکزی پاک گردید.`);
       }
     });
   };
@@ -712,20 +712,16 @@ export default function AdminPanel({
   // Daily Challenge State in Admin Panel
   const [dailyForm, setDailyForm] = useState<DailyChallengeConfig>(() => {
     return dailyChallengeConfig || {
-      id: 'daily_challenge_main',
-      title: 'چالش تاکتیکی روزانه',
-      description: 'با پاسخ به این تست هوش عمیق، ۱۵۰ امتیاز پاداش دریافت کنید.',
+      id: `daily_${Date.now()}`,
+      title: '',
+      description: '',
       badge: 'tactical_badge',
       pointsReward: 150,
-      question: 'اولین شرط گام برداشتن در مسیر خادمی شهدایی و نبرد سایبری چیست؟',
-      questionText: 'اولین شرط گام برداشتن در مسیر خادمی شهدایی و نبرد سایبری چیست؟',
-      options: [
-        'داشتن تجهیزات مدرن',
-        'اخلاص در نیت و خودسازی فردی',
-        'شناخت رقبا',
-        'شروع بدون برنامه‌ریزی'
-      ],
-      correctOptionIndex: 1,
+      wrongAnswerPenalty: 0,
+      question: '',
+      questionText: '',
+      options: ['', '', '', ''],
+      correctOptionIndex: 0,
       isActive: true
     };
   });
@@ -828,7 +824,7 @@ export default function AdminPanel({
     e.preventDefault();
     if (setDailyChallengeConfig) {
       setDailyChallengeConfig(dailyForm);
-      triggerAlert('پیکربندی چالش روزانه با موفقیت در Supabase ذخیره گردید.');
+      triggerAlert('پیکربندی چالش روزانه با موفقیت در دیتابیس مرکزی ذخیره گردید.');
     }
   };
 
@@ -1947,20 +1943,7 @@ export default function AdminPanel({
           id="btn-tab-stage-builder"
         >
           <MapPin size={15} className="text-cyan-400" />
-          <span>ایجاد مسیر و مراحل ({stages.length})</span>
-        </button>
-
-        <button
-          onClick={() => setActiveAdminTab('daily_challenges')}
-          className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl whitespace-nowrap shrink-0 transition border relative ${
-            activeAdminTab === 'daily_challenges' 
-              ? 'bg-gradient-to-r from-amber-500 via-yellow-400 to-amber-500 text-slate-950 border-amber-400 font-black shadow-[0_0_20px_rgba(245,158,11,0.5)]' 
-              : 'bg-[#080d21] text-amber-300 border-amber-500/40 hover:border-amber-400 hover:text-white'
-          }`}
-          id="btn-tab-daily-challenges"
-        >
-          <Zap size={15} className="text-amber-400 animate-pulse" />
-          <span>طراحی و مدیریت چالش روزانه</span>
+          <span>ایجاد و مدیریت مسیر، چالش‌ها و مراحل ({stages.length})</span>
         </button>
 
         <button
@@ -5952,8 +5935,8 @@ export default function AdminPanel({
             <span className={`w-2 h-2 rounded-full ${isSupabaseEnabled ? 'bg-emerald-400 animate-pulse' : 'bg-amber-400'}`} />
             <span>
               {isSupabaseEnabled
-                ? 'ویترین به Supabase متصل است — ذخیره‌سازی ابری فعال (جدول warroom_vitrin_posts)'
-                : 'وضعیت: حالت محلی (Supabase پیکربندی نشده) — ذخیره در localStorage'}
+                ? 'ویترین به سرور مرکزی متصل است — ذخیره‌سازی ابری فعال'
+                : 'وضعیت: حالت محلی — ذخیره در حافظه موقت'}
             </span>
           </div>
 
@@ -6171,7 +6154,7 @@ export default function AdminPanel({
                         onClick={() => vitrinMediaInputRef.current?.click()}
                         disabled={vitrinMediaUploading || !isSupabaseEnabled}
                         className="flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-xl bg-slate-900 border border-slate-700 text-slate-300 text-[11px] font-bold hover:border-rose-400 hover:text-white disabled:opacity-40 transition shrink-0"
-                        title={isSupabaseEnabled ? 'آپلود به Supabase Storage' : 'آپلود نیازمند اتصال Supabase است'}
+                        title={isSupabaseEnabled ? 'آپلود به مخزن رسانه‌های سرور' : 'آپلود نیازمند اتصال به سرور ابری است'}
                       >
                         {vitrinMediaUploading ? <Loader2 size={13} className="animate-spin text-rose-400" /> : <Upload size={13} />}
                         <span>{vitrinMediaUploading ? 'در حال آپلود...' : 'آپلود فایل'}</span>
@@ -6271,17 +6254,6 @@ export default function AdminPanel({
       )}
 
       {/* ==================================================================== */}
-      {/* 13.5 ⚡ DAILY CHALLENGE MANAGEMENT TAB                                */}
-      {/* ==================================================================== */}
-      {activeAdminTab === 'daily_challenges' && (
-        <AdminDailyChallengeManager
-          currentConfig={dailyChallengeConfig}
-          onConfigChange={setDailyChallengeConfig}
-          triggerAlert={triggerAlert}
-        />
-      )}
-
-      {/* ==================================================================== */}
       {/* 14. 🗺️ STAGE & PATH BUILDER TAB (مدیریت مراحل نقشه و چالش روزانه)       */}
       {/* ==================================================================== */}
       {activeAdminTab === 'stage_builder' && (
@@ -6296,18 +6268,9 @@ export default function AdminPanel({
                 </div>
                 <div>
                   <h3 className="text-base font-black text-white">طراحی و مدیریت چالش تاکتیکی روزانه</h3>
-                  <p className="text-xs text-slate-400">همگام‌سازی مستقیم در جدول warroom_daily_challenges و تنظیم سوالات تست هوش رزمندگان</p>
+                  <p className="text-xs text-slate-400">تنظیم مستقیم چالش روزانه، تعیین امتیاز پاداش و مقدار کسر امتیاز (نمره منفی)</p>
                 </div>
               </div>
-
-              <button
-                type="button"
-                onClick={() => setActiveAdminTab('daily_challenges')}
-                className="px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-xs transition shadow-lg flex items-center gap-2 shrink-0"
-              >
-                <Plus size={15} />
-                <span>مشاهده تب اختصاصی چالش‌ها</span>
-              </button>
             </div>
 
             <AdminDailyChallengeManager
@@ -6443,7 +6406,7 @@ export default function AdminPanel({
                 </span>
                 <div>
                   <h3 className="text-sm font-black text-white">{editingStage ? `ویرایش مرحله «${editingStage.title}»` : 'ایجاد مرحله جدید'}</h3>
-                  <p className="text-[10px] text-cyan-300">پیکربندی هوشمند و همگام با Supabase</p>
+                  <p className="text-[10px] text-cyan-300">پیکربندی هوشمند و همگام با دیتابیس مرکزی</p>
                 </div>
               </div>
               <button onClick={() => setShowStageModal(false)} className="p-1.5 rounded-full bg-slate-900 text-slate-400 hover:text-white">
@@ -6538,7 +6501,9 @@ export default function AdminPanel({
                           id: `q_${Date.now()}_${Math.random().toString(36).substring(2, 5)}`,
                           question: '',
                           options: ['', '', '', ''],
-                          correctAnswer: 0
+                          correctAnswer: 0,
+                          timeLimitSeconds: 30,
+                          wrongAnswerPenalty: 10
                         };
                         setStageForm(prev => ({ ...prev, quizQuestions: [...(prev.quizQuestions || []), newQ] }));
                       }}
@@ -6606,6 +6571,29 @@ export default function AdminPanel({
                                 className="w-20 bg-slate-950 border border-slate-700 focus:border-cyan-400 rounded-lg px-2 py-1 text-xs text-cyan-300 font-mono outline-none text-center"
                               />
                               <span className="text-[10px] text-slate-400 font-bold">ثانیه</span>
+                            </div>
+                          </div>
+
+                          <div className="flex items-center justify-between gap-2 bg-rose-950/30 p-2 rounded-xl border border-rose-500/30">
+                            <span className="text-[10px] text-rose-300 font-bold flex items-center gap-1">
+                              <AlertTriangle size={12} className="text-rose-400" />
+                              <span>مقدار کسر امتیاز در صورت پاسخ اشتباه (نمره منفی):</span>
+                            </span>
+                            <div className="flex items-center gap-1.5">
+                              <input
+                                type="number"
+                                min={1}
+                                max={500}
+                                value={q.wrongAnswerPenalty || 10}
+                                onChange={e => {
+                                  const val = Math.max(1, Math.min(500, Number(e.target.value) || 1));
+                                  const updated = [...stageForm.quizQuestions];
+                                  updated[qIdx] = { ...updated[qIdx], wrongAnswerPenalty: val };
+                                  setStageForm(prev => ({ ...prev, quizQuestions: updated }));
+                                }}
+                                className="w-20 bg-slate-950 border border-rose-500/50 focus:border-rose-400 rounded-lg px-2 py-1 text-xs text-rose-300 font-mono outline-none text-center font-bold"
+                              />
+                              <span className="text-[10px] text-rose-300 font-bold">امتیاز منفی</span>
                             </div>
                           </div>
 

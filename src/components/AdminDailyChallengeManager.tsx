@@ -39,6 +39,7 @@ export default function AdminDailyChallengeManager({
     description: '',
     badge: 'tactical_badge',
     pointsReward: 150,
+    wrongAnswerPenalty: 20,
     question: '',
     questionText: '',
     options: ['', '', '', ''],
@@ -89,6 +90,7 @@ export default function AdminDailyChallengeManager({
       description: 'با پاسخ صحیح به این سوال راهبردی، امتیاز کریستال پاداش بگیرید.',
       badge: 'tactical_badge',
       pointsReward: 150,
+      wrongAnswerPenalty: 20,
       question: '',
       questionText: '',
       options: ['', '', '', ''],
@@ -109,6 +111,7 @@ export default function AdminDailyChallengeManager({
       description: item.description || '',
       badge: item.badge || 'tactical_badge',
       pointsReward: item.pointsReward || 150,
+      wrongAnswerPenalty: item.wrongAnswerPenalty && item.wrongAnswerPenalty > 0 ? item.wrongAnswerPenalty : 20,
       question: item.question || item.questionText || '',
       questionText: item.questionText || item.question || '',
       options: item.options && item.options.length >= 4 
@@ -139,6 +142,8 @@ export default function AdminDailyChallengeManager({
       return;
     }
 
+    const penalty = Math.max(1, Number(formData.wrongAnswerPenalty) || 20);
+
     setIsSubmitting(true);
     try {
       const payload: DailyChallengeConfig = {
@@ -147,6 +152,7 @@ export default function AdminDailyChallengeManager({
         description: formData.description.trim(),
         badge: formData.badge,
         pointsReward: Number(formData.pointsReward) || 150,
+        wrongAnswerPenalty: penalty,
         question: qText,
         questionText: qText,
         options: formData.options.map(o => o.trim()),
@@ -158,10 +164,10 @@ export default function AdminDailyChallengeManager({
 
       if (editingChallenge) {
         await updateDailyChallenge(payload);
-        triggerAlert('چالش روزانه با موفقیت در Supabase ویرایش و به‌روزرسانی شد.');
+        triggerAlert('چالش روزانه با موفقیت در دیتابیس مرکزی ویرایش و به‌روزرسانی شد.');
       } else {
         await createDailyChallenge(payload);
-        triggerAlert('چالش روزانه جدید با موفقیت ایجاد و در Supabase ثبت شد.');
+        triggerAlert('چالش روزانه جدید با موفقیت ایجاد و در دیتابیس قرارگاه ثبت شد.');
       }
 
       if (payload.isActive && onConfigChange) {
@@ -181,7 +187,7 @@ export default function AdminDailyChallengeManager({
   const handleSetActive = async (id: string) => {
     try {
       await setActiveDailyChallenge(id);
-      triggerAlert('این چالش به عنوان چالش فعال امروز تعیین و در دیتابیس Supabase ذخیره گردید.');
+      triggerAlert('این چالش به عنوان چالش فعال امروز تعیین و در دیتابیس مرکزی ذخیره گردید.');
       await loadChallenges();
     } catch (e: any) {
       triggerAlert(`خطا در فعال‌سازی: ${e?.message}`);
@@ -193,7 +199,7 @@ export default function AdminDailyChallengeManager({
     try {
       await deleteDailyChallenge(id);
       setDeleteConfirmId(null);
-      triggerAlert('چالش با موفقیت از دیتابیس Supabase حذف گردید.');
+      triggerAlert('چالش با موفقیت از دیتابیس مرکزی حذف گردید.');
       await loadChallenges();
     } catch (e: any) {
       triggerAlert(`خطا در حذف چالش: ${e?.message}`);
@@ -220,7 +226,7 @@ export default function AdminDailyChallengeManager({
             <h2 className="text-xl font-black text-white tracking-tight">مرکز طراحی و مدیریت چالش‌های روزانه اتاق جنگ</h2>
           </div>
           <p className="text-xs text-slate-400 max-w-2xl leading-relaxed">
-            طراحی سوالات تاکتیکی، هوش و تحلیل نبرد سایبری با همگام‌سازی لحظه‌ای در جدول <span className="font-mono text-cyan-400">warroom_daily_challenges</span> و ثبت مستقیم در Supabase.
+            طراحی سوالات تاکتیکی، هوش و تحلیل نبرد سایبری با همگام‌سازی لحظه‌ای در جدول <span className="font-mono text-cyan-400">warroom_daily_challenges</span> و ثبت مستقیم در سرور مرکزی.
           </p>
         </div>
 
@@ -342,7 +348,7 @@ export default function AdminDailyChallengeManager({
         {loading ? (
           <div className="p-12 text-center text-slate-400 flex flex-col items-center gap-3">
             <RefreshCw size={28} className="animate-spin text-amber-400" />
-            <span className="text-sm">در حال بارگذاری چالش‌های روزانه از Supabase...</span>
+            <span className="text-sm">در حال بارگذاری چالش‌های روزانه از سرور مرکزی...</span>
           </div>
         ) : challenges.length === 0 ? (
           <div className="p-8 rounded-2xl bg-slate-900/40 border border-slate-800 text-center space-y-3">
@@ -496,7 +502,7 @@ export default function AdminDailyChallengeManager({
                 </div>
 
                 <div className="space-y-1">
-                  <label className="text-slate-300 font-semibold">پاداش کریستال (امتیاز)</label>
+                  <label className="text-slate-300 font-semibold">پاداش کریستال (امتیاز پاسخ صحیح)</label>
                   <input
                     type="number"
                     min="10"
@@ -509,7 +515,23 @@ export default function AdminDailyChallengeManager({
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                <div className="space-y-1">
+                  <label className="text-rose-300 font-semibold flex items-center gap-1">
+                    <AlertTriangle size={13} className="text-rose-400" />
+                    <span>کسر امتیاز پاسخ اشتباه (نمره منفی)</span>
+                  </label>
+                  <input
+                    type="number"
+                    min="1"
+                    max="5000"
+                    value={formData.wrongAnswerPenalty || 20}
+                    onChange={(e) => setFormData({ ...formData, wrongAnswerPenalty: Math.max(1, Number(e.target.value) || 1) })}
+                    className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-rose-500/50 text-rose-300 font-mono focus:border-rose-400 outline-none"
+                    required
+                  />
+                </div>
+
                 <div className="space-y-1">
                   <label className="text-slate-300 font-semibold">مهلت پاسخگویی تایمر (ثانیه)</label>
                   <input
@@ -636,12 +658,12 @@ export default function AdminDailyChallengeManager({
                   {isSubmitting ? (
                     <>
                       <RefreshCw size={14} className="animate-spin" />
-                      <span>در حال ذخیره در دیتابیس Supabase...</span>
+                      <span>در حال ذخیره در دیتابیس قرارگاه...</span>
                     </>
                   ) : (
                     <>
                       <ShieldCheck size={16} />
-                      <span>ذخیره و ثبت مستقیم در Supabase</span>
+                      <span>ذخیره و ثبت مستقیم در سرور مرکزی</span>
                     </>
                   )}
                 </button>

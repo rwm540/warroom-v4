@@ -206,7 +206,7 @@ export default function App() {
   const [groups, setGroups] = useSyncedCollection<Group>({
     storageKey: 'warroom_groups',
     table: 'warroom_groups',
-    initial: initialGroups
+    initial: []
   });
 
   const [groupJoinRequests, setGroupJoinRequests] = useSyncedCollection<GroupJoinRequest>({
@@ -218,61 +218,61 @@ export default function App() {
   const [missions, setMissions] = useSyncedCollection<Mission>({
     storageKey: 'warroom_missions',
     table: 'warroom_missions',
-    initial: initialMissions
+    initial: []
   });
 
   const [submissions, setSubmissions] = useSyncedCollection<MissionSubmission>({
     storageKey: 'warroom_submissions',
     table: 'warroom_submissions',
-    initial: initialSubmissions
+    initial: []
   });
 
   const [trainings, setTrainings] = useSyncedCollection<Training>({
     storageKey: 'warroom_trainings',
     table: 'warroom_trainings',
-    initial: initialTrainings
+    initial: []
   });
 
   const [medals, setMedals] = useSyncedCollection<Medal>({
     storageKey: 'warroom_medals',
     table: 'warroom_medals',
-    initial: initialMedals
+    initial: []
   });
 
   const [userMedals, setUserMedals] = useSyncedCollection<UserMedal>({
     storageKey: 'warroom_user_medals',
     table: 'warroom_user_medals',
-    initial: initialUserMedals
+    initial: []
   });
 
   const [tickets, setTickets] = useSyncedCollection<SupportTicket>({
     storageKey: 'warroom_tickets',
     table: 'warroom_support_tickets',
-    initial: initialSupportTickets
+    initial: []
   });
 
   const [replies, setReplies] = useSyncedCollection<SupportReply>({
     storageKey: 'warroom_replies',
     table: 'warroom_support_replies',
-    initial: initialSupportReplies
+    initial: []
   });
 
   const [announcements, setAnnouncements] = useSyncedCollection<Announcement>({
     storageKey: 'warroom_announcements',
     table: 'warroom_announcements',
-    initial: initialAnnouncements
+    initial: []
   });
 
   const [news, setNews] = useSyncedCollection<News>({
     storageKey: 'warroom_news',
     table: 'warroom_news',
-    initial: initialNews
+    initial: []
   });
 
   const [notifications, setNotifications] = useSyncedCollection<AppNotification>({
     storageKey: 'warroom_notifications',
     table: 'warroom_notifications',
-    initial: initialNotifications
+    initial: []
   });
 
   const [showNotificationCenter, setShowNotificationCenter] = useState<boolean>(false);
@@ -311,7 +311,7 @@ export default function App() {
   const [homeAnnouncements, setHomeAnnouncements] = useSyncedCollection<HomeAnnouncement>({
     storageKey: 'warroom_home_announcements',
     table: 'warroom_home_announcements',
-    initial: initialHomeAnnouncements
+    initial: []
   });
 
   const [homeStats, setHomeStats] = useSyncedSetting<HomeStats>({
@@ -323,7 +323,7 @@ export default function App() {
   const [faqs, setFaqs] = useSyncedCollection<FaqItem>({
     storageKey: 'warroom_faqs',
     table: 'warroom_faqs',
-    initial: faqsData
+    initial: []
   });
 
   // 🆕 🎖️ ویترین آثار (Showcase) — همگام با Supabase
@@ -331,28 +331,28 @@ export default function App() {
   const [vitrinPosts, setVitrinPosts] = useSyncedCollection<VitrinPost>({
     storageKey: 'warroom_vitrin_custom_posts',
     table: 'warroom_vitrin_posts',
-    initial: getVitrinPostsFromStore()
+    initial: []
   });
 
   // 🆕 نظرات و دیدگاه‌های ویترین — هر ردیف یک نظر (همگام با Supabase)
   const [vitrinComments, setVitrinComments] = useSyncedCollection<VitrinComment>({
     storageKey: 'warroom_vitrin_comments',
     table: 'warroom_vitrin_comments',
-    initial: getAllVitrinComments()
+    initial: []
   });
 
   // 🆕 درگاه‌های بازی / لینک‌دهی — همگام با Supabase
   const [gamePortals, setGamePortals] = useSyncedCollection<GamePortal>({
     storageKey: 'warroom_game_portals_list',
     table: 'warroom_game_portals',
-    initial: DEFAULT_GAME_PORTALS
+    initial: []
   });
 
   // 🆕 مراحل نقشه بازی (Journey Stages) — همگام با Supabase
   const [stages, setStages] = useSyncedCollection<JourneyStage>({
     storageKey: 'warroom_stages_list',
     table: 'warroom_stages',
-    initial: initialJourneyStages
+    initial: []
   });
 
   // 🆕 تنظیمات چالش روزانه — همگام با Supabase
@@ -1314,7 +1314,7 @@ export default function App() {
                         }}
                         onAwardDailyPoints={(pts) => {
                           if (currentUser) {
-                            const newPoints = (currentUser.points || 0) + pts;
+                            const newPoints = Math.max(0, (currentUser.points || 0) + pts);
                             const newLevel = Math.max(1, Math.floor(newPoints / 500) + 1);
                             const updated: User = {
                               ...currentUser,

@@ -55,7 +55,7 @@ export default function DailyChallengeModal({
   const [tenSecLeft, setTenSecLeft] = useState<number>(10);
   const [isTimerRunning, setIsTimerRunning] = useState<boolean>(false);
 
-  // Derive active question data from config or local storage or default fallback
+  // Derive active question data from config or local storage or null
   const config = dailyChallengeConfig || (() => {
     try {
       const saved = localStorage.getItem('warroom_daily_challenge_config');
@@ -64,16 +64,11 @@ export default function DailyChallengeModal({
     return null;
   })();
 
-  const activeTitle = config?.title || 'رمزگشایی مختصات دیده‌بانی شبانه';
+  const activeTitle = config?.title || 'چالش تاکتیکی روزانه';
   const activePoints = config?.pointsReward ?? 150;
-  const activeScenario = config?.questionText || config?.description || 'دیده‌بانان قرارگاه در شیار کوهستانی با استراق سمع امواج رادیویی دشمن متوجه تغییر الگوی گشت شبانه شده‌اند. برای عبور بدون تلفات ستون رزمندگان از کمینگاه دشمن، کارآمدترین تدبیر تاکتیکی چیست؟';
-  const rawOptions = config?.options && config.options.length >= 4 ? config.options : [
-    'استفاده از منورهای هوایی و شلیک مستقیم به سمت کمینگاه جهت ایجاد وحشت',
-    'سکوت کامل رادیویی، استفاده از شیارها و پستی‌بلندی‌ها در فواصل خاموشی منورهای دشمن',
-    'حرکت با حداکثر سرعت در جاده اصلی برای خروج سریع‌تر از منطقه خطر',
-    'توقف کامل عملیات و عقب‌نشینی به پایگاه اولیه بدون هماهنگی با قرارگاه مرکزی'
-  ];
-  const correctOptionIdx = config?.correctOptionIndex ?? 1;
+  const activeScenario = config?.questionText || config?.question || config?.description || '';
+  const rawOptions = config?.options || [];
+  const correctOptionIdx = config?.correctOptionIndex ?? 0;
   const timerDuration = config?.timeLimitSeconds && config.timeLimitSeconds >= 5 && config.timeLimitSeconds <= 600 
     ? config.timeLimitSeconds 
     : 10;
@@ -166,7 +161,11 @@ export default function DailyChallengeModal({
       triggerAlert(`آفرین رزمنده! پاسخ صحیح بود. +${formatToPersianDigits(activePoints)} امتیاز به کارنامه شما اضافه گردید.`);
     } else {
       playTacticalSound('click');
-      triggerAlert('پاسخ نادرست است. می‌توانید مجدداً تلاش کنید.');
+      const penalty = Math.max(1, config?.wrongAnswerPenalty && config.wrongAnswerPenalty > 0 ? config.wrongAnswerPenalty : 20);
+      if (onAwardPoints) {
+        onAwardPoints(-penalty);
+      }
+      triggerAlert(`پاسخ نادرست است! ⚠️ ${formatToPersianDigits(penalty)}- امتیاز نمره منفی کسر گردید.`);
     }
   };
 
@@ -268,7 +267,13 @@ export default function DailyChallengeModal({
         </div>
 
         {/* Main Content Body */}
-        {isCompletedToday ? (
+        {!config ? (
+          <div className="py-12 text-center space-y-3">
+            <Flame size={36} className="mx-auto text-slate-600" />
+            <h4 className="text-sm font-bold text-slate-300">در حال حاضر چالش روزانه‌ای فعال نیست</h4>
+            <p className="text-xs text-slate-500">چالش‌های جدید به محض تعریف در دیتابیس مرکزی در این بخش قرار می‌گیرند.</p>
+          </div>
+        ) : isCompletedToday ? (
           /* COMPLETED STATE */
           <div className="py-4 space-y-4 text-center">
             <div className="w-16 h-16 rounded-full bg-emerald-500/20 border-2 border-emerald-400 flex items-center justify-center mx-auto text-emerald-300 shadow-[0_0_25px_rgba(16,185,129,0.4)]">

@@ -127,19 +127,4 @@ export const STANDARD_STAGE_TEMPLATES: JourneyStage[] = [
   }
 ];
 
-export const initialDailyChallengeConfig: DailyChallengeConfig = {
-  id: 'daily_main',
-  title: 'چالش روزانه اتاق جنگ',
-  description: 'ماموریت روزانه استراتژیک • پاداش ۱۵۰ امتیاز فوری',
-  badge: 'امروز فعال',
-  pointsReward: 150,
-  question: 'استراتژی برتر در مواجهه با شایعات فضای مجازی چیست؟',
-  options: [
-    'بازنشر سریع بدون تحقیق',
-    'پایش منبع، راست‌آزمایی و پاسخ تبیینی هوشمند',
-    'سکوت کامل و نادیده گرفتن موضوع',
-    'ایجاد شایعه متقابل'
-  ],
-  correctOptionIndex: 1,
-  isActive: true
-};
+export const initialDailyChallengeConfig: DailyChallengeConfig | null = null;

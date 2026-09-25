@@ -12,6 +12,7 @@ export interface StageQuestion {
   explanation: string;
   rewardPoints: number;
   timeLimitSeconds: number; // default 60s
+  wrongAnswerPenalty?: number;
 }
 
 export const STAGE_QUESTIONS: Record<string, StageQuestion[]> = {

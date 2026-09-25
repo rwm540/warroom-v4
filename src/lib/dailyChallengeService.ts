@@ -2,34 +2,15 @@ import { DailyChallengeConfig } from '../types';
 import { supabase, isSupabaseEnabled } from './supabaseClient';
 import { saveDailyChallengeToSupabase, deleteDailyChallengeFromSupabase, fetchDailyChallengesFromSupabase } from './supabaseData';
 
-export const DEFAULT_DAILY_CHALLENGE: DailyChallengeConfig = {
-  id: 'daily_challenge_main',
-  title: 'چالش تاکتیکی روزانه',
-  description: 'با پاسخ به این تست هوش عمیق، ۱۵۰ امتیاز پاداش دریافت کنید.',
-  badge: 'tactical_badge',
-  pointsReward: 150,
-  question: 'اولین شرط گام برداشتن در مسیر خادمی شهدایی و نبرد سایبری چیست؟',
-  questionText: 'اولین شرط گام برداشتن در مسیر خادمی شهدایی و نبرد سایبری چیست؟',
-  options: [
-    'داشتن تجهیزات مدرن',
-    'اخلاص در نیت و خودسازی فردی',
-    'شناخت رقبا',
-    'شروع بدون برنامه‌ریزی'
-  ],
-  correctOptionIndex: 1,
-  timeLimitSeconds: 15,
-  isActive: true,
-  bannerUrl: 'https://images.unsplash.com/photo-1518770660439-4636190af475?auto=format&fit=crop&w=800&q=80'
-};
+export const DEFAULT_DAILY_CHALLENGE: DailyChallengeConfig | null = null;
 
 /**
- * واکشی تمام چالش‌های ثبت شده از Supabase و لوکال استوریج
+ * واکشی تمام چالش‌های ثبت شده از دیتابیس ابری و لوکال استوریج
  */
 export async function getAllDailyChallenges(): Promise<DailyChallengeConfig[]> {
   try {
     const list = await fetchDailyChallengesFromSupabase();
-    if (Array.isArray(list) && list.length > 0) {
-      // ذخیره کش محلی
+    if (Array.isArray(list)) {
       localStorage.setItem('warroom_all_daily_challenges', JSON.stringify(list));
       return list;
     }
@@ -42,16 +23,11 @@ export async function getAllDailyChallenges(): Promise<DailyChallengeConfig[]> {
     const cached = localStorage.getItem('warroom_all_daily_challenges');
     if (cached) {
       const parsed = JSON.parse(cached);
-      if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      if (Array.isArray(parsed)) return parsed;
     }
   } catch {}
 
-  // بازگرداندن چالش پیش‌فرض
-  const initial = [DEFAULT_DAILY_CHALLENGE];
-  try {
-    localStorage.setItem('warroom_all_daily_challenges', JSON.stringify(initial));
-  } catch {}
-  return initial;
+  return [];
 }
 
 /**

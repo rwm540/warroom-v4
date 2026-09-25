@@ -539,68 +539,70 @@ export default function JourneyView({
         {/* ========================================================================= */}
         {/* 2. TACTICAL DAILY CHALLENGE BANNER (چالش تاکتیکی روزانه اتاق جنگ)         */}
         {/* ========================================================================= */}
-        <div className="w-full">
-          <button
-            type="button"
-            onClick={() => setShowDailyChallengeModal(true)}
-            className={`w-full p-3 sm:p-3.5 rounded-2xl border transition-all duration-300 flex items-center justify-between gap-3 text-right shadow-xl group cursor-pointer ${
-              isDailyChallengeDone
-                ? 'bg-emerald-950/40 border-emerald-500/50 hover:border-emerald-400 text-emerald-200'
-                : isGirls
-                ? 'bg-gradient-to-r from-fuchsia-950/70 via-[#180a2b] to-slate-900 border-fuchsia-500/60 hover:border-fuchsia-400 text-white shadow-[0_0_25px_rgba(236,72,153,0.25)]'
-                : 'bg-gradient-to-r from-amber-950/70 via-[#111936] to-slate-900 border-amber-500/60 hover:border-amber-400 text-white shadow-[0_0_25px_rgba(245,158,11,0.25)]'
-            }`}
-          >
-            <div className="flex items-center gap-3 min-w-0">
-              <div className={`w-11 h-11 rounded-xl flex items-center justify-center shrink-0 border ${
+        {dailyChallengeConfig && dailyChallengeConfig.isActive !== false && (
+          <div className="w-full">
+            <button
+              type="button"
+              onClick={() => setShowDailyChallengeModal(true)}
+              className={`w-full p-3 sm:p-3.5 rounded-2xl border transition-all duration-300 flex items-center justify-between gap-3 text-right shadow-xl group cursor-pointer ${
                 isDailyChallengeDone
-                  ? 'bg-emerald-500/20 border-emerald-500/40 text-emerald-400'
+                  ? 'bg-emerald-950/40 border-emerald-500/50 hover:border-emerald-400 text-emerald-200'
                   : isGirls
-                  ? 'bg-fuchsia-500/20 border-fuchsia-500/50 text-fuchsia-300 shadow-[0_0_15px_rgba(236,72,153,0.4)]'
-                  : 'bg-amber-500/20 border-amber-500/50 text-amber-400 shadow-[0_0_15px_rgba(245,158,11,0.4)]'
-              }`}>
-                <Flame size={22} className={isDailyChallengeDone ? '' : 'animate-bounce'} />
-              </div>
-              <div className="min-w-0">
-                <div className="flex items-center gap-2 flex-wrap">
-                  <span className="text-xs sm:text-sm font-black text-white group-hover:text-amber-300 transition truncate">
-                    {dailyChallengeConfig?.title || 'چالش تاکتیکی روزانه'}
-                  </span>
-                  {isDailyChallengeDone ? (
-                    <span className="flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 shrink-0">
-                      <CheckCircle2 size={12} />
-                      انجام شده امروز
-                    </span>
-                  ) : (
-                    <span className="flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/40 animate-pulse shrink-0">
-                      <Zap size={12} />
-                      آماده پاسخگویی
-                    </span>
-                  )}
+                  ? 'bg-gradient-to-r from-fuchsia-950/70 via-[#180a2b] to-slate-900 border-fuchsia-500/60 hover:border-fuchsia-400 text-white shadow-[0_0_25px_rgba(236,72,153,0.25)]'
+                  : 'bg-gradient-to-r from-amber-950/70 via-[#111936] to-slate-900 border-amber-500/60 hover:border-amber-400 text-white shadow-[0_0_25px_rgba(245,158,11,0.25)]'
+              }`}
+            >
+              <div className="flex items-center gap-3 min-w-0">
+                <div className={`w-11 h-11 rounded-xl flex items-center justify-center shrink-0 border ${
+                  isDailyChallengeDone
+                    ? 'bg-emerald-500/20 border-emerald-500/40 text-emerald-400'
+                    : isGirls
+                    ? 'bg-fuchsia-500/20 border-fuchsia-500/50 text-fuchsia-300 shadow-[0_0_15px_rgba(236,72,153,0.4)]'
+                    : 'bg-amber-500/20 border-amber-500/50 text-amber-400 shadow-[0_0_15px_rgba(245,158,11,0.4)]'
+                }`}>
+                  <Flame size={22} className={isDailyChallengeDone ? '' : 'animate-bounce'} />
                 </div>
-                <p className="text-[11px] text-slate-300 line-clamp-1 mt-0.5">
-                  {dailyChallengeConfig?.description || 'با پاسخ به این تست هوش عمیق، کریستال پاداش دریافت کنید.'}
-                </p>
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="text-xs sm:text-sm font-black text-white group-hover:text-amber-300 transition truncate">
+                      {dailyChallengeConfig.title}
+                    </span>
+                    {isDailyChallengeDone ? (
+                      <span className="flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 shrink-0">
+                        <CheckCircle2 size={12} />
+                        انجام شده امروز
+                      </span>
+                    ) : (
+                      <span className="flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/40 animate-pulse shrink-0">
+                        <Zap size={12} />
+                        آماده پاسخگویی
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-[11px] text-slate-300 line-clamp-1 mt-0.5">
+                    {dailyChallengeConfig.description}
+                  </p>
+                </div>
               </div>
-            </div>
 
-            <div className="flex items-center gap-2 shrink-0">
-              <div className="text-left font-mono hidden sm:block">
-                <span className="text-xs sm:text-sm font-black text-amber-400">
-                  +{formatToPersianDigits(dailyChallengeConfig?.pointsReward || 150)}
-                </span>
-                <span className="text-[10px] text-slate-400 block">کریستال پاداش</span>
+              <div className="flex items-center gap-2 shrink-0">
+                <div className="text-left font-mono hidden sm:block">
+                  <span className="text-xs sm:text-sm font-black text-amber-400">
+                    +{formatToPersianDigits(dailyChallengeConfig.pointsReward || 150)}
+                  </span>
+                  <span className="text-[10px] text-slate-400 block">کریستال پاداش</span>
+                </div>
+                <div className={`p-2 rounded-xl border transition ${
+                  isDailyChallengeDone 
+                    ? 'bg-emerald-900/40 border-emerald-600 text-emerald-300' 
+                    : 'bg-amber-500 text-slate-950 border-amber-400 font-black shadow-md group-hover:scale-105'
+                }`}>
+                  <ArrowLeft size={16} />
+                </div>
               </div>
-              <div className={`p-2 rounded-xl border transition ${
-                isDailyChallengeDone 
-                  ? 'bg-emerald-900/40 border-emerald-600 text-emerald-300' 
-                  : 'bg-amber-500 text-slate-950 border-amber-400 font-black shadow-md group-hover:scale-105'
-              }`}>
-                <ArrowLeft size={16} />
-              </div>
-            </div>
-          </button>
-        </div>
+            </button>
+          </div>
+        )}
 
         {/* ========================================================================= */}
         {/* 3. MAIN INTERACTIVE SERPENTINE JOURNEY MAP (Fixed Background, Smooth Scroll) */}

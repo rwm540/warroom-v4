@@ -792,7 +792,7 @@ export async function adminSecurityOverview(): Promise<ApiResult<any>> {
     ok: true,
     data: {
       supabaseConnected: health.ok,
-      securityStatus: 'امن — ذخیره‌سازی و ارتباط ۱۰۰٪ مستقیم با Supabase',
+      securityStatus: 'امن — ذخیره‌سازی و ارتباط ۱۰۰٪ مستقیم با دیتابیس مرکزی',
       authMethod: 'رمزنگاری پایگاه داده SHA-256 (Web Crypto)',
       storageBucket: 'warroom-media',
     },
@@ -807,7 +807,7 @@ export async function adminAuditLog(_limit = 100): Promise<ApiResult<{ events: a
         {
           id: 'evt_1',
           action: 'اتصال به سامانه',
-          details: 'کلیه داده‌ها مستقیماً در جداول پایگاه داده ابری Supabase همگام و ذخیره می‌شوند.',
+          details: 'کلیه داده‌ها مستقیماً در جداول پایگاه داده ابری قرارگاه همگام و ذخیره می‌شوند.',
           timestamp: new Date().toISOString(),
         },
       ],

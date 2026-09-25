@@ -647,6 +647,9 @@ $$;
 create index if not exists idx_warroom_users_national_code on public.warroom_users ((data->>'national_code'));
 create index if not exists idx_warroom_users_personal_code on public.warroom_users ((data->>'personal_code'));
 create index if not exists idx_warroom_users_role          on public.warroom_users ((data->>'role'));
+create index if not exists idx_warroom_users_gender        on public.warroom_users ((data->>'gender'));
+create index if not exists idx_warroom_users_group_id      on public.warroom_users ((data->>'group_id'));
+create index if not exists idx_warroom_users_squad_rank    on public.warroom_users ((data->>'squad_rank'));
 create index if not exists idx_warroom_submissions_user    on public.warroom_submissions ((data->>'personal_code'));
 create index if not exists idx_warroom_submissions_mission on public.warroom_submissions ((data->>'mission_id'));
 create index if not exists idx_warroom_tickets_status      on public.warroom_support_tickets ((data->>'status'));
@@ -812,19 +815,7 @@ insert into public.warroom_users (id, data) values (
 )
 on conflict (id) do update set data = excluded.data, updated_at = now();
 
--- چالش تاکتیکی روزانه پیش‌فرض
-insert into public.warroom_daily_challenges (id, data) values (
-  'daily_challenge_main',
-  $${"id":"daily_challenge_main","title":"چالش تاکتیکی روزانه","description":"با پاسخ به این تست هوش عمیق، ۱۵۰ امتیاز پاداش دریافت کنید.","badge":"tactical_badge","pointsReward":150,"question":"اولین شرط گام برداشتن در مسیر خادمی شهدایی و نبرد سایبری چیست؟","questionText":"اولین شرط گام برداشتن در مسیر خادمی شهدایی و نبرد سایبری چیست؟","options":["داشتن تجهیزات مدرن","اخلاص در نیت و خودسازی فردی","شناخت رقبا","شروع بدون برنامه‌ریزی"],"correctOptionIndex":1,"timeLimitSeconds":10,"isActive":true}$$::jsonb
-)
-on conflict (id) do update set data = excluded.data, updated_at = now();
-
--- ثبت همزمان چالش روزانه در warroom_kv
-insert into public.warroom_kv (id, value) values (
-  'daily_challenge_config',
-  $${"id":"daily_challenge_main","title":"چالش تاکتیکی روزانه","description":"با پاسخ به این تست هوش عمیق، ۱۵۰ امتیاز پاداش دریافت کنید.","badge":"tactical_badge","pointsReward":150,"question":"اولین شرط گام برداشتن در مسیر خادمی شهدایی و نبرد سایبری چیست؟","questionText":"اولین شرط گام برداشتن در مسیر خادمی شهدایی و نبرد سایبری چیست؟","options":["داشتن تجهیزات مدرن","اخلاص در نیت و خودسازی فردی","شناخت رقبا","شروع بدون برنامه‌ریزی"],"correctOptionIndex":1,"timeLimitSeconds":10,"isActive":true}$$::jsonb
-)
-on conflict (id) do update set value = excluded.value, updated_at = now();
+-- (چالش روزانه به‌صورت پیش‌فرض هاردکد نمی‌شود؛ مدیر از طریق پنل مدیریت ایجاد می‌کند)
 
 -- 🎵 قطعه موسیقی پیش‌فرض اتاق جنگ (رادیو تاکتیکی)
 insert into public.warroom_soundtracks (id, data) values (

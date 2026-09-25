@@ -184,10 +184,35 @@ export default function GroupChatPanel({
     }
   };
 
-  const messagesEndRef = useRef<HTMLDivElement | null>(null);
+  const messagesContainerRef = useRef<HTMLDivElement | null>(null);
+  const [isAtBottom, setIsAtBottom] = useState<boolean>(true);
+  const prevMessagesCountRef = useRef<number>(0);
+
+  const scrollToBottom = (smooth = true) => {
+    const container = messagesContainerRef.current;
+    if (!container) return;
+    container.scrollTo({
+      top: container.scrollHeight,
+      behavior: smooth ? 'smooth' : 'auto',
+    });
+    setIsAtBottom(true);
+  };
+
+  const handleContainerScroll = () => {
+    const container = messagesContainerRef.current;
+    if (!container) return;
+    const { scrollTop, scrollHeight, clientHeight } = container;
+    setIsAtBottom(scrollHeight - scrollTop - clientHeight < 80);
+  };
 
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    if (messages.length === 0) return;
+    if (messages.length > prevMessagesCountRef.current) {
+      if (isAtBottom) {
+        scrollToBottom(true);
+      }
+    }
+    prevMessagesCountRef.current = messages.length;
   }, [messages]);
 
   const sendMessage = (event: React.FormEvent) => {
@@ -206,6 +231,7 @@ export default function GroupChatPanel({
     });
 
     setDraft('');
+    setTimeout(() => scrollToBottom(true), 50);
   };
 
   const startDragging = (event: React.PointerEvent<HTMLDivElement>) => {
@@ -429,6 +455,8 @@ export default function GroupChatPanel({
 
       {/* Messages Scroll Area */}
       <div 
+        ref={messagesContainerRef}
+        onScroll={handleContainerScroll}
         onPointerDown={isModalLayout ? undefined : startDragging} 
         className="flex-1 space-y-2.5 overflow-y-auto bg-[radial-gradient(circle_at_top,_rgba(34,211,238,0.06),_transparent_40%)] p-3 min-h-0"
       >
@@ -483,7 +511,6 @@ export default function GroupChatPanel({
             );
           })
         )}
-        <div ref={messagesEndRef} />
       </div>
 
       {/* Input Message Form */}

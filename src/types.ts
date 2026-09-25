@@ -236,6 +236,7 @@ export interface StageQuizQuestion {
   options: string[];
   correctAnswer: number;
   timeLimitSeconds?: number;
+  wrongAnswerPenalty?: number; // 🛑 مقدار کسر امتیاز در صورت پاسخ اشتباه (نمره منفی - غیر صفر)
 }
 
 export interface JourneyStage {
@@ -248,6 +249,7 @@ export interface JourneyStage {
   customIconUrl?: string;
   customBannerUrl?: string;
   requiredPoints: number;
+  wrongAnswerPenalty?: number;
   description: string;
   missionsCount: number;
   completedMissions: number;
@@ -262,6 +264,7 @@ export interface DailyChallengeConfig {
   description: string;
   badge?: string;
   pointsReward: number;
+  wrongAnswerPenalty?: number; // 🛑 مقدار کسر امتیاز در صورت پاسخ اشتباه (نمره منفی - غیر صفر)
   question: string;
   questionText?: string;
   options: string[];

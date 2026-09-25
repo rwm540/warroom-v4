@@ -228,47 +228,20 @@ export default function Navbar({
             {/* User Controls / Status */}
             {currentUser && (
               <>
-                {/* User Profile Avatar Tag */}
-                <div 
-                  onClick={onOpenSquadModal}
-                  className="flex items-center gap-2 px-2 py-1 rounded-xl bg-slate-900/80 hover:bg-slate-850 border border-slate-800 text-slate-300 hover:text-white transition cursor-pointer shadow-sm group"
-                  title="مشاهده اطلاعات کاربری و جوخه"
+                {/* Logout Button */}
+                <button
+                  onClick={onLogout}
+                  className="p-2 bg-slate-900/90 hover:bg-red-950/80 border border-slate-800 hover:border-red-800 text-slate-400 hover:text-red-300 rounded-xl transition cursor-pointer flex items-center justify-center shadow-sm"
+                  title="خروج از سامانه"
                 >
-                  <div className={`w-6 h-6 rounded-full overflow-hidden border shrink-0 ${
-                    isGirls ? 'border-pink-400' : 'border-blue-400'
-                  }`}>
-                    <img 
-                      src={currentUser.avatar_url || (isGirls ? womanCommanderAvatar : maleCommanderAvatar)} 
-                      alt={currentUser.first_name}
-                      className="w-full h-full object-cover object-top rounded-full"
-                    />
-                  </div>
-                  <span className="text-[11px] font-bold hidden lg:inline max-w-[100px] truncate text-slate-200 group-hover:text-amber-300">
-                    {currentUser.first_name} {currentUser.last_name}
-                  </span>
-                </div>
-
-                {/* Game Portal Button */}
-                {onOpenGamePortal && currentUser.role !== 'admin' && (
-                  <button
-                    onClick={onOpenGamePortal}
-                    className={`px-2.5 py-1.5 rounded-xl border text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shadow-sm ${
-                      isGirls 
-                        ? 'bg-fuchsia-950/40 border-fuchsia-500/40 text-fuchsia-300 hover:bg-fuchsia-900/60' 
-                        : 'bg-blue-950/40 border-blue-500/40 text-blue-300 hover:bg-blue-900/60'
-                    }`}
-                    title="انتخاب درگاه و سامانه بازی"
-                  >
-                    <Gamepad2 size={15} className="text-cyan-400 animate-pulse" />
-                    <span className="hidden sm:inline">انتخاب بازی</span>
-                  </button>
-                )}
+                  <LogOut size={16} />
+                </button>
 
                 {/* Chat Room Toggle Button */}
                 {onToggleFloatingChat && currentUser.role !== 'admin' && (
                   <button
                     onClick={onToggleFloatingChat}
-                    className={`px-2.5 py-1.5 rounded-xl border text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${
+                    className={`px-2.5 py-1.5 rounded-xl border text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shadow-sm ${
                       isFloatingChatOpen
                         ? isGirls ? 'bg-fuchsia-950/60 border-fuchsia-500/40 text-fuchsia-300' : 'bg-blue-950/60 border-blue-500/40 text-blue-300'
                         : 'bg-slate-900 border-slate-800 text-slate-400 hover:text-white'
@@ -279,15 +252,6 @@ export default function Navbar({
                     <span className="hidden sm:inline">چت روم</span>
                   </button>
                 )}
-
-                {/* Logout Button */}
-                <button
-                  onClick={onLogout}
-                  className="p-2 bg-slate-900/90 hover:bg-red-950/80 border border-slate-800 hover:border-red-800 text-slate-400 hover:text-red-300 rounded-xl transition cursor-pointer flex items-center justify-center"
-                  title="خروج از سامانه"
-                >
-                  <LogOut size={16} />
-                </button>
               </>
             )}
           </div>

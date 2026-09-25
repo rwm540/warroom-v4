@@ -436,52 +436,14 @@ export default function JourneyView({
         {/* ========================================================================= */}
         {/* 1. STICKY TOP HUD BAR: User Profile Avatar & 4 Stats Cards */}
         {/* ========================================================================= */}
-        <div className={`sticky top-0 z-30 w-full p-2 sm:p-2.5 rounded-2xl backdrop-blur-xl border shadow-xl flex flex-col md:flex-row items-center justify-between gap-2.5 transition-all duration-300 ${
+        <div className={`sticky top-0 z-30 w-full p-1.5 sm:p-2 rounded-2xl backdrop-blur-xl border shadow-xl flex items-center justify-between gap-2 sm:gap-3 transition-all duration-300 ${
           isGirls 
             ? 'bg-[#150220]/92 border-fuchsia-500/35 shadow-[0_10px_30px_rgba(0,0,0,0.8),0_0_20px_rgba(255,19,137,0.2)]'
             : 'bg-[#060c20]/92 border-blue-500/35 shadow-[0_10px_30px_rgba(0,0,0,0.8),0_0_20px_rgba(37,99,235,0.2)]'
         }`}>
 
-          {/* User Profile Card with in-project Avatar */}
-          <div 
-            onClick={() => {
-              setProfileSubTab('dossier');
-              setShowProfileDrawer(true);
-            }}
-            className="w-full md:w-auto flex items-center justify-between md:justify-start gap-3 px-3 py-1.5 rounded-xl bg-[#090e1a]/85 border border-slate-800/80 hover:border-amber-400/50 cursor-pointer transition group shadow-md shrink-0"
-            title="مشاهده و ویرایش پرونده رزمنده"
-          >
-            <div className="flex items-center gap-2.5">
-              <div className={`relative w-10 h-10 sm:w-11 sm:h-11 rounded-full p-0.5 overflow-hidden border-2 shadow-md shrink-0 transition-transform group-hover:scale-105 ${
-                isGirls ? 'border-pink-400 shadow-[0_0_12px_rgba(255,19,137,0.5)]' : 'border-cyan-400 shadow-[0_0_12px_rgba(6,182,212,0.5)]'
-              }`}>
-                <img 
-                  src={currentUser?.avatar_url || (isGirls ? womanCommanderAvatar : maleCommanderAvatar)} 
-                  alt={currentUser?.first_name || 'کاربر'} 
-                  className="w-full h-full object-cover object-top rounded-full"
-                />
-              </div>
-
-              <div className="text-right">
-                <div className="flex items-center gap-1.5">
-                  <span className="text-xs sm:text-sm font-black text-white group-hover:text-amber-300 transition">
-                    {currentUser ? `${currentUser.first_name} ${currentUser.last_name}` : 'رزمنده عملیات'}
-                  </span>
-                </div>
-                <div className="flex items-center gap-1 text-[10px] text-slate-400 font-medium">
-                  <span className={`w-1.5 h-1.5 rounded-full ${isGirls ? 'bg-pink-400' : 'bg-cyan-400'}`} />
-                  <span>{userGroup?.name ? `جوخه: ${userGroup.name}` : 'پروفایل و پرونده'}</span>
-                </div>
-              </div>
-            </div>
-
-            <span className="text-[10px] font-bold px-2 py-0.5 rounded-lg bg-slate-800 text-slate-300 border border-slate-700 group-hover:bg-amber-500/20 group-hover:text-amber-300 group-hover:border-amber-500/40 transition">
-              پروفایل
-            </span>
-          </div>
-
           {/* Stats Bar (4 Columns: سطح شما, امتیاز کل, نشان‌ها, درصد مسیر) — کاملاً پویا از Supabase */}
-          <section className="w-full md:flex-1 grid grid-cols-4 gap-1.5 sm:gap-2 bg-[#0d1524]/90 border border-slate-800/80 rounded-xl p-1.5 sm:p-2 backdrop-blur-md shadow-md">
+          <section className="flex-1 grid grid-cols-4 gap-1.5 sm:gap-2 bg-[#0d1524]/90 border border-slate-800/80 rounded-xl p-1.5 sm:p-2 backdrop-blur-md shadow-md">
             
             {/* 1. سطح شما */}
             <div className="flex flex-col items-center justify-center text-center p-1 rounded-lg bg-[#090e1a]/60 border border-slate-800/40">
@@ -554,6 +516,24 @@ export default function JourneyView({
             </div>
 
           </section>
+
+          {/* User Profile Avatar (Positioned on the LEFT side of the HUD box) */}
+          <button 
+            onClick={() => {
+              setProfileSubTab('dossier');
+              setShowProfileDrawer(true);
+            }}
+            className={`w-10 h-10 sm:w-11 sm:h-11 rounded-full p-0.5 overflow-hidden border-2 shadow-md shrink-0 transition-transform hover:scale-105 active:scale-95 cursor-pointer ${
+              isGirls ? 'border-pink-400 shadow-[0_0_12px_rgba(255,19,137,0.5)]' : 'border-cyan-400 shadow-[0_0_12px_rgba(6,182,212,0.5)]'
+            }`}
+            title="مشاهده و ویرایش پرونده رزمنده"
+          >
+            <img 
+              src={currentUser?.avatar_url || (isGirls ? womanCommanderAvatar : maleCommanderAvatar)} 
+              alt={currentUser?.first_name || 'کاربر'} 
+              className="w-full h-full object-cover object-top rounded-full"
+            />
+          </button>
         </div>
 
         {/* ========================================================================= */}

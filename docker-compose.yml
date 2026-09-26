@@ -1,0 +1,12 @@
+services:
+  warroom:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        VITE_SUPABASE_URL: ${VITE_SUPABASE_URL:?VITE_SUPABASE_URL is required}
+        VITE_SUPABASE_PUBLISHABLE_KEY: ${VITE_SUPABASE_PUBLISHABLE_KEY:?VITE_SUPABASE_PUBLISHABLE_KEY is required}
+    container_name: warroom-v4
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:3100:80"

@@ -1,7 +1,14 @@
 name: Deploy WarRoom
 
 on:
+  push:
+    branches:
+      - main
   workflow_dispatch:
+
+concurrency:
+  group: warroom-production
+  cancel-in-progress: true
 
 jobs:
   deploy:

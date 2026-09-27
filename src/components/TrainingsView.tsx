@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import { User, Training } from '../types';
 import { formatToPersianDigits } from '../utils/jalali';
+import TacticalVideoPlayer from './TacticalVideoPlayer';
 
 interface TrainingsViewProps {
   currentUser: User;
@@ -115,13 +116,11 @@ export default function TrainingsView({
                   <Video size={16} className="text-red-400" />
                   ویدئوی آموزشی کارگاه:
                 </span>
-                <div className="aspect-video w-full rounded-xl overflow-hidden border border-slate-800 bg-black">
-                  <video 
-                    src={selectedTraining.video_url} 
-                    controls 
-                    className="w-full h-full object-cover"
-                  />
-                </div>
+                <TacticalVideoPlayer 
+                  src={selectedTraining.video_url} 
+                  poster={selectedTraining.media_path && selectedTraining.media_type === 'image' ? selectedTraining.media_path : undefined}
+                  className="w-full rounded-xl border border-slate-800"
+                />
               </div>
             )}
 

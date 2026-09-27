@@ -34,7 +34,6 @@ import {
   Headphones,
   MessageSquare,
   ArrowRight,
-  WalletCards,
   Gamepad2
 } from 'lucide-react';
 import { User, Group, Mission, MissionSubmission, Announcement, News, Medal, UserMedal, SupportTicket, SupportReply, JourneyStage } from '../types';
@@ -232,7 +231,6 @@ export default function DashboardView({
             <Gamepad2 size={15} className="text-cyan-400 animate-pulse" />
             انتخاب بازی
           </button>
-          <button type="button" onClick={() => onNavigate('Wallet')} className="flex items-center gap-1.5 rounded-xl border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs font-bold text-amber-300"><WalletCards size={15} /> تراکنش‌ها و پرداختی‌ها</button>
         </div>
       </div>
       

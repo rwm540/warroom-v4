@@ -38,3 +38,4 @@ export { default as TicketsView } from './TicketsView';
 export { default as TrainingsView } from './TrainingsView';
 export { default as VitrinView } from './VitrinView';
 export { default as WalletTransfersView } from './WalletTransfersView';
+export { default as TacticalVideoPlayer } from './TacticalVideoPlayer';

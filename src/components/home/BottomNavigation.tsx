@@ -48,7 +48,6 @@ export default function BottomNavigation({
 
   const secondaryItems = [
     { id: 'Chat', label: 'چت روم', icon: MessageCircle },
-    ...(currentUser?.role === 'admin' ? [] : [{ id: 'Wallet', label: 'رسیدها و پرداختی‌ها', icon: WalletCards }]),
     ...(currentUser?.role === 'admin' ? [{ id: 'Admin', label: 'ستاد', icon: SlidersHorizontal }] : [])
   ];
 

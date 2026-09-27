@@ -26,6 +26,7 @@ import { User, JourneyStage } from '../types';
 import { getStageBadge } from '../data/stageBadges';
 import { STAGE_QUESTIONS, StageQuestion } from '../data/stageQuestionsData';
 import { formatToPersianDigits } from '../utils/jalali';
+import TacticalVideoPlayer from './TacticalVideoPlayer';
 
 interface StageQuizModalProps {
   isOpen: boolean;
@@ -410,14 +411,11 @@ export default function StageQuizModal({
                 {/* 2. QUESTION MEDIA (PHOTO OR VIDEO) - COMPACT HEIGHT */}
                 <div className="rounded-xl overflow-hidden border border-slate-800 bg-[#060b16] relative shadow-md">
                   {currentQ.mediaType === 'video' ? (
-                    <div className="relative max-h-36 sm:max-h-48 w-full bg-slate-950 flex items-center justify-center">
-                      <video
-                        ref={videoRef}
+                    <div className="relative w-full bg-slate-950 flex items-center justify-center">
+                      <TacticalVideoPlayer
                         src={currentQ.mediaUrl}
-                        controls
-                        className="w-full max-h-36 sm:max-h-48 object-contain"
-                        onPlay={() => setIsPlayingVideo(true)}
-                        onPause={() => setIsPlayingVideo(false)}
+                        aspectRatioClass="aspect-video max-h-48"
+                        className="w-full max-h-48 border-0 rounded-none"
                       />
                     </div>
                   ) : (

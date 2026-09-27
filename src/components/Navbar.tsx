@@ -133,7 +133,6 @@ export default function Navbar({
     { id: 'Journey', label: 'نقشه مراحل بازی', icon: Compass },
     { id: 'Rewards', label: 'جوایز و امتیازات', icon: Gift },
     { id: 'Vitrin', label: 'ویترین و آثار', icon: Grid },
-    ...(currentUser?.role === 'admin' ? [] : [{ id: 'Wallet', label: 'تراکنش‌ها و پرداختی‌ها', icon: WalletCards }]),
   ];
 
   // Android Mobile Bottom Navigation (Core 3 tabs)
@@ -189,7 +188,11 @@ export default function Navbar({
       {/* ========================================================================= */}
       {/* 1. TOP HEADER (DESKTOP & MOBILE TOP BAR)                                  */}
       {/* ========================================================================= */}
-      <header className="sticky top-0 z-40 bg-transparent border-none shadow-none dir-rtl font-sans transition-colors duration-500">
+      <header className={`sticky top-0 z-40 backdrop-blur-xl border-b dir-rtl font-sans transition-all duration-300 shadow-lg ${
+        isGirls 
+          ? 'bg-[#12021c]/90 border-fuchsia-900/40 shadow-[0_4px_20px_rgba(255,19,137,0.1)]' 
+          : 'bg-[#060c1d]/90 border-slate-800/80 shadow-[0_4px_20px_rgba(0,0,0,0.5)]'
+      }`}>
         
         {/* Top Utility Bar */}
         <div className="max-w-7xl mx-auto px-3 sm:px-6 py-2 flex items-center justify-between text-xs">
@@ -258,12 +261,12 @@ export default function Navbar({
         </div>
 
         {/* ========================================================================= */}
-        {/* DESKTOP FULL NAVIGATION BAR (VISIBLE ONLY ON MD / DESKTOP SCREENS)         */}
+        {/* DESKTOP & TABLET FULL NAVIGATION BAR                                      */}
         {/* ========================================================================= */}
         {currentUser && (
-          <div className="hidden md:block max-w-7xl mx-auto px-4 py-2">
-            <nav className="flex items-center justify-between gap-2">
-              <div className="flex items-center gap-1.5 flex-wrap">
+          <div className="w-full max-w-7xl mx-auto px-3 sm:px-6 py-1.5 border-t border-slate-800/40 bg-slate-950/40 backdrop-blur-md">
+            <nav className="flex items-center justify-between gap-2 overflow-x-auto no-scrollbar py-0.5">
+              <div className="flex items-center gap-1.5 shrink-0 flex-wrap">
                 {desktopNavItems.map((item) => {
                   const Icon = item.icon;
                   const isActive = currentTab === item.id && !isAdminView;
@@ -298,7 +301,7 @@ export default function Navbar({
               {currentUser.role === 'admin' && (
                 <button
                   onClick={() => handleSelectTab('Admin', true)}
-                  className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-black transition border cursor-pointer ${
+                  className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-black transition border cursor-pointer shrink-0 ${
                     isAdminView
                       ? 'bg-amber-500 text-slate-950 border-amber-400 shadow-[0_0_15px_rgba(245,158,11,0.5)]'
                       : 'bg-amber-950/40 text-amber-300 border-amber-800/60 hover:bg-amber-900/50'

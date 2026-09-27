@@ -301,16 +301,21 @@ export default function SavedVitrinReelsModal({
                     <div 
                       className="relative aspect-video bg-black flex items-center justify-center overflow-hidden cursor-pointer select-none"
                       onClick={() => handleDoubleTap(post.id)}
+                      onContextMenu={(e) => e.preventDefault()}
                     >
                       {post.mediaType === 'video' ? (
                         <>
                           <video
                             ref={(el) => { videoRefs.current[post.id] = el; }}
-                            src={post.videoSourceUrl || 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4'}
+                            src={post.videoSourceUrl && !post.videoSourceUrl.includes('#') ? `${post.videoSourceUrl}#t=0.001` : (post.videoSourceUrl || 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4#t=0.001')}
                             poster={post.mediaUrl}
                             playsInline
                             loop
+                            preload="auto"
                             muted={isMuted}
+                            disablePictureInPicture
+                            controlsList="nodownload nofullscreen noremoteplayback noplaybackrate"
+                            onContextMenu={(e) => e.preventDefault()}
                             className="w-full h-full object-cover"
                           />
 

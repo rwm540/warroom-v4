@@ -4258,10 +4258,14 @@ export default function AdminPanel({
                     {(trainingForm.video_url || trainingForm.media_path) && (
                       <div className="space-y-1 pt-1">
                         <span className="text-[10px] font-bold text-slate-400 block">پیش‌نمایش زنده ویدیو و فایل:</span>
-                        <div className="rounded-xl overflow-hidden bg-black border border-slate-800">
+                        <div className="rounded-xl overflow-hidden bg-black border border-slate-800" onContextMenu={(e) => e.preventDefault()}>
                           <video 
-                            src={trainingForm.video_url || trainingForm.media_path} 
+                            src={(trainingForm.video_url || trainingForm.media_path || '').includes('#') ? (trainingForm.video_url || trainingForm.media_path) : `${trainingForm.video_url || trainingForm.media_path}#t=0.001`} 
                             controls 
+                            preload="auto"
+                            disablePictureInPicture
+                            controlsList="nodownload nofullscreen noremoteplayback noplaybackrate"
+                            onContextMenu={(e) => e.preventDefault()}
                             className="w-full h-40 object-cover" 
                           />
                         </div>

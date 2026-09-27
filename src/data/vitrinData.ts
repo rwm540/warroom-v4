@@ -185,7 +185,7 @@ export function buildVitrinPostFromSubmission(sub: {
       ? 'https://images.unsplash.com/photo-1536240478700-b869070f9279?auto=format&fit=crop&w=800&q=80'
       : 'https://images.unsplash.com/photo-1513542789411-b6a5d4f31634?auto=format&fit=crop&w=800&q=80',
     videoSourceUrl: isVideo
-      ? (sub.file_path && sub.file_path.startsWith('http') ? sub.file_path : 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4')
+      ? (sub.file_path && sub.file_path.startsWith('http') ? sub.file_path : '/videowarroom.mp4')
       : undefined,
     mediaType: isVideo ? 'video' : 'image',
     likesCount: 0,

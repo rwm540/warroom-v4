@@ -23,6 +23,7 @@ import { User } from '../types';
 import { formatToPersianDigits } from '../utils/jalali';
 import { playTacticalSound } from '../utils/epicBgmEngine';
 import RadarLoading from './RadarLoading';
+import TacticalVideoPlayer from './TacticalVideoPlayer';
 import SavedVitrinReelsModal from './SavedVitrinReelsModal';
 import { getDefaultAvatar } from '../data/avatars';
 import { 
@@ -430,16 +431,15 @@ export default function VitrinView({
               {/* Feed Media with Lazy Loading & Double Tap */}
               <div 
                 onClick={() => handleDoubleTap(post)}
-                className="relative aspect-square sm:aspect-[4/3] bg-black flex items-center justify-center overflow-hidden cursor-pointer group select-none"
+                className="relative aspect-square sm:aspect-[4/3] bg-black flex items-center justify-center overflow-hidden group select-none"
               >
                 {post.mediaType === 'video' && isPlaying ? (
-                  <video 
+                  <TacticalVideoPlayer 
                     src={post.videoSourceUrl || 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4'} 
-                    controls 
-                    autoPlay 
-                    playsInline
-                    preload="none"
-                    className="w-full h-full object-cover"
+                    poster={post.mediaUrl}
+                    autoPlay
+                    aspectRatioClass="w-full h-full"
+                    className="w-full h-full rounded-none border-0"
                   />
                 ) : (
                   <>
@@ -808,24 +808,21 @@ export default function VitrinView({
 
             {/* Media Box */}
             <div className="relative aspect-video bg-black flex items-center justify-center overflow-hidden flex-shrink-0">
-              <img 
-                src={selectedPost.mediaUrl} 
-                alt={selectedPost.title}
-                loading="lazy"
-                decoding="async"
-                className="w-full h-full object-contain"
-              />
-              {selectedPost.mediaType === 'video' && (
-                <div 
-                  onClick={() => {
-                    const post = selectedPost;
-                    setSelectedPost(null);
-                    setPlayingVideoId(post.id);
-                  }}
-                  className="absolute p-4 rounded-full bg-cyan-500/80 text-slate-950 shadow-xl cursor-pointer hover:scale-110 transition"
-                >
-                  <Play size={24} className="fill-slate-950" />
-                </div>
+              {selectedPost.mediaType === 'video' ? (
+                <TacticalVideoPlayer 
+                  src={selectedPost.videoSourceUrl || 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4'} 
+                  poster={selectedPost.mediaUrl}
+                  aspectRatioClass="w-full h-full"
+                  className="w-full h-full rounded-none border-0"
+                />
+              ) : (
+                <img 
+                  src={selectedPost.mediaUrl} 
+                  alt={selectedPost.title}
+                  loading="lazy"
+                  decoding="async"
+                  className="w-full h-full object-contain"
+                />
               )}
             </div>
 

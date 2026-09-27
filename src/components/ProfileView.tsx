@@ -29,6 +29,7 @@ import {
   getAllComments
 } from '../data/vitrinData';
 import SavedVitrinReelsModal from './SavedVitrinReelsModal';
+import TacticalVideoPlayer from './TacticalVideoPlayer';
 
 interface ProfileViewProps {
   currentUser: User;
@@ -576,30 +577,19 @@ export default function ProfileView({
 
             {/* Media Box */}
             <div className="relative aspect-video bg-black flex items-center justify-center overflow-hidden">
-              {selectedPost.mediaType === 'video' && playingVideoId === selectedPost.id ? (
-                <video 
+              {selectedPost.mediaType === 'video' ? (
+                <TacticalVideoPlayer 
                   src={selectedPost.videoSourceUrl || 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4'} 
-                  controls 
-                  autoPlay 
-                  playsInline
-                  className="w-full h-full object-cover"
+                  poster={selectedPost.mediaUrl}
+                  aspectRatioClass="w-full h-full"
+                  className="w-full h-full rounded-none border-0"
                 />
               ) : (
-                <>
-                  <img 
-                    src={selectedPost.mediaUrl} 
-                    alt={selectedPost.title}
-                    className="w-full h-full object-contain"
-                  />
-                  {selectedPost.mediaType === 'video' && (
-                    <button
-                      onClick={() => setPlayingVideoId(selectedPost.id)}
-                      className="absolute p-4 rounded-full bg-amber-500 text-black shadow-xl cursor-pointer hover:scale-110 transition"
-                    >
-                      <Play size={24} className="fill-black mr-0.5" />
-                    </button>
-                  )}
-                </>
+                <img 
+                  src={selectedPost.mediaUrl} 
+                  alt={selectedPost.title}
+                  className="w-full h-full object-contain"
+                />
               )}
             </div>
 

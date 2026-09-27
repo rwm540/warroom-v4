@@ -1,7 +1,7 @@
-import React, { useState, useRef } from 'react';
-import { Play, Pause } from 'lucide-react';
+import React, { useState } from 'react';
 import { motion } from 'motion/react';
 import { User, SiteSettings } from '../../types';
+import TacticalVideoPlayer from '../TacticalVideoPlayer';
 
 const WARROOM_LOGO_PATH = '/images/logos/warroom_logo.webp';
 const BOYS_BANNER_PATH = '/images/banners/boys_registration_banner.webp';
@@ -9,11 +9,11 @@ const BOYS_BANNER_MOBILE_PATH = '/images/banners/boys_registration_banner_mobile
 const GIRLS_BANNER_PATH = '/images/banners/girls_registration_banner.webp';
 const GIRLS_BANNER_MOBILE_PATH = '/images/banners/girls_registration_banner_mobile.webp';
 
-// Fast reliable CDN video URLs with multiple fallback options
+// Fast reliable video URLs with warroom video as primary
 const FALLBACK_VIDEOS = [
-  'https://vjs.zencdn.net/v/oceans.mp4',
+  '/videowarroom.mp4',
   'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4',
-  'https://interactive-examples.mdn.mozilla.net/media/cc0-videos/flower.mp4'
+  'https://vjs.zencdn.net/v/oceans.mp4'
 ];
 
 interface AdventureHeroSectionProps {
@@ -35,9 +35,7 @@ export default function AdventureHeroSection({
   onSelectTheme,
 }: AdventureHeroSectionProps) {
   const isGirls = themeMode === 'girls';
-  const videoRef = useRef<HTMLVideoElement>(null);
-  const [isPlaying, setIsPlaying] = useState(false);
-  const [videoIndex, setVideoIndex] = useState(0);
+  const [videoIndex] = useState(0);
 
   const girlsBannerSrc = siteSettings?.girlsBannerImage || GIRLS_BANNER_PATH;
   const boysBannerSrc = siteSettings?.boysBannerImage || BOYS_BANNER_PATH;
@@ -63,38 +61,6 @@ export default function AdventureHeroSection({
   const handleMaleClick = () => {
     onSelectTheme?.('boys');
     handleBannerAction();
-  };
-
-  const togglePlay = () => {
-    if (!videoRef.current) return;
-    if (isPlaying) {
-      videoRef.current.pause();
-      setIsPlaying(false);
-    } else {
-      videoRef.current
-        .play()
-        .then(() => setIsPlaying(true))
-        .catch(err => {
-          console.warn('Playback error:', err);
-          // Retry with muted if browser blocked unmuted autoplay/play
-          if (videoRef.current) {
-            videoRef.current.muted = false;
-            videoRef.current.play().then(() => setIsPlaying(true)).catch(() => {
-              // Switch video fallback source if current source fails
-              if (videoIndex < FALLBACK_VIDEOS.length - 1) {
-                setVideoIndex(prev => prev + 1);
-              }
-            });
-          }
-        });
-    }
-  };
-
-  const handleVideoError = () => {
-    console.warn('Video failed to load, switching fallback source...');
-    if (videoIndex < FALLBACK_VIDEOS.length - 1) {
-      setVideoIndex(prev => prev + 1);
-    }
   };
 
   return (
@@ -207,36 +173,11 @@ export default function AdventureHeroSection({
         transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
         className="w-full pt-2 sm:pt-4"
       >
-        <div 
-          onClick={togglePlay}
-          className="relative w-full rounded-2xl sm:rounded-3xl overflow-hidden bg-slate-950 shadow-2xl aspect-[16/9] group cursor-pointer"
-        >
-          {/* HTML5 Video Element */}
-          <video
-            ref={videoRef}
-            src={currentVideoUrl}
-            controls={isPlaying}
-            playsInline
-            preload="auto"
-            onError={handleVideoError}
-            onPlay={() => setIsPlaying(true)}
-            onPause={() => setIsPlaying(false)}
-            onEnded={() => setIsPlaying(false)}
-            className="w-full h-full object-cover rounded-2xl sm:rounded-3xl"
-          />
-
-          {/* Central Play Overlay Button */}
-          {!isPlaying && (
-            <div className="absolute inset-0 z-10 bg-black/40 backdrop-blur-[2px] flex items-center justify-center transition-all group-hover:bg-black/30">
-              <div className="relative flex items-center justify-center">
-                <div className="absolute -inset-4 rounded-full bg-cyan-500/30 blur-lg animate-pulse" />
-                <div className="relative w-16 h-16 sm:w-20 sm:h-20 rounded-full bg-slate-950/85 border border-cyan-400/50 flex items-center justify-center text-cyan-300 shadow-[0_0_30px_rgba(6,182,212,0.6)] transform group-hover:scale-110 transition-transform">
-                  <Play size={32} className="ml-1 fill-cyan-400 text-cyan-400" />
-                </div>
-              </div>
-            </div>
-          )}
-        </div>
+        <TacticalVideoPlayer
+          src={currentVideoUrl}
+          aspectRatioClass="aspect-[16/9]"
+          className="rounded-2xl sm:rounded-3xl border border-cyan-500/30 shadow-2xl"
+        />
       </motion.div>
 
     </div>

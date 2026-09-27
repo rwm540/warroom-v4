@@ -654,11 +654,36 @@ export function appendGroupChatMessage(payload: {
       activeSupabaseChannels.set(canonical, channel);
     }
 
-    channel.send({
-      type: 'broadcast',
-      event: 'chat:new_message',
-      payload: newMessage,
-    }).catch(() => undefined);
+    const sendMessageOverChannel = (chan: any) => {
+      if (chan.state === 'joined') {
+        chan.send({
+          type: 'broadcast',
+          event: 'chat:new_message',
+          payload: newMessage,
+        }).catch(() => undefined);
+      } else {
+        // اگر هنوز در حال برقراری اتصال است
+        const timer = setTimeout(() => {
+          chan.send({
+            type: 'broadcast',
+            event: 'chat:new_message',
+            payload: newMessage,
+          }).catch(() => undefined);
+        }, 300);
+        chan.subscribe((status: string) => {
+          if (status === 'SUBSCRIBED') {
+            clearTimeout(timer);
+            chan.send({
+              type: 'broadcast',
+              event: 'chat:new_message',
+              payload: newMessage,
+            }).catch(() => undefined);
+          }
+        });
+      }
+    };
+
+    sendMessageOverChannel(channel);
 
     // ارسال به کانال سراسری عمومی
     let globalChannel = activeSupabaseChannels.get('global');
@@ -670,11 +695,7 @@ export function appendGroupChatMessage(payload: {
       activeSupabaseChannels.set('global', globalChannel);
     }
 
-    globalChannel.send({
-      type: 'broadcast',
-      event: 'chat:new_message',
-      payload: newMessage,
-    }).catch(() => undefined);
+    sendMessageOverChannel(globalChannel);
 
     // ۴. ثبت دائمی در جدول Postgres
     void supabase

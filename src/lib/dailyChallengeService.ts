@@ -106,7 +106,28 @@ export async function setActiveDailyChallenge(id: string): Promise<boolean> {
  */
 export async function deleteDailyChallenge(id: string): Promise<boolean> {
   const success = await deleteDailyChallengeFromSupabase(id);
-  window.dispatchEvent(new CustomEvent('warroom_daily_challenge_deleted', { detail: { id } }));
+  
+  try {
+    const remaining = await getAllDailyChallenges();
+    const active = remaining.find(c => c.isActive && c.id !== id);
+    if (active) {
+      localStorage.setItem('warroom_daily_challenge_config', JSON.stringify(active));
+      if (isSupabaseEnabled && supabase) {
+        await supabase.from('warroom_kv').upsert({ id: 'daily_challenge_config', value: active });
+      }
+      window.dispatchEvent(new CustomEvent('warroom_daily_challenge_updated', { detail: active }));
+    } else {
+      localStorage.removeItem('warroom_daily_challenge_config');
+      if (isSupabaseEnabled && supabase) {
+        await supabase.from('warroom_kv').delete().eq('id', 'daily_challenge_config');
+      }
+      window.dispatchEvent(new CustomEvent('warroom_daily_challenge_deleted', { detail: { id } }));
+    }
+  } catch (e) {
+    localStorage.removeItem('warroom_daily_challenge_config');
+    window.dispatchEvent(new CustomEvent('warroom_daily_challenge_deleted', { detail: { id } }));
+  }
+
   return success;
 }
 

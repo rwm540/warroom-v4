@@ -68,6 +68,7 @@ import { probeBackend, apiLogout, apiSession, getBackendStatus, subscribeBackend
 import { installGlobalErrorAudit, logAudit } from './lib/auditLogger';
 
 // Vitrin (Showcase) data layer
+import { getAllDailyChallenges } from './lib/dailyChallengeService';
 import {
   VitrinPost,
   VitrinComment,
@@ -788,10 +789,41 @@ export default function App() {
     window.addEventListener('warroom_open_squad_modal', openSquad);
     window.addEventListener('warroom_open_notifications', openNotifications);
     window.addEventListener('warroom_open_chat_modal', openChat);
+
+    const handleChallengeUpdated = (e: any) => {
+      if (e.detail && e.detail.isActive) {
+        setDailyChallengeConfig(e.detail);
+      } else {
+        setDailyChallengeConfig(null);
+        try { localStorage.removeItem('warroom_daily_challenge_config'); } catch {}
+      }
+    };
+
+    const handleChallengeDeleted = () => {
+      setDailyChallengeConfig(null);
+      try { localStorage.removeItem('warroom_daily_challenge_config'); } catch {}
+    };
+
+    window.addEventListener('warroom_daily_challenge_updated' as any, handleChallengeUpdated);
+    window.addEventListener('warroom_daily_challenge_deleted' as any, handleChallengeDeleted);
+
+    // Initial check: Purge stale or deleted challenge cache if no active challenge exists in database
+    void getAllDailyChallenges().then((all) => {
+      const active = all.find(c => c.isActive);
+      if (active) {
+        setDailyChallengeConfig(active);
+      } else {
+        setDailyChallengeConfig(null);
+        try { localStorage.removeItem('warroom_daily_challenge_config'); } catch {}
+      }
+    });
+
     return () => {
       window.removeEventListener('warroom_open_squad_modal', openSquad);
       window.removeEventListener('warroom_open_notifications', openNotifications);
       window.removeEventListener('warroom_open_chat_modal', openChat);
+      window.removeEventListener('warroom_daily_challenge_updated' as any, handleChallengeUpdated);
+      window.removeEventListener('warroom_daily_challenge_deleted' as any, handleChallengeDeleted);
     };
   }, []);
 

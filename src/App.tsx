@@ -86,6 +86,7 @@ import PersistentMusicBar from './components/PersistentMusicBar.tsx';
 import LiveNotificationToast from './components/LiveNotificationToast.tsx';
 import InternalDialogHost from './components/InternalDialogHost.tsx';
 import RadarLoading from './components/RadarLoading.tsx';
+import GroupChatPanel from './components/GroupChatPanel.tsx';
 
 // Code-Split Dynamic Views & Modals (loaded on-demand for maximum performance & lowest initial JS payload)
 const AuthView = lazy(() => import('./components/AuthView.tsx'));
@@ -107,8 +108,73 @@ const GameSelectionPortalModal = lazy(() => import('./components/GameSelectionPo
 const NotificationCenterModal = lazy(() => import('./components/NotificationCenterModal.tsx'));
 const OnboardingCommanderTutorial = lazy(() => import('./components/OnboardingCommanderTutorial.tsx'));
 const ForcePasswordChangeModal = lazy(() => import('./components/ForcePasswordChangeModal.tsx'));
-const GroupChatPanel = lazy(() => import('./components/GroupChatPanel.tsx'));
 const AdminPanel = lazy(() => import('./components/AdminPanel.tsx'));
+
+// Highly optimized Draggable Floating Chat Button component
+const DraggableFloatingChatButton = React.memo(function DraggableFloatingChatButton({
+  isGirlsTheme,
+  onToggle
+}: {
+  isGirlsTheme: boolean;
+  onToggle: () => void;
+}) {
+  const [position, setPosition] = useState<{ x: number; y: number }>(() => {
+    try {
+      const saved = localStorage.getItem('warroom_floating_chat_pos');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (typeof parsed.x === 'number' && typeof parsed.y === 'number') {
+          return parsed;
+        }
+      }
+    } catch (e) {}
+    return { x: 0, y: 0 };
+  });
+
+  return (
+    <motion.button
+      drag
+      dragMomentum={false}
+      dragElastic={0.1}
+      animate={{ x: position.x, y: position.y }}
+      onDragEnd={(_, info) => {
+        const dist = Math.hypot(info.offset.x, info.offset.y);
+        if (dist < 6) {
+          onToggle();
+          return;
+        }
+        const newPos = {
+          x: position.x + info.offset.x,
+          y: position.y + info.offset.y
+        };
+        setPosition(newPos);
+        try {
+          localStorage.setItem('warroom_floating_chat_pos', JSON.stringify(newPos));
+        } catch (e) {}
+      }}
+      initial={{ scale: 0, opacity: 0 }}
+      whileHover={{ scale: 1.08 }}
+      whileTap={{ scale: 0.95 }}
+      onClick={(e) => {
+        e.stopPropagation();
+        onToggle();
+      }}
+      style={{ touchAction: 'none' }}
+      className={`fixed bottom-20 left-4 md:bottom-6 md:left-6 z-40 px-4 py-3 rounded-2xl shadow-2xl flex items-center gap-2.5 font-bold text-xs border cursor-grab active:cursor-grabbing select-none backdrop-blur-md transition-shadow ${
+        isGirlsTheme
+          ? 'bg-gradient-to-r from-fuchsia-600/90 to-purple-600/90 text-white border-pink-400/50 shadow-[0_0_25px_rgba(255,19,137,0.5)]'
+          : 'bg-gradient-to-r from-blue-600/90 to-indigo-600/90 text-white border-blue-400/50 shadow-[0_0_25px_rgba(37,99,235,0.5)]'
+      }`}
+      title="نمایش اتاق گفتگو و چت روم (با ۱ کلیک سریع باز می‌شود)"
+    >
+      <div className="relative">
+        <MessageSquare size={18} />
+        <span className="absolute -top-1 -right-1 w-2 h-2 bg-emerald-400 rounded-full animate-pulse" />
+      </div>
+      <span>اتاق گفتگو</span>
+    </motion.button>
+  );
+});
 
 // Preload common chunks on idle / hover
 export function prefetchViewChunk(name: string) {
@@ -1217,30 +1283,12 @@ export default function App() {
             )}
 
             {/* Floating Chat Room Toggle Button when chat is closed / inactive */}
-            {currentUser && currentUser.role !== 'admin' && !isAdminMode && !isFloatingChatOpen && activeTab !== 'Chat' && (() => {
-              const isGirlsTheme = campaignTheme === 'girls' || currentUser?.gender === 'دختر';
-              return (
-                <motion.button
-                  initial={{ scale: 0, opacity: 0 }}
-                  animate={{ scale: 1, opacity: 1 }}
-                  whileHover={{ scale: 1.08 }}
-                  whileTap={{ scale: 0.95 }}
-                  onClick={handleToggleFloatingChat}
-                  className={`fixed bottom-20 left-4 md:bottom-6 md:left-6 z-40 px-4 py-3 rounded-2xl shadow-2xl flex items-center gap-2.5 font-bold text-xs border cursor-pointer backdrop-blur-md transition-all ${
-                    isGirlsTheme
-                      ? 'bg-gradient-to-r from-fuchsia-600/90 to-purple-600/90 text-white border-pink-400/50 shadow-[0_0_25px_rgba(255,19,137,0.5)]'
-                      : 'bg-gradient-to-r from-blue-600/90 to-indigo-600/90 text-white border-blue-400/50 shadow-[0_0_25px_rgba(37,99,235,0.5)]'
-                  }`}
-                  title="نمایش اتاق گفتگو و چت روم"
-                >
-                  <div className="relative">
-                    <MessageSquare size={18} />
-                    <span className="absolute -top-1 -right-1 w-2 h-2 bg-emerald-400 rounded-full animate-pulse" />
-                  </div>
-                  <span>اتاق گفتگو</span>
-                </motion.button>
-              );
-            })()}
+            {currentUser && currentUser.role !== 'admin' && !isAdminMode && !isFloatingChatOpen && activeTab !== 'Chat' && (
+              <DraggableFloatingChatButton
+                isGirlsTheme={campaignTheme === 'girls' || currentUser?.gender === 'دختر'}
+                onToggle={handleToggleFloatingChat}
+              />
+            )}
 
             {/* Main Content Body */}
             <main className={`flex-1 w-full mx-auto ${

@@ -131,6 +131,7 @@ export default function Navbar({
   const desktopNavItems: { id: string; label: string; icon: any; badge?: string }[] = [
     { id: 'GamePortals', label: 'انتخاب بازی', icon: Gamepad2 },
     { id: 'Journey', label: 'نقشه مراحل بازی', icon: Compass },
+    { id: 'Chat', label: 'اتاق گفتگو', icon: MessageSquare },
     { id: 'Rewards', label: 'جوایز و امتیازات', icon: Gift },
     { id: 'Vitrin', label: 'ویترین و آثار', icon: Grid },
   ];

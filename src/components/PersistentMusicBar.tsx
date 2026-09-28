@@ -25,6 +25,20 @@ export default function PersistentMusicBar({ hasBottomNav = false, isGirls = fal
   const [isHovered, setIsHovered] = useState(false);
   const [volume, setVolume] = useState<number>(() => battleMusicSynth.getVolume());
 
+  // Saved Drag Position State
+  const [position, setPosition] = useState<{ x: number; y: number }>(() => {
+    try {
+      const saved = localStorage.getItem('warroom_music_bar_pos');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (typeof parsed.x === 'number' && typeof parsed.y === 'number') {
+          return parsed;
+        }
+      }
+    } catch (e) {}
+    return { x: 0, y: 0 };
+  });
+
   useEffect(() => {
     const handleMusicState = (e: any) => {
       setHasTracks(battleMusicSynth.getHasActiveTracks());
@@ -55,19 +69,10 @@ export default function PersistentMusicBar({ hasBottomNav = false, isGirls = fal
     window.addEventListener('warroom_track_changed' as any, handleTrackChanged);
     window.addEventListener('warroom_soundtracks_updated' as any, handleTracksUpdated);
 
-    const interval = setInterval(() => {
-      setHasTracks(battleMusicSynth.getHasActiveTracks());
-      setIsPlaying(battleMusicSynth.getIsRunning());
-      const track = battleMusicSynth.getCurrentTrack();
-      if (track) setCurrentTrack(track);
-      setVolume(battleMusicSynth.getVolume());
-    }, 800);
-
     return () => {
       window.removeEventListener('warroom_music_state_changed' as any, handleMusicState);
       window.removeEventListener('warroom_track_changed' as any, handleTrackChanged);
       window.removeEventListener('warroom_soundtracks_updated' as any, handleTracksUpdated);
-      clearInterval(interval);
     };
   }, []);
 
@@ -99,15 +104,30 @@ export default function PersistentMusicBar({ hasBottomNav = false, isGirls = fal
   }
 
   return (
-    <div
+    <motion.div
       role="region"
       aria-label="کنترل موسیقی"
-      className={`fixed z-40 transition-all duration-300 select-none ${
+      id="floating-music-icon-widget"
+      drag
+      dragMomentum={false}
+      dragElastic={0.1}
+      animate={{ x: position.x, y: position.y }}
+      onDragEnd={(_, info) => {
+        const newPos = {
+          x: position.x + info.offset.x,
+          y: position.y + info.offset.y
+        };
+        setPosition(newPos);
+        try {
+          localStorage.setItem('warroom_music_bar_pos', JSON.stringify(newPos));
+        } catch (e) {}
+      }}
+      style={{ touchAction: 'none' }}
+      className={`fixed z-50 select-none cursor-grab active:cursor-grabbing ${
         hasBottomNav 
           ? 'bottom-20 left-4 md:bottom-6 md:left-6' 
           : 'bottom-5 left-4 md:bottom-6 md:left-6'
       }`}
-      id="floating-music-icon-widget"
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
     >
@@ -219,6 +239,6 @@ export default function PersistentMusicBar({ hasBottomNav = false, isGirls = fal
           )}
         </AnimatePresence>
       </div>
-    </div>
+    </motion.div>
   );
 }

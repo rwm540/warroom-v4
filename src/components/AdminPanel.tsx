@@ -1134,7 +1134,9 @@ export default function AdminPanel({
     video_url: '',
     max_score: 100,
     is_optional: false,
-    is_active: true
+    is_active: true,
+    deadlineDays: 7,
+    deadlineHours: 0
   });
 
   // TRAINING CRUD & EDIT STATES
@@ -1500,7 +1502,9 @@ export default function AdminPanel({
       video_url: '',
       max_score: 100,
       is_optional: false,
-      is_active: true
+      is_active: true,
+      deadlineDays: 7,
+      deadlineHours: 0
     });
     setShowMissionModal(true);
   };
@@ -1514,7 +1518,9 @@ export default function AdminPanel({
       video_url: m.video_url || '',
       max_score: m.max_score || 100,
       is_optional: Boolean(m.is_optional),
-      is_active: m.is_active !== undefined ? m.is_active : true
+      is_active: m.is_active !== undefined ? m.is_active : true,
+      deadlineDays: m.deadlineDays ?? 7,
+      deadlineHours: m.deadlineHours ?? 0
     });
     setShowMissionModal(true);
   };
@@ -1526,6 +1532,12 @@ export default function AdminPanel({
       return;
     }
 
+    const dDays = Math.max(0, Number(missionForm.deadlineDays) || 0);
+    const dHours = Math.max(0, Number(missionForm.deadlineHours) || 0);
+    const totalDeadlineMs = (dDays * 24 + dHours) * 3600 * 1000;
+    const deadlineTimestamp = totalDeadlineMs > 0 ? Date.now() + totalDeadlineMs : undefined;
+    const deadlineStr = totalDeadlineMs > 0 ? `${dDays} روز و ${dHours} ساعت` : undefined;
+
     if (editingMission) {
       setMissions(prev => prev.map(m => m.id === editingMission.id ? {
         ...m,
@@ -1536,7 +1548,11 @@ export default function AdminPanel({
         media_type: missionForm.video_url.trim() ? 'video' : 'image',
         max_score: Number(missionForm.max_score) || 100,
         is_optional: missionForm.is_optional,
-        is_active: missionForm.is_active
+        is_active: missionForm.is_active,
+        deadlineDays: dDays,
+        deadlineHours: dHours,
+        deadlineTimestamp: deadlineTimestamp || m.deadlineTimestamp,
+        deadline: deadlineStr || m.deadline
       } : m));
       triggerAlert(`مأموریت «${missionForm.title}» با موفقیت بروزرسانی شد.`);
     } else {
@@ -1550,7 +1566,11 @@ export default function AdminPanel({
         max_score: Number(missionForm.max_score) || 100,
         is_active: missionForm.is_active,
         is_optional: missionForm.is_optional,
-        created_at: '۱۴۰۳/۰۲/۲۲'
+        deadlineDays: dDays,
+        deadlineHours: dHours,
+        deadlineTimestamp: deadlineTimestamp,
+        deadline: deadlineStr,
+        created_at: new Date().toLocaleDateString('fa-IR')
       };
       setMissions(prev => [missionObj, ...prev]);
       triggerAlert(`مأموریت جدید «${missionObj.title}» ایجاد شد.`);
@@ -1717,9 +1737,6 @@ export default function AdminPanel({
 
     // Update notifications list
     setNotifications(prev => [newNotification, ...prev]);
-
-    // Play synthesized sound
-    playNotificationSound(notifType);
 
     // Call real-time broadcast callback
     if (onBroadcastNotification) {
@@ -3122,6 +3139,40 @@ export default function AdminPanel({
                         <option value="active">فعال و قابل مشاهده</option>
                         <option value="inactive">غیرفعال (پیش‌نویس)</option>
                       </select>
+                    </div>
+                  </div>
+
+                  {/* Deadline: Days and Hours Timer Inputs */}
+                  <div className="p-3 bg-slate-950/80 rounded-2xl border border-slate-800 space-y-2">
+                    <span className="text-xs font-bold text-amber-300 flex items-center gap-1.5">
+                      <Clock size={15} />
+                      <span>تعیین مهلت زمانی مأموریت (روزانه و ساعتی):</span>
+                    </span>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-[11px] font-bold text-slate-400 mb-1">تعداد روز مهلت:</label>
+                        <input
+                          type="number"
+                          min={0}
+                          max={365}
+                          placeholder="مثلاً: ۷ روز"
+                          value={missionForm.deadlineDays}
+                          onChange={(e) => setMissionForm({ ...missionForm, deadlineDays: Math.max(0, parseInt(e.target.value, 10) || 0) })}
+                          className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white font-mono focus:border-amber-500 outline-none"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[11px] font-bold text-slate-400 mb-1">تعداد ساعت مهلت:</label>
+                        <input
+                          type="number"
+                          min={0}
+                          max={23}
+                          placeholder="مثلاً: ۱۲ ساعت"
+                          value={missionForm.deadlineHours}
+                          onChange={(e) => setMissionForm({ ...missionForm, deadlineHours: Math.max(0, parseInt(e.target.value, 10) || 0) })}
+                          className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white font-mono focus:border-amber-500 outline-none"
+                        />
+                      </div>
                     </div>
                   </div>
 

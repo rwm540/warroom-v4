@@ -1,4 +1,4 @@
-import React, { useState, useEffect, lazy, Suspense } from 'react';
+import React, { useState, useEffect, useRef, lazy, Suspense } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Bell, ShieldAlert, X, Radio, MessageSquare } from 'lucide-react';
 
@@ -760,21 +760,30 @@ export default function App() {
     return false;
   };
 
+  const lastProcessedNotifIdRef = useRef<string | null>(null);
+
   // Real-time notification broadcaster & listener across browser tabs
   useEffect(() => {
-    const handleBroadcastEvent = (e: any) => {
-      const notif: AppNotification = e.detail;
-      if (notif && isEligibleForNotification(notif, currentUser)) {
+    const triggerUniqueNotification = (notif: AppNotification) => {
+      if (!notif || !notif.id) return;
+      if (lastProcessedNotifIdRef.current === notif.id) return;
+      lastProcessedNotifIdRef.current = notif.id;
+
+      if (isEligibleForNotification(notif, currentUser)) {
         setLiveToastNotification(notif);
       }
+    };
+
+    const handleBroadcastEvent = (e: any) => {
+      triggerUniqueNotification(e.detail);
     };
 
     const handleStorageEvent = (e: StorageEvent) => {
       if (e.key === 'warroom_last_live_notification' && e.newValue) {
         try {
           const parsed = JSON.parse(e.newValue);
-          if (parsed?.notif && isEligibleForNotification(parsed.notif, currentUser)) {
-            setLiveToastNotification(parsed.notif);
+          if (parsed?.notif) {
+            triggerUniqueNotification(parsed.notif);
           }
         } catch (err) {}
       }

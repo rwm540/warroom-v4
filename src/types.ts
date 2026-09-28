@@ -180,6 +180,9 @@ export interface Mission {
   is_active: boolean;
   is_optional: boolean;
   deadline?: string;
+  deadlineDays?: number;
+  deadlineHours?: number;
+  deadlineTimestamp?: number;
   created_at: string;
 }
 

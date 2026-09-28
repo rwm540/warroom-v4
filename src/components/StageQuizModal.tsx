@@ -46,8 +46,10 @@ export default function StageQuizModal({
   onStageCompleted
 }: StageQuizModalProps) {
   const stageId = stage?.id || '';
-  const customQuestionsFromStage: StageQuestion[] = (stage?.quizQuestions && stage.quizQuestions.length > 0)
-    ? stage.quizQuestions.map((q, idx) => ({
+  const hasQuizQuestions = Boolean(stage?.quizQuestions && stage.quizQuestions.length > 0);
+
+  const customQuestionsFromStage: StageQuestion[] = hasQuizQuestions
+    ? stage!.quizQuestions!.map((q, idx) => ({
         id: q.id || `${stageId}_q_${idx}`,
         stageId: stageId,
         stageNumber: stage?.number || 1,
@@ -61,38 +63,27 @@ export default function StageQuizModal({
           : ['گزینه ۱', 'گزینه ۲', 'گزینه ۳', 'گزینه ۴']) as [string, string, string, string],
         correctOptionIndex: q.correctAnswer ?? 0,
         explanation: 'پاسخ صحیح بر اساس گزینه‌های انتخاب‌شده در سامانه تعریف شده است.',
-        rewardPoints: Math.round((stage?.requiredPoints || 100) / (stage.quizQuestions?.length || 1)),
+        rewardPoints: Math.round((stage?.requiredPoints || 100) / (stage!.quizQuestions?.length || 1)),
         timeLimitSeconds: q.timeLimitSeconds && q.timeLimitSeconds >= 5 && q.timeLimitSeconds <= 600 ? q.timeLimitSeconds : 30,
         wrongAnswerPenalty: q.wrongAnswerPenalty || stage?.wrongAnswerPenalty || 10
       }))
     : [];
 
-  const questionsList: StageQuestion[] = customQuestionsFromStage.length > 0 
-    ? customQuestionsFromStage 
-    : ((stage && STAGE_QUESTIONS[stage.id]) ? STAGE_QUESTIONS[stage.id] : [
-      {
-        id: `${stageId}_default`,
-        stageId: stageId,
-        stageNumber: stage?.number || 1,
-        stageTitle: stage?.title || '',
-        question: `در مرحله «${stage?.title || 'مأموریت'}»، اولویت اصلی در مواجهه با چالش‌های میدانی و جنگ ترکیبی چیست؟`,
-        mediaType: 'image',
-        mediaUrl: stage?.bgThemeUrl || 'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?auto=format&fit=crop&w=900&q=80',
-        mediaCaption: `تصویر راهبردی مأموریت ${stage?.title || ''}`,
-        options: [
-          'توکل بر خداوند، بصیرت و اقدام هم‌افزا در قالب جوخه',
-          'انفعال و انتظار بدون تحرک میدانی',
-          'تمرکز فردی و بی‌توجهی به راهبری فرمانده',
-          'شتاب‌زدگی و عدم ارزیابی اطلاعات'
-        ],
-        correctOptionIndex: 0,
-        explanation: 'در مکتب مقاومت، توکل به همراه بصیرت و کار تشکیلاتی ضامن اصلی پیروزی و پیشرفت است.',
-        rewardPoints: 100,
-        timeLimitSeconds: 30
-      }
-    ]);
+  const questionsList: StageQuestion[] = customQuestionsFromStage;
 
-  const [activeTab, setActiveTab] = useState<'quiz' | 'deliverable'>('quiz');
+  const [activeTab, setActiveTab] = useState<'quiz' | 'deliverable'>(() => {
+    return hasQuizQuestions ? 'quiz' : 'deliverable';
+  });
+
+  // Switch tab automatically if stage questions list is empty
+  useEffect(() => {
+    if (!stage) return;
+    if (!stage.quizQuestions || stage.quizQuestions.length === 0) {
+      setActiveTab('deliverable');
+    } else {
+      setActiveTab('quiz');
+    }
+  }, [stage?.id, stage?.quizQuestions?.length]);
   const [currentQIndex, setCurrentQIndex] = useState(0);
   const [selectedOption, setSelectedOption] = useState<number | null>(null);
   const [isSubmitted, setIsSubmitted] = useState(false);
@@ -169,6 +160,7 @@ export default function StageQuizModal({
   };
 
   const handleSubmitAnswer = () => {
+    if (!currentQ) return;
     if (selectedOption === null) {
       triggerAlert('لطفاً یکی از ۴ گزینه را انتخاب فرمایید.');
       return;
@@ -181,11 +173,11 @@ export default function StageQuizModal({
     setIsCorrect(correct);
 
     if (correct) {
-      setScoreEarned((prev) => prev + currentQ.rewardPoints);
-      triggerAlert(`پاسخ صحیح بود! +${formatToPersianDigits(currentQ.rewardPoints)} کریستال به شما تعلق گرفت.`);
+      setScoreEarned((prev) => prev + (currentQ.rewardPoints || 0));
+      triggerAlert(`پاسخ صحیح بود! +${formatToPersianDigits(currentQ.rewardPoints || 0)} کریستال به شما تعلق گرفت.`);
     } else {
       const penalty = Math.max(1, currentQ.wrongAnswerPenalty || stage?.wrongAnswerPenalty || 10);
-      setScoreEarned((prev) => prev - penalty);
+      setScoreEarned((prev) => Math.max(0, prev - penalty));
       triggerAlert(`پاسخ نادرست بود! ⚠️ ${formatToPersianDigits(penalty)}- امتیاز نمره منفی کسر گردید.`);
     }
   };
@@ -221,7 +213,8 @@ export default function StageQuizModal({
   };
 
   // Timer color and progress calculation
-  const progressPercent = Math.max(0, Math.min(100, (timeLeft / (currentQ.timeLimitSeconds || 60)) * 100));
+  const currentQTimeLimit = currentQ?.timeLimitSeconds || 60;
+  const progressPercent = Math.max(0, Math.min(100, (timeLeft / currentQTimeLimit) * 100));
   const isUrgent = timeLeft <= 10;
   const isWarning = timeLeft <= 25 && timeLeft > 10;
 
@@ -292,31 +285,33 @@ export default function StageQuizModal({
           </div>
 
           {/* Sub Tab Switcher: سوالات چهارگزینه‌ای vs ارسال مستندات */}
-          <div className="flex items-center gap-2 mt-2.5 pt-2.5 border-t border-slate-800/60">
-            <button
-              onClick={() => setActiveTab('quiz')}
-              className={`flex-1 py-1.5 px-2.5 rounded-xl text-[11px] sm:text-xs font-bold transition flex items-center justify-center gap-1.5 cursor-pointer ${
-                activeTab === 'quiz'
-                  ? 'bg-cyan-500 text-slate-950 font-black shadow-md'
-                  : 'bg-slate-900/60 text-slate-400 hover:text-white border border-slate-800'
-              }`}
-            >
-              <HelpCircle size={14} />
-              <span>سوالات ۴ گزینه‌ای ({formatToPersianDigits(currentQIndex + 1)} از {formatToPersianDigits(questionsList.length)})</span>
-            </button>
+          {questionsList.length > 0 && (
+            <div className="flex items-center gap-2 mt-2.5 pt-2.5 border-t border-slate-800/60">
+              <button
+                onClick={() => setActiveTab('quiz')}
+                className={`flex-1 py-1.5 px-2.5 rounded-xl text-[11px] sm:text-xs font-bold transition flex items-center justify-center gap-1.5 cursor-pointer ${
+                  activeTab === 'quiz'
+                    ? 'bg-cyan-500 text-slate-950 font-black shadow-md'
+                    : 'bg-slate-900/60 text-slate-400 hover:text-white border border-slate-800'
+                }`}
+              >
+                <HelpCircle size={14} />
+                <span>سوالات ۴ گزینه‌ای ({formatToPersianDigits(currentQIndex + 1)} از {formatToPersianDigits(questionsList.length)})</span>
+              </button>
 
-            <button
-              onClick={() => setActiveTab('deliverable')}
-              className={`flex-1 py-1.5 px-2.5 rounded-xl text-[11px] sm:text-xs font-bold transition flex items-center justify-center gap-1.5 cursor-pointer ${
-                activeTab === 'deliverable'
-                  ? 'bg-amber-500 text-slate-950 font-black shadow-md'
-                  : 'bg-slate-900/60 text-slate-400 hover:text-white border border-slate-800'
-              }`}
-            >
-              <Upload size={14} />
-              <span>ارسال مستندات میدانی</span>
-            </button>
-          </div>
+              <button
+                onClick={() => setActiveTab('deliverable')}
+                className={`flex-1 py-1.5 px-2.5 rounded-xl text-[11px] sm:text-xs font-bold transition flex items-center justify-center gap-1.5 cursor-pointer ${
+                  activeTab === 'deliverable'
+                    ? 'bg-amber-500 text-slate-950 font-black shadow-md'
+                    : 'bg-slate-900/60 text-slate-400 hover:text-white border border-slate-800'
+                }`}
+              >
+                <Upload size={14} />
+                <span>ارسال مستندات میدانی</span>
+              </button>
+            </div>
+          )}
         </div>
 
         {/* ========================================================================= */}
@@ -324,7 +319,7 @@ export default function StageQuizModal({
         {/* ========================================================================= */}
         <div className="p-3 sm:p-4 overflow-y-auto space-y-3 flex-1">
           
-          {activeTab === 'quiz' ? (
+          {activeTab === 'quiz' && currentQ ? (
             quizFinished ? (
               /* QUIZ RESULT / COMPLETION CARD */
               <motion.div 
@@ -353,7 +348,7 @@ export default function StageQuizModal({
                   <Gem size={16} className="text-cyan-400 animate-pulse" />
                   <span className="text-xs font-bold">پاداش کریستال کسب‌شده:</span>
                   <span className="font-mono font-black text-base text-white">
-                    +{formatToPersianDigits(scoreEarned || currentQ.rewardPoints)}
+                    +{formatToPersianDigits(scoreEarned || currentQ?.rewardPoints || 0)}
                   </span>
                 </div>
               </motion.div>
@@ -400,10 +395,17 @@ export default function StageQuizModal({
                     </div>
                   </div>
 
-                  {/* Reward badge */}
-                  <div className="bg-slate-900/80 px-2 py-0.5 rounded-lg border border-slate-800 text-[10px] font-bold font-mono text-amber-300 flex items-center gap-1 shrink-0">
-                    <Sparkles size={11} className="text-amber-400" />
-                    <span>+{formatToPersianDigits(currentQ.rewardPoints)}</span>
+                  {/* Reward & Penalty badge */}
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    <div className="bg-slate-900/80 px-2 py-0.5 rounded-lg border border-emerald-500/40 text-[10px] font-bold font-mono text-emerald-300 flex items-center gap-1">
+                      <Sparkles size={11} className="text-emerald-400" />
+                      <span>پاداش: +{formatToPersianDigits(currentQ.rewardPoints || 100)}</span>
+                    </div>
+                    {Boolean(currentQ.wrongAnswerPenalty || stage?.wrongAnswerPenalty) && (
+                      <div className="bg-slate-900/80 px-2 py-0.5 rounded-lg border border-rose-500/40 text-[10px] font-bold font-mono text-rose-300 flex items-center gap-1" title="نمره منفی در صورت پاسخ نادرست">
+                        <span>کسر: -{formatToPersianDigits(currentQ.wrongAnswerPenalty || stage?.wrongAnswerPenalty || 10)}</span>
+                      </div>
+                    )}
                   </div>
 
                 </div>

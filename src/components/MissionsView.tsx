@@ -39,6 +39,77 @@ const ALLOWED_EXTENSIONS = [
   'mp3', 'wav', 'flac', 'ogg'
 ];
 
+function MissionCountdownTimer({ targetTimestamp, deadlineStr }: { targetTimestamp?: number; deadlineStr?: string }) {
+  const [timeLeft, setTimeLeft] = useState<{ days: number; hours: number; minutes: number; seconds: number; isExpired: boolean } | null>(null);
+
+  useEffect(() => {
+    if (!targetTimestamp) return;
+
+    const calculate = () => {
+      const diff = targetTimestamp - Date.now();
+      if (diff <= 0) {
+        setTimeLeft({ days: 0, hours: 0, minutes: 0, seconds: 0, isExpired: true });
+        return;
+      }
+      const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+      const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+      const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+      const seconds = Math.floor((diff % (1000 * 60)) / 1000);
+      setTimeLeft({ days, hours, minutes, seconds, isExpired: false });
+    };
+
+    calculate();
+    const interval = setInterval(calculate, 1000);
+    return () => clearInterval(interval);
+  }, [targetTimestamp]);
+
+  if (!targetTimestamp && !deadlineStr) return null;
+
+  if (timeLeft?.isExpired) {
+    return (
+      <div className="flex items-center gap-2 bg-rose-950/80 border border-rose-600/60 p-3 rounded-xl text-rose-300 text-xs font-bold">
+        <Clock size={16} className="text-rose-400 shrink-0" />
+        <span>⚠️ مهلت ارسال و تحویل این مأموریت به پایان رسیده است.</span>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-slate-950/90 border border-amber-500/40 p-3.5 rounded-xl text-xs">
+      <div className="flex items-center gap-2 text-amber-300 font-bold">
+        <Clock size={16} className="text-amber-400 shrink-0 animate-pulse" />
+        <span>زمان و مهلت تحویل باقی‌مانده (روزانه و ساعتی):</span>
+      </div>
+
+      {timeLeft ? (
+        <div className="flex items-center gap-1.5 font-mono dir-ltr font-black text-xs text-amber-300">
+          <div className="bg-slate-900 border border-amber-500/30 px-2 py-1 rounded-lg text-center min-w-[42px]">
+            <span className="text-sm block font-black text-amber-400">{formatToPersianDigits(timeLeft.days)}</span>
+            <span className="text-[9px] text-slate-400 font-sans">روز</span>
+          </div>
+          <span>:</span>
+          <div className="bg-slate-900 border border-amber-500/30 px-2 py-1 rounded-lg text-center min-w-[42px]">
+            <span className="text-sm block font-black text-amber-400">{formatToPersianDigits(timeLeft.hours)}</span>
+            <span className="text-[9px] text-slate-400 font-sans">ساعت</span>
+          </div>
+          <span>:</span>
+          <div className="bg-slate-900 border border-amber-500/30 px-2 py-1 rounded-lg text-center min-w-[42px]">
+            <span className="text-sm block font-black text-amber-400">{formatToPersianDigits(timeLeft.minutes)}</span>
+            <span className="text-[9px] text-slate-400 font-sans">دقیقه</span>
+          </div>
+          <span>:</span>
+          <div className="bg-slate-900 border border-amber-500/30 px-2 py-1 rounded-lg text-center min-w-[42px]">
+            <span className="text-sm block font-black text-amber-400">{formatToPersianDigits(timeLeft.seconds)}</span>
+            <span className="text-[9px] text-slate-400 font-sans">ثانیه</span>
+          </div>
+        </div>
+      ) : (
+        <span className="text-amber-300 font-mono font-bold">{deadlineStr}</span>
+      )}
+    </div>
+  );
+}
+
 export default function MissionsView({
   currentUser,
   missions,
@@ -300,6 +371,23 @@ export default function MissionsView({
 
               {/* Description Body */}
               <div className="p-5 space-y-4">
+                {/* Live Countdown Timer if configured */}
+                <MissionCountdownTimer 
+                  targetTimestamp={selectedMission.deadlineTimestamp} 
+                  deadlineStr={selectedMission.deadline} 
+                />
+
+                {/* Reward & Score Floor Notice */}
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 bg-gradient-to-r from-amber-950/40 via-slate-950 to-slate-950 border border-amber-500/30 p-3.5 rounded-xl text-xs">
+                  <div className="flex items-center gap-2 text-amber-300 font-bold">
+                    <Sparkles size={16} className="text-amber-400 shrink-0" />
+                    <span>پاداش انجام مأموریت: تا سقف +{formatToPersianDigits(selectedMission.max_score)} کریستال (تخصیص توسط داور)</span>
+                  </div>
+                  <div className="text-[11px] text-slate-400 font-medium border-t sm:border-t-0 sm:border-r border-slate-800 pt-2 sm:pt-0 sm:pr-3">
+                    🛡️ کف امتیاز کاربر صفر (۰) است (امتیاز منفی نمی‌شود).
+                  </div>
+                </div>
+
                 <div className="text-xs md:text-sm text-slate-200 leading-relaxed space-y-2">
                   <p className="font-bold text-slate-300">شرح دستورالعمل عملیاتی:</p>
                   <p className="bg-slate-950/80 p-3.5 rounded-xl border border-slate-800/80 text-slate-300">

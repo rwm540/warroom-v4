@@ -212,7 +212,7 @@ export default function AdminDailyChallengeManager({
     triggerAlert('سابقه پاسخگویی امروز پاک شد. اکنون می‌توانید در نقشه به عنوان کاربر چالش را تست کنید.');
   };
 
-  const activeChallenge = challenges.find(c => c.isActive) || currentConfig || DEFAULT_DAILY_CHALLENGE;
+  const activeChallenge = challenges.find(c => c.isActive);
 
   return (
     <div className="space-y-6 text-slate-100" dir="rtl">
@@ -264,78 +264,80 @@ export default function AdminDailyChallengeManager({
       </div>
 
       {/* کارت ویژه: چالش فعال امروز */}
-      <div className="relative overflow-hidden p-6 rounded-2xl bg-[#0b112c]/90 border-2 border-amber-500/40 shadow-2xl backdrop-blur-md">
-        <div className="absolute top-0 left-0 w-32 h-32 bg-amber-500/10 rounded-full blur-3xl pointer-events-none" />
-        
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-slate-800">
-          <div className="flex items-center gap-3">
-            <span className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 text-xs font-bold animate-pulse">
-              <CheckCircle2 size={14} />
-              چالش فعال امروز در نقشه بازی
-            </span>
-            <span className="text-xs text-slate-400 font-mono">شناسه: {activeChallenge.id}</span>
+      {activeChallenge && (
+        <div className="relative overflow-hidden p-6 rounded-2xl bg-[#0b112c]/90 border-2 border-amber-500/40 shadow-2xl backdrop-blur-md">
+          <div className="absolute top-0 left-0 w-32 h-32 bg-amber-500/10 rounded-full blur-3xl pointer-events-none" />
+          
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-slate-800">
+            <div className="flex items-center gap-3">
+              <span className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 text-xs font-bold animate-pulse">
+                <CheckCircle2 size={14} />
+                چالش فعال امروز در نقشه بازی
+              </span>
+              <span className="text-xs text-slate-400 font-mono">شناسه: {activeChallenge.id}</span>
+            </div>
+
+            <div className="flex items-center gap-3">
+              <span className="flex items-center gap-1 px-3 py-1 rounded-lg bg-amber-500/10 text-amber-300 border border-amber-500/20 text-xs font-mono font-bold">
+                <Trophy size={14} className="text-amber-400" />
+                {activeChallenge.pointsReward} کریستال پاداش
+              </span>
+              <span className="flex items-center gap-1 px-3 py-1 rounded-lg bg-cyan-500/10 text-cyan-300 border border-cyan-500/20 text-xs font-mono">
+                <Clock size={14} className="text-cyan-400" />
+                {activeChallenge.timeLimitSeconds || 15} ثانیه تایمر
+              </span>
+              <button
+                onClick={() => handleOpenEdit(activeChallenge)}
+                className="flex items-center gap-1 px-3 py-1 rounded-lg bg-indigo-600/30 hover:bg-indigo-600/50 text-indigo-300 border border-indigo-500/30 text-xs font-semibold transition"
+              >
+                <Edit3 size={13} />
+                <span>ویرایش این چالش</span>
+              </button>
+            </div>
           </div>
 
-          <div className="flex items-center gap-3">
-            <span className="flex items-center gap-1 px-3 py-1 rounded-lg bg-amber-500/10 text-amber-300 border border-amber-500/20 text-xs font-mono font-bold">
-              <Trophy size={14} className="text-amber-400" />
-              {activeChallenge.pointsReward} کریستال پاداش
-            </span>
-            <span className="flex items-center gap-1 px-3 py-1 rounded-lg bg-cyan-500/10 text-cyan-300 border border-cyan-500/20 text-xs font-mono">
-              <Clock size={14} className="text-cyan-400" />
-              {activeChallenge.timeLimitSeconds || 15} ثانیه تایمر
-            </span>
-            <button
-              onClick={() => handleOpenEdit(activeChallenge)}
-              className="flex items-center gap-1 px-3 py-1 rounded-lg bg-indigo-600/30 hover:bg-indigo-600/50 text-indigo-300 border border-indigo-500/30 text-xs font-semibold transition"
-            >
-              <Edit3 size={13} />
-              <span>ویرایش این چالش</span>
-            </button>
-          </div>
-        </div>
+          <div className="mt-4 space-y-3">
+            <h3 className="text-lg font-bold text-white flex items-center gap-2">
+              <HelpCircle size={18} className="text-amber-400" />
+              {activeChallenge.title}
+            </h3>
+            <p className="text-sm text-slate-300 leading-relaxed bg-slate-900/60 p-3.5 rounded-xl border border-slate-800">
+              {activeChallenge.questionText || activeChallenge.question}
+            </p>
 
-        <div className="mt-4 space-y-3">
-          <h3 className="text-lg font-bold text-white flex items-center gap-2">
-            <HelpCircle size={18} className="text-amber-400" />
-            {activeChallenge.title}
-          </h3>
-          <p className="text-sm text-slate-300 leading-relaxed bg-slate-900/60 p-3.5 rounded-xl border border-slate-800">
-            {activeChallenge.questionText || activeChallenge.question}
-          </p>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 pt-2">
-            {activeChallenge.options?.map((opt, idx) => {
-              const isCorrect = idx === activeChallenge.correctOptionIndex;
-              return (
-                <div 
-                  key={idx}
-                  className={`p-3 rounded-xl border flex items-center justify-between text-xs transition ${
-                    isCorrect 
-                      ? 'bg-emerald-950/40 border-emerald-500/60 text-emerald-300 font-bold shadow-[0_0_15px_rgba(16,185,129,0.15)]' 
-                      : 'bg-slate-900/40 border-slate-800 text-slate-400'
-                  }`}
-                >
-                  <div className="flex items-center gap-2">
-                    <span className={`w-5 h-5 rounded-full flex items-center justify-center font-mono text-[10px] ${
-                      isCorrect ? 'bg-emerald-500 text-slate-950 font-black' : 'bg-slate-800 text-slate-400'
-                    }`}>
-                      {idx + 1}
-                    </span>
-                    <span>{opt}</span>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 pt-2">
+              {activeChallenge.options?.map((opt, idx) => {
+                const isCorrect = idx === activeChallenge.correctOptionIndex;
+                return (
+                  <div 
+                    key={idx}
+                    className={`p-3 rounded-xl border flex items-center justify-between text-xs transition ${
+                      isCorrect 
+                        ? 'bg-emerald-950/40 border-emerald-500/60 text-emerald-300 font-bold shadow-[0_0_15px_rgba(16,185,129,0.15)]' 
+                        : 'bg-slate-900/40 border-slate-800 text-slate-400'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2">
+                      <span className={`w-5 h-5 rounded-full flex items-center justify-center font-mono text-[10px] ${
+                        isCorrect ? 'bg-emerald-500 text-slate-950 font-black' : 'bg-slate-800 text-slate-400'
+                      }`}>
+                        {idx + 1}
+                      </span>
+                      <span>{opt}</span>
+                    </div>
+                    {isCorrect && (
+                      <span className="flex items-center gap-1 text-[11px] text-emerald-400 font-bold">
+                        <Check size={14} />
+                        پاسخ صحیح
+                      </span>
+                    )}
                   </div>
-                  {isCorrect && (
-                    <span className="flex items-center gap-1 text-[11px] text-emerald-400 font-bold">
-                      <Check size={14} />
-                      پاسخ صحیح
-                    </span>
-                  )}
-                </div>
-              );
-            })}
+                );
+              })}
+            </div>
           </div>
         </div>
-      </div>
+      )}
 
       {/* لیست و آرشیو تمام چالش‌ها */}
       <div className="space-y-4">

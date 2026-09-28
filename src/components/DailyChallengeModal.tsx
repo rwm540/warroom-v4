@@ -334,13 +334,20 @@ export default function DailyChallengeModal({
           /* ACTIVE QUESTION FORM */
           <div className="space-y-3">
             <div className="bg-gradient-to-r from-amber-500/10 via-slate-900/60 to-slate-900/60 border border-amber-500/30 p-3.5 rounded-2xl space-y-1.5">
-              <div className="flex items-center justify-between">
+              <div className="flex items-center justify-between flex-wrap gap-2">
                 <h4 className="font-black text-xs sm:text-sm text-amber-300">
                   {activeTitle}
                 </h4>
-                <span className="text-[10px] font-bold bg-amber-500/20 text-amber-300 px-2 py-0.5 rounded-md border border-amber-500/30 font-mono">
-                  +{formatToPersianDigits(activePoints)} امتیاز
-                </span>
+                <div className="flex items-center gap-1.5 font-mono">
+                  <span className="text-[10px] font-bold bg-emerald-500/20 text-emerald-300 px-2 py-0.5 rounded-md border border-emerald-500/30">
+                    پاداش: +{formatToPersianDigits(activePoints)}
+                  </span>
+                  {Boolean(config?.wrongAnswerPenalty) && (
+                    <span className="text-[10px] font-bold bg-rose-500/20 text-rose-300 px-2 py-0.5 rounded-md border border-rose-500/30">
+                      کسر: -{formatToPersianDigits(config?.wrongAnswerPenalty || 20)}
+                    </span>
+                  )}
+                </div>
               </div>
               <p className="text-xs text-slate-200 leading-relaxed">
                 {activeScenario}

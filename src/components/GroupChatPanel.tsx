@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Check, GripVertical, Menu, MessageCircle, Pencil, Search, Send, ShieldCheck, Trash2, UserPlus, Users, X } from 'lucide-react';
+import { Check, ChevronDown, CheckCircle2, GripVertical, Layers, Menu, MessageCircle, MessageSquare, Pencil, Search, Send, ShieldCheck, Sparkles, Trash2, UserPlus, Users, X } from 'lucide-react';
 import { Group, GroupJoinRequest, User } from '../types';
 import { appendGroupChatMessage, deleteGroupChatMessage, editGroupChatMessage, ensureGroupChatRoom, getGroupChatStats, listGroupChatMessages, subscribeGroupChat } from '../lib/groupChatService';
 
@@ -147,7 +147,43 @@ export default function GroupChatPanel({
   }, [room?.id, effectiveGroupId]);
 
   const stats = room ? getGroupChatStats(effectiveGroupId, users) : { totalMessages: 0, activeMembers: 0, engagementScore: 0 };
-  const canRegisterSquadMember = Boolean(currentUser && (currentUser.role === 'leader' || currentGroup?.leader_id === currentUser.id));
+  const [drawerTab, setDrawerTab] = useState<'approved' | 'explore'>('approved');
+
+  // List of connected/approved squads for this user
+  const approvedSquads = useMemo(() => {
+    const connectedGroupIds = new Set<string>();
+    
+    // 1. User's own squad
+    if (syncedUserGroupId) connectedGroupIds.add(syncedUserGroupId);
+    if (currentUser?.group_id) connectedGroupIds.add(currentUser.group_id);
+
+    // 2. Groups linked via accepted requests
+    groupJoinRequests.forEach(req => {
+      if (req.status === 'accepted') {
+        const isUserParticipant = 
+          req.requester_id === currentUser?.id ||
+          req.source_group_id === syncedUserGroupId ||
+          req.target_group_id === syncedUserGroupId;
+
+        if (isUserParticipant) {
+          if (req.source_group_id) connectedGroupIds.add(req.source_group_id);
+          if (req.target_group_id) connectedGroupIds.add(req.target_group_id);
+        }
+      }
+    });
+
+    // 3. Child/merged squads
+    groups.forEach(g => {
+      if (g.parent_group_id === syncedUserGroupId || (currentGroup && g.parent_group_id === currentGroup.id)) {
+        connectedGroupIds.add(g.id);
+      }
+      if (currentGroup?.parent_group_id && g.id === currentGroup.parent_group_id) {
+        connectedGroupIds.add(g.id);
+      }
+    });
+
+    return groups.filter(g => connectedGroupIds.has(g.id) && Boolean(g?.id));
+  }, [groups, groupJoinRequests, syncedUserGroupId, currentUser?.group_id, currentUser?.id, currentGroup]);
   
   // All pending requests addressed to user's squad or to user directly
   const pendingIncoming = useMemo(() => {
@@ -473,17 +509,31 @@ export default function GroupChatPanel({
         </div>
 
         <div className="flex items-center gap-1.5 text-[10px] text-slate-300">
-          {/* Quick squad buttons */}
-          {syncedUserGroupId && (
+          {/* Quick squad dropdown / switcher if multiple squads exist */}
+          {approvedSquads.length > 1 ? (
+            <select
+              value={effectiveGroupId}
+              onChange={(e) => setSelectedGroupId(e.target.value)}
+              className="px-2 py-1 rounded-lg border border-cyan-500/40 bg-slate-900 text-[10px] font-bold text-cyan-300 outline-none max-w-[120px] truncate"
+              title="تغییر اتاق گفت‌وگو"
+            >
+              <option value="general_headquarters">ستاد کل (عمومی)</option>
+              {approvedSquads.map(s => (
+                <option key={s.id} value={s.id}>
+                  {s.name} {s.id === syncedUserGroupId ? '(اصلی)' : '(متصل)'}
+                </option>
+              ))}
+            </select>
+          ) : syncedUserGroupId ? (
             <button
               type="button"
-              onClick={() => setSelectedGroupId(selectedGroupId === syncedUserGroupId ? 'general_headquarters' : syncedUserGroupId)}
+              onClick={() => setSelectedGroupId(effectiveGroupId === syncedUserGroupId ? 'general_headquarters' : syncedUserGroupId)}
               className="px-2 py-1 rounded-lg border border-cyan-500/30 bg-cyan-500/10 text-[10px] font-bold text-cyan-300 hover:bg-cyan-500/20 transition"
               title="تغییر بین روم جوخه و روم عمومی"
             >
-              {selectedGroupId === 'general_headquarters' ? 'برو به جوخه' : 'روم عمومی'}
+              {effectiveGroupId === 'general_headquarters' ? 'جوخه من' : 'روم عمومی'}
             </button>
-          )}
+          ) : null}
 
           {onOpenSquadModal && (
             <button
@@ -542,29 +592,52 @@ export default function GroupChatPanel({
           <div className="flex items-center justify-between border-b border-slate-800 pb-2">
             <span className="text-xs font-black text-white flex items-center gap-1.5">
               <Users size={15} className="text-cyan-400" />
-              <span>جوخه‌ها و درخواست ارتباط بین جوخه‌ای</span>
+              <span>جوخه‌ها و اتاق‌های گفت‌وگو</span>
             </span>
             <button type="button" onClick={() => setIsGroupMenuOpen(false)} className="text-slate-400 hover:text-white p-1 rounded-lg">
               <X size={16} />
             </button>
           </div>
 
-          <div className="flex items-center gap-2 rounded-xl border border-slate-700 bg-slate-900 px-2.5">
-            <Search size={14} className="text-slate-500" />
-            <input 
-              value={groupSearch} 
-              onChange={event => setGroupSearch(event.target.value)} 
-              placeholder="جست‌وجوی نام جوخه برای ارسال درخواست چت..." 
-              className="w-full bg-transparent py-2 text-[11px] text-white outline-none placeholder:text-slate-500" 
-            />
+          {/* Tab Selector: Approved Squads vs Explore Other Squads */}
+          <div className="grid grid-cols-2 gap-1 rounded-xl bg-slate-900/90 p-1 border border-slate-800">
+            <button
+              type="button"
+              onClick={() => setDrawerTab('approved')}
+              className={`flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-[11px] font-black transition ${
+                drawerTab === 'approved'
+                  ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 shadow-sm'
+                  : 'text-slate-400 hover:text-slate-200'
+              }`}
+            >
+              <MessageSquare size={13} />
+              <span>جوخه‌های من ({approvedSquads.length + 1})</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setDrawerTab('explore')}
+              className={`flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-[11px] font-black transition relative ${
+                drawerTab === 'explore'
+                  ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 shadow-sm'
+                  : 'text-slate-400 hover:text-slate-200'
+              }`}
+            >
+              <Search size={13} />
+              <span>ارتباط با جوخه‌ها</span>
+              {pendingIncoming.length > 0 && (
+                <span className="flex h-4 min-w-[16px] items-center justify-center rounded-full bg-amber-500 px-1 text-[9px] font-black text-slate-950">
+                  {pendingIncoming.length}
+                </span>
+              )}
+            </button>
           </div>
 
-          {/* Pending Incoming Requests inside Drawer */}
+          {/* Pending Incoming Requests Notification */}
           {pendingIncoming.length > 0 && (
             <div className="space-y-1.5 rounded-xl border border-amber-500/30 bg-amber-500/10 p-2.5">
               <div className="flex items-center justify-between text-[11px] font-black text-amber-300">
                 <span>درخواست‌های ورودی جدید ({pendingIncoming.length})</span>
-                <span className="text-[9px] text-amber-400/80 font-normal">برای چت مشترک تایید کنید</span>
+                <span className="text-[9px] text-amber-400/80 font-normal">تأیید برای باز شدن چت</span>
               </div>
               {pendingIncoming.map(request => {
                 const sGroup = groups.find(g => g.id === request.source_group_id);
@@ -573,14 +646,14 @@ export default function GroupChatPanel({
                     <div className="min-w-0">
                       <div className="font-bold text-white truncate">{request.requester_name}</div>
                       <div className="text-[9px] text-slate-400 truncate">
-                        {sGroup ? `جوخه مبدأ: ${sGroup.name}` : 'درخواست عضویت انفرادی'}
+                        {sGroup ? `جوخه: ${sGroup.name}` : 'درخواست انفرادی'}
                       </div>
                     </div>
                     <div className="flex items-center gap-1.5 shrink-0">
                       <button 
                         type="button" 
                         onClick={() => resolveGroupRequest(request, 'accepted')} 
-                        className="flex items-center gap-1 rounded-lg bg-emerald-600 hover:bg-emerald-500 px-2 py-1 text-[10px] font-bold text-white transition shadow-sm"
+                        className="flex items-center gap-1 rounded-lg bg-emerald-600 hover:bg-emerald-500 px-2.5 py-1 text-[10px] font-bold text-white transition shadow-sm"
                         title="تأیید و باز شدن چت مشترک"
                       >
                         <Check size={12} />
@@ -602,47 +675,148 @@ export default function GroupChatPanel({
             </div>
           )}
 
-          {/* Squad list */}
-          <div className="max-h-44 space-y-1.5 overflow-y-auto pr-0.5">
-            {visibleGroups.length === 0 ? (
-              <p className="py-4 text-center text-[11px] text-slate-500">جوخه‌ای یافت نشد.</p>
-            ) : (
-              visibleGroups.map(group => {
-                const isPending = groupJoinRequests.some(
-                  request => request.requester_id === currentUser?.id && request.target_group_id === group.id && request.status === 'pending'
-                );
-                const isFull = (group.members_count || 0) >= (group.max_members || 6);
+          {/* TAB 1: APPROVED SQUADS & DIRECT CHAT ROOMS */}
+          {drawerTab === 'approved' && (
+            <div className="space-y-2 max-h-52 overflow-y-auto pr-0.5">
+              {/* General Room Option */}
+              <div 
+                onClick={() => {
+                  setSelectedGroupId('general_headquarters');
+                  setIsGroupMenuOpen(false);
+                }}
+                className={`cursor-pointer flex items-center justify-between gap-2 rounded-xl p-2.5 border transition ${
+                  effectiveGroupId === 'general_headquarters'
+                    ? 'bg-cyan-500/20 border-cyan-500/50 shadow-[0_0_12px_rgba(34,211,238,0.2)]'
+                    : 'bg-slate-900/80 border-slate-800 hover:border-slate-700'
+                }`}
+              >
+                <div className="flex items-center gap-2 min-w-0">
+                  <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-cyan-500/20 text-cyan-300">
+                    <ShieldCheck size={15} />
+                  </span>
+                  <div>
+                    <div className="text-[11px] font-bold text-white">روم عمومی ستاد کل اتاق جنگ</div>
+                    <div className="text-[9px] text-slate-400">گفت‌وگوی سراسری تمام رزمندگان</div>
+                  </div>
+                </div>
+                {effectiveGroupId === 'general_headquarters' && (
+                  <span className="text-[9px] font-bold text-cyan-300 bg-cyan-950 px-2 py-0.5 rounded-full border border-cyan-800">
+                    درحال گفت‌وگو
+                  </span>
+                )}
+              </div>
+
+              {/* Connected / Approved Squads */}
+              {approvedSquads.map(squad => {
+                const isSelected = effectiveGroupId === squad.id;
+                const isMyMainSquad = squad.id === syncedUserGroupId;
                 return (
-                  <div key={group.id} className="flex items-center justify-between gap-2 rounded-xl border border-slate-800 bg-slate-900/80 p-2.5 hover:border-slate-700 transition">
-                    <div className="min-w-0">
-                      <div className="text-[11px] font-bold text-white truncate">{group.name}</div>
-                      <div className="text-[9px] text-slate-400">
-                        {group.members_count || 0}/{group.max_members || 6} عضو • {group.city || 'سراسری'}
+                  <div
+                    key={squad.id}
+                    onClick={() => {
+                      setSelectedGroupId(squad.id);
+                      setIsGroupMenuOpen(false);
+                    }}
+                    className={`cursor-pointer flex items-center justify-between gap-2 rounded-xl p-2.5 border transition ${
+                      isSelected
+                        ? 'bg-emerald-500/20 border-emerald-500/50 shadow-[0_0_12px_rgba(16,185,129,0.2)]'
+                        : 'bg-slate-900/80 border-slate-800 hover:border-slate-700'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2 min-w-0">
+                      <span className={`flex h-7 w-7 items-center justify-center rounded-lg ${isMyMainSquad ? 'bg-amber-500/20 text-amber-300' : 'bg-cyan-500/20 text-cyan-300'}`}>
+                        <Users size={15} />
+                      </span>
+                      <div className="min-w-0">
+                        <div className="text-[11px] font-bold text-white flex items-center gap-1.5 truncate">
+                          <span>{squad.name}</span>
+                          {isMyMainSquad && (
+                            <span className="text-[8px] bg-amber-500/20 text-amber-300 px-1 py-0.2 rounded border border-amber-500/30">
+                              جوخه اصلی
+                            </span>
+                          )}
+                          <span title="جوخه تأیید شده" className="inline-flex">
+                            <CheckCircle2 size={12} className="text-emerald-400 shrink-0" />
+                          </span>
+                        </div>
+                        <div className="text-[9px] text-slate-400">
+                          {squad.members_count || 0} رزمنده • چت و تبادل فعال
+                        </div>
                       </div>
                     </div>
-                    <button 
-                      type="button" 
-                      disabled={isPending || isFull} 
-                      onClick={() => sendGroupRequest(group)} 
-                      className={`rounded-lg px-2.5 py-1 text-[10px] font-bold transition shrink-0 ${
-                        isPending 
-                          ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40 cursor-default' 
-                          : isFull 
-                          ? 'bg-slate-800 text-slate-500 cursor-not-allowed' 
-                          : 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 hover:bg-cyan-500/30'
-                      }`}
-                    >
-                      {isFull ? 'تکمیل' : isPending ? 'در انتظار تأیید...' : 'درخواست ارتباط'}
-                    </button>
+                    {isSelected ? (
+                      <span className="text-[9px] font-bold text-emerald-300 bg-emerald-950 px-2 py-0.5 rounded-full border border-emerald-800">
+                        درحال گفت‌وگو
+                      </span>
+                    ) : (
+                      <button
+                        type="button"
+                        className="rounded-lg bg-emerald-500/15 hover:bg-emerald-500/25 px-2 py-1 text-[9px] font-bold text-emerald-300 border border-emerald-500/30"
+                      >
+                        ورود به چت
+                      </button>
+                    )}
                   </div>
                 );
-              })
-            )}
-          </div>
-          {visibleGroups.length < matchingGroups.length && (
-            <button type="button" onClick={() => setGroupPage(page => page + 1)} className="w-full rounded-xl border border-cyan-500/30 bg-cyan-500/10 py-1.5 text-[10px] font-bold text-cyan-300 hover:bg-cyan-500/20 transition">
-              بارگذاری جوخه‌های بیشتر
-            </button>
+              })}
+            </div>
+          )}
+
+          {/* TAB 2: EXPLORE & SEND NEW REQUESTS */}
+          {drawerTab === 'explore' && (
+            <div className="space-y-2">
+              <div className="flex items-center gap-2 rounded-xl border border-slate-700 bg-slate-900 px-2.5">
+                <Search size={14} className="text-slate-500" />
+                <input 
+                  value={groupSearch} 
+                  onChange={event => setGroupSearch(event.target.value)} 
+                  placeholder="جست‌وجوی نام جوخه برای ارسال درخواست چت..." 
+                  className="w-full bg-transparent py-2 text-[11px] text-white outline-none placeholder:text-slate-500" 
+                />
+              </div>
+
+              <div className="max-h-44 space-y-1.5 overflow-y-auto pr-0.5">
+                {visibleGroups.length === 0 ? (
+                  <p className="py-4 text-center text-[11px] text-slate-500">جوخه‌ای یافت نشد.</p>
+                ) : (
+                  visibleGroups.map(group => {
+                    const isPending = groupJoinRequests.some(
+                      request => request.requester_id === currentUser?.id && request.target_group_id === group.id && request.status === 'pending'
+                    );
+                    const isFull = (group.members_count || 0) >= (group.max_members || 6);
+                    return (
+                      <div key={group.id} className="flex items-center justify-between gap-2 rounded-xl border border-slate-800 bg-slate-900/80 p-2.5 hover:border-slate-700 transition">
+                        <div className="min-w-0">
+                          <div className="text-[11px] font-bold text-white truncate">{group.name}</div>
+                          <div className="text-[9px] text-slate-400">
+                            {group.members_count || 0}/{group.max_members || 6} عضو • {group.city || 'سراسری'}
+                          </div>
+                        </div>
+                        <button 
+                          type="button" 
+                          disabled={isPending || isFull} 
+                          onClick={() => sendGroupRequest(group)} 
+                          className={`rounded-lg px-2.5 py-1 text-[10px] font-bold transition shrink-0 ${
+                            isPending 
+                              ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40 cursor-default' 
+                              : isFull 
+                              ? 'bg-slate-800 text-slate-500 cursor-not-allowed' 
+                              : 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 hover:bg-cyan-500/30'
+                          }`}
+                        >
+                          {isFull ? 'تکمیل' : isPending ? 'در انتظار تأیید...' : 'درخواست ارتباط'}
+                        </button>
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+              {visibleGroups.length < matchingGroups.length && (
+                <button type="button" onClick={() => setGroupPage(page => page + 1)} className="w-full rounded-xl border border-cyan-500/30 bg-cyan-500/10 py-1.5 text-[10px] font-bold text-cyan-300 hover:bg-cyan-500/20 transition">
+                  بارگذاری جوخه‌های بیشتر
+                </button>
+              )}
+            </div>
           )}
         </div>
       )}

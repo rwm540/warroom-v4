@@ -82,6 +82,16 @@ export default function AdminDailyChallengeManager({
     };
   }, []);
 
+  // همگام‌سازی رویداد فعال‌سازی مودال جهت محو منوی پایینی اندروید
+  useEffect(() => {
+    if (isModalOpen) {
+      window.dispatchEvent(new CustomEvent('warroom_modal_active_change', { detail: { active: true } }));
+      return () => {
+        window.dispatchEvent(new CustomEvent('warroom_modal_active_change', { detail: { active: false } }));
+      };
+    }
+  }, [isModalOpen]);
+
   // باز کردن مودال ایجاد
   const handleOpenCreate = () => {
     setEditingChallenge(null);

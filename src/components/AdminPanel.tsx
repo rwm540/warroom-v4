@@ -6518,6 +6518,21 @@ export default function AdminPanel({
                 </div>
 
                 <div>
+                  <label className="block text-[11px] font-bold text-rose-300 mb-1 flex items-center gap-1">
+                    <AlertTriangle size={13} className="text-rose-400" />
+                    <span>میزان کسر امتیاز مرحله (نمره منفی)</span>
+                  </label>
+                  <input
+                    type="number"
+                    min={1}
+                    value={stageForm.wrongAnswerPenalty || 10}
+                    onChange={e => setStageForm(prev => ({ ...prev, wrongAnswerPenalty: Math.max(1, Number(e.target.value) || 1) }))}
+                    className="w-full bg-slate-950 border border-rose-500/50 focus:border-rose-400 rounded-xl px-3 py-2 text-xs text-rose-300 font-mono font-bold outline-none"
+                    placeholder="مثال: ۱۰"
+                  />
+                </div>
+
+                <div>
                   <label className="block text-[11px] font-bold text-slate-300 mb-1">تعداد مأموریت‌ها</label>
                   <input
                     type="number"

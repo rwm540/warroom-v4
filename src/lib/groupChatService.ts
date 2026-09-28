@@ -953,6 +953,49 @@ export function subscribeGlobalChat(onChange: (messages: GroupChatMessage[]) => 
     onChange(allMsgs);
   });
 
+  // شنونده محلی رویداد تغییرات پنجره
+  const localEventListener = (event: Event) => {
+    const customDetail = (event as CustomEvent).detail as ChatStore | undefined;
+    if (customDetail) {
+      onChange(listAllGroupChatMessages());
+      return;
+    }
+
+    const storageEvent = event as StorageEvent;
+    if (storageEvent.key === CHAT_STORAGE_KEY) {
+      onChange(listAllGroupChatMessages());
+    }
+  };
+
+  if (typeof window !== 'undefined') {
+    window.addEventListener(CHAT_EVENT_NAME, localEventListener);
+    window.addEventListener('storage', localEventListener);
+  }
+
+  // شنونده پیام‌های میان‌تبی (Cross-Tab Message Receiver)
+  const crossTabListener = (event: MessageEvent) => {
+    try {
+      const data = event.data;
+      if (!data) return;
+      if (data.type === 'new_message' || data.type === 'edit_message') {
+        const msg = data.message as GroupChatMessage;
+        if (msg) {
+          addOrUpdateMessageInStore(msg);
+          onChange(listAllGroupChatMessages());
+        }
+      } else if (data.type === 'delete_message') {
+        if (data.messageId) {
+          removeMessageFromStore(data.roomId || '', data.messageId);
+          onChange(listAllGroupChatMessages());
+        }
+      }
+    } catch {}
+  };
+
+  if (crossTabBus) {
+    crossTabBus.addEventListener('message', crossTabListener);
+  }
+
   // ۳. برقراری کانال ریل‌تایم سراسری
   if (isSupabaseEnabled && supabase) {
     if (!activeSupabaseChannels.has('global')) {
@@ -1030,6 +1073,14 @@ export function subscribeGlobalChat(onChange: (messages: GroupChatMessage[]) => 
 
   return () => {
     globalSubscribers.delete(onChange);
+    if (typeof window !== 'undefined') {
+      window.removeEventListener(CHAT_EVENT_NAME, localEventListener);
+      window.removeEventListener('storage', localEventListener);
+    }
+    if (crossTabBus) {
+      crossTabBus.removeEventListener('message', crossTabListener);
+    }
+
     if (globalSubscribers.size === 0) {
       const poll = activePollingIntervals.get('global');
       if (poll) {

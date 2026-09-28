@@ -197,34 +197,22 @@ export default function Navbar({
         {/* Top Utility Bar */}
         <div className="max-w-7xl mx-auto px-3 sm:px-6 py-2 flex items-center justify-between text-xs">
           
-          {/* Brand Logo & Title */}
+          {/* Brand Logo */}
           <div 
-  className="flex items-center gap-2.5 sm:gap-3 shrink-0 group select-none transition-transform hover:scale-[1.02]"
->
-  <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl overflow-hidden">
-    <img
-      src="/images/logos/warroom_logo_sm.webp"
-      alt="لوگوی سامانه اتاق جنگ"
-      width={36}
-      height={36}
-      loading="eager"
-      decoding="async"
-      className="w-full h-full object-contain"
-    />
-  </div>
-
-  <div>
-    <div className="flex items-center gap-1.5">
-      <h1 className="font-black text-xs sm:text-sm md:text-base text-white tracking-tight">
-        اتاق جنگ
-      </h1>
-    </div>
-
-    <p className="text-[10px] text-slate-400 font-medium hidden md:block">
-      سامانه ارزیابی، مسابقه و آموزش‌های استراتژیک دانش‌آموزی
-    </p>
-  </div>
-</div>
+            className="flex items-center shrink-0 select-none transition-transform hover:scale-[1.02]"
+          >
+            <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl overflow-hidden">
+              <img
+                src="/images/logos/warroom_logo_sm.webp"
+                alt="لوگوی سامانه اتاق جنگ"
+                width={36}
+                height={36}
+                loading="eager"
+                decoding="async"
+                className="w-full h-full object-contain"
+              />
+            </div>
+          </div>
 
           {/* Actions Bar: User Controls */}
           <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">

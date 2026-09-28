@@ -260,12 +260,16 @@ export default function StageQuizModal({
               <div>
                 <div className="flex items-center gap-1.5 flex-wrap">
                   <span className="text-[10px] font-mono font-black px-2 py-0.5 rounded-md bg-cyan-950/80 text-cyan-300 border border-cyan-500/40">
-                    مرحله {formatToPersianDigits(stage.number)} از ۷
+                    مرحله {formatToPersianDigits(stage.number)}
                   </span>
-                  <span className="text-[10px] font-bold text-amber-400 flex items-center gap-1">
-                    <Sparkles size={11} />
-                    <span>آزمون زمان‌دار</span>
+                  <span className="text-[10px] font-black px-2 py-0.5 rounded-md bg-emerald-950/80 text-emerald-300 border border-emerald-500/40 font-mono">
+                    پاداش: +{formatToPersianDigits(stage.requiredPoints || 100)} کریستال
                   </span>
+                  {Boolean(stage.wrongAnswerPenalty) && (
+                    <span className="text-[10px] font-black px-2 py-0.5 rounded-md bg-rose-950/80 text-rose-300 border border-rose-500/40 font-mono">
+                      کسر: -{formatToPersianDigits(stage.wrongAnswerPenalty)}
+                    </span>
+                  )}
                 </div>
                 <h2 className="text-sm sm:text-base font-black text-white mt-0.5">
                   {stage.title} : <span className="text-slate-300 font-medium text-xs">{stage.subtitle}</span>

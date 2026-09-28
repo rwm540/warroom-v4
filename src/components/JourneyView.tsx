@@ -539,7 +539,11 @@ export default function JourneyView({
         {/* ========================================================================= */}
         {/* 2. TACTICAL DAILY CHALLENGE BANNER (چالش تاکتیکی روزانه اتاق جنگ)         */}
         {/* ========================================================================= */}
-        {dailyChallengeConfig && dailyChallengeConfig.isActive !== false && Boolean(dailyChallengeConfig.title) && (
+        {dailyChallengeConfig && 
+         dailyChallengeConfig.isActive === true && 
+         dailyChallengeConfig.id !== 'daily_challenge_main' && 
+         Boolean(dailyChallengeConfig.title && dailyChallengeConfig.title.trim()) && 
+         Boolean(dailyChallengeConfig.questionText || dailyChallengeConfig.question) && (
           <div className="w-full">
             <button
               type="button"
@@ -867,6 +871,18 @@ export default function JourneyView({
                                   <span className="text-[9px] font-medium text-slate-400 flex items-center gap-0.5">
                                     <Lock size={9} className="text-slate-500 shrink-0" />
                                     <span>قفل شده</span>
+                                  </span>
+                                )}
+                              </div>
+
+                              {/* Reward & Penalty Score Notice in Stage Label */}
+                              <div className="flex items-center justify-between text-[9px] font-mono mt-1 pt-1 border-t border-slate-800/80">
+                                <span className="text-emerald-300 font-bold" title="پاداش تکمیل مرحله">
+                                  +{formatToPersianDigits(stage.requiredPoints || 100)}
+                                </span>
+                                {Boolean(stage.wrongAnswerPenalty) && (
+                                  <span className="text-rose-400 font-bold" title="نمره منفی در صورت اشتباه">
+                                    -{formatToPersianDigits(stage.wrongAnswerPenalty)}
                                   </span>
                                 )}
                               </div>

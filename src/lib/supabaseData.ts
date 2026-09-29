@@ -677,15 +677,26 @@ export async function fetchDailyChallengesFromSupabase(): Promise<any[]> {
         .select('*')
         .order('updated_at', { ascending: false });
 
-      if (!error && Array.isArray(data) && data.length > 0) {
-        return data.map(row => (row.data ? { ...row.data, id: row.id } : row));
+      if (!error && Array.isArray(data)) {
+        if (data.length === 0) {
+          try {
+            localStorage.setItem('warroom_all_daily_challenges', '[]');
+            localStorage.removeItem('warroom_daily_challenge_config');
+          } catch {}
+          return [];
+        }
+        const mapped = data.map(row => (row.data ? { ...row.data, id: row.id } : row));
+        try {
+          localStorage.setItem('warroom_all_daily_challenges', JSON.stringify(mapped));
+        } catch {}
+        return mapped;
       }
     } catch (e) {
       console.warn('[WarRoom Supabase] خطا در واکشی چالش‌ها از دیتابیس:', e);
     }
   }
 
-  // فال‌بک localStorage
+  // فال‌بک localStorage (تنها در صورتی که سوپابیس فعال نباشد یا به خطا بخورد)
   try {
     const local = localStorage.getItem('warroom_all_daily_challenges');
     if (local) return JSON.parse(local);

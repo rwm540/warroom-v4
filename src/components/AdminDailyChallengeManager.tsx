@@ -16,18 +16,25 @@ import {
 } from '../lib/dailyChallengeService';
 
 interface AdminDailyChallengeManagerProps {
+  challenges?: DailyChallengeConfig[];
+  setChallenges?: React.Dispatch<React.SetStateAction<DailyChallengeConfig[]>>;
   currentConfig?: DailyChallengeConfig | null;
-  onConfigChange?: (config: DailyChallengeConfig) => void;
+  onConfigChange?: (config: DailyChallengeConfig | null) => void;
   triggerAlert: (msg: string) => void;
 }
 
 export default function AdminDailyChallengeManager({
+  challenges: propChallenges,
+  setChallenges: setPropChallenges,
   currentConfig,
   onConfigChange,
   triggerAlert
 }: AdminDailyChallengeManagerProps) {
-  const [challenges, setChallenges] = useState<DailyChallengeConfig[]>([]);
-  const [loading, setLoading] = useState<boolean>(true);
+  const [localChallenges, setLocalChallenges] = useState<DailyChallengeConfig[]>([]);
+  const challenges = propChallenges !== undefined ? propChallenges : localChallenges;
+  const setChallenges = setPropChallenges !== undefined ? setPropChallenges : setLocalChallenges;
+
+  const [loading, setLoading] = useState<boolean>(false);
   const [isModalOpen, setIsModalOpen] = useState<boolean>(false);
   const [editingChallenge, setEditingChallenge] = useState<DailyChallengeConfig | null>(null);
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
@@ -55,9 +62,15 @@ export default function AdminDailyChallengeManager({
     try {
       const data = await getAllDailyChallenges();
       setChallenges(data);
-      const active = data.find(c => c.isActive) || data[0];
-      if (active && onConfigChange) {
-        onConfigChange(active);
+      const active = data.find(c => c.isActive);
+      if (active) {
+        if (onConfigChange) onConfigChange(active);
+      } else {
+        if (onConfigChange) onConfigChange(null as any);
+        try {
+          localStorage.removeItem('warroom_daily_challenge_config');
+        } catch {}
+        window.dispatchEvent(new CustomEvent('warroom_daily_challenge_deleted', { detail: { id: 'all' } }));
       }
     } catch (e) {
       console.warn('Error loading daily challenges:', e);
@@ -173,9 +186,11 @@ export default function AdminDailyChallengeManager({
       };
 
       if (editingChallenge) {
+        setChallenges(prev => prev.map(c => c.id === payload.id ? payload : (payload.isActive ? { ...c, isActive: false } : c)));
         await updateDailyChallenge(payload);
         triggerAlert('چالش روزانه با موفقیت در دیتابیس مرکزی ویرایش و به‌روزرسانی شد.');
       } else {
+        setChallenges(prev => [...(payload.isActive ? prev.map(c => ({ ...c, isActive: false })) : prev), payload]);
         await createDailyChallenge(payload);
         triggerAlert('چالش روزانه جدید با موفقیت ایجاد و در دیتابیس قرارگاه ثبت شد.');
       }
@@ -196,6 +211,7 @@ export default function AdminDailyChallengeManager({
   // فعال‌سازی چالش
   const handleSetActive = async (id: string) => {
     try {
+      setChallenges(prev => prev.map(c => ({ ...c, isActive: c.id === id })));
       await setActiveDailyChallenge(id);
       triggerAlert('این چالش به عنوان چالش فعال امروز تعیین و در دیتابیس مرکزی ذخیره گردید.');
       await loadChallenges();
@@ -207,6 +223,7 @@ export default function AdminDailyChallengeManager({
   // حذف چالش
   const handleDelete = async (id: string) => {
     try {
+      setChallenges(prev => prev.filter(c => c.id !== id));
       await deleteDailyChallenge(id);
       setDeleteConfirmId(null);
       triggerAlert('چالش با موفقیت از دیتابیس مرکزی حذف گردید.');

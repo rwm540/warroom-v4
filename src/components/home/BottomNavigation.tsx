@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { motion } from 'motion/react';
 import { 
   Gamepad2, 
+  Compass,
   Gift, 
   Grid,
   SlidersHorizontal,
@@ -41,7 +42,8 @@ export default function BottomNavigation({
   }, []);
 
   const primaryItems = [
-    { id: 'Journey', label: 'نقشه بازی', icon: Gamepad2, isAdmin: false },
+    { id: 'GamePortals', label: 'انتخاب بازی', icon: Gamepad2, isAdmin: false },
+    { id: 'Journey', label: 'نقشه بازی', icon: Compass, isAdmin: false },
     { id: 'Rewards', label: 'جوایز', icon: Gift, isAdmin: false },
     { id: 'Vitrin', label: 'ویترین', icon: Grid, isAdmin: false },
   ];
@@ -105,7 +107,7 @@ export default function BottomNavigation({
         </motion.div>
       )}
 
-      <div className="grid grid-cols-4 items-center justify-items-center relative gap-0.5">
+      <div className="grid grid-cols-5 items-center justify-items-center relative gap-0.5">
         {primaryItems.map((item) => {
           const Icon = item.icon;
           const isActive = item.id === 'Rewards'

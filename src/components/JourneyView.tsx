@@ -122,22 +122,28 @@ export default function JourneyView({
   // Daily Challenge Modal State
   const [showDailyChallengeModal, setShowDailyChallengeModal] = useState(false);
   const todayKey = new Date().toISOString().slice(0, 10);
+  const activeChallengeId = dailyChallengeConfig?.id || 'default';
+  const challengeStorageKey = `warroom_daily_challenge_${todayKey}_${activeChallengeId}`;
+
   const [isDailyChallengeDone, setIsDailyChallengeDone] = useState<boolean>(() => {
-    return localStorage.getItem(`warroom_daily_challenge_${todayKey}`) === 'true';
+    return localStorage.getItem(challengeStorageKey) === 'true';
   });
 
   useEffect(() => {
     const handleUpdate = () => {
       const tKey = new Date().toISOString().slice(0, 10);
-      setIsDailyChallengeDone(localStorage.getItem(`warroom_daily_challenge_${tKey}`) === 'true');
+      const cId = dailyChallengeConfig?.id || 'default';
+      const cKey = `warroom_daily_challenge_${tKey}_${cId}`;
+      setIsDailyChallengeDone(localStorage.getItem(cKey) === 'true');
     };
+    handleUpdate();
     window.addEventListener('warroom_daily_challenge_updated', handleUpdate);
     window.addEventListener('warroom_daily_challenge_deleted', handleUpdate);
     return () => {
       window.removeEventListener('warroom_daily_challenge_updated', handleUpdate);
       window.removeEventListener('warroom_daily_challenge_deleted', handleUpdate);
     };
-  }, []);
+  }, [dailyChallengeConfig?.id]);
 
   // Integrated Profile state
   const [showProfileDrawer, setShowProfileDrawer] = useState(initialOpenProfile);

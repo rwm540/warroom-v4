@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, lazy, Suspense } from 'react';
+import React, { useState, useEffect, useRef, useMemo, useCallback, lazy, Suspense } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Bell, ShieldAlert, X, Radio, MessageSquare } from 'lucide-react';
 
@@ -54,6 +54,7 @@ import {
   FaqItem 
 } from './data/home';
 
+import { supabase, isSupabaseEnabled } from './lib/supabaseClient';
 // Supabase Data Sync Layer (falls back to localStorage automatically)
 import {
   useSyncedCollection,
@@ -422,12 +423,18 @@ export default function App() {
     initial: []
   });
 
-  // 🆕 تنظیمات چالش روزانه — همگام با Supabase
-  const [dailyChallengeConfig, setDailyChallengeConfig] = useSyncedSetting<DailyChallengeConfig>({
-    storageKey: 'warroom_daily_challenge_config',
-    settingKey: 'daily_challenge_config',
-    initial: () => initialDailyChallengeConfig
+  // 🆕 چالش‌های روزانه نقشه بازی — همگام بلادرنگ با جدول warroom_daily_challenges (دقیقاً مانند مراحل stages)
+  const [dailyChallenges, setDailyChallenges] = useSyncedCollection<DailyChallengeConfig>({
+    storageKey: 'warroom_all_daily_challenges',
+    table: 'warroom_daily_challenges',
+    initial: []
   });
+
+  // چالش فعال جاری — اگر در جدول چالشی نباشد، به صورت بلادرنگ و قطعی null است
+  const activeDailyChallenge = useMemo(() => {
+    if (!Array.isArray(dailyChallenges) || dailyChallenges.length === 0) return null;
+    return dailyChallenges.find(c => c.isActive && Boolean(c.title && c.title.trim())) || null;
+  }, [dailyChallenges]);
 
   // 🛡️ درخواست‌های تغییر رمز عبور (حالت محلی) — در حالت بک‌اند، سرور مرجع است
   const [passwordResetRequests, setPasswordResetRequests] = useSyncedCollection<PasswordResetRequest>({
@@ -791,32 +798,36 @@ export default function App() {
     window.addEventListener('warroom_open_chat_modal', openChat);
 
     const handleChallengeUpdated = (e: any) => {
-      if (e.detail && e.detail.isActive) {
-        setDailyChallengeConfig(e.detail);
-      } else {
-        setDailyChallengeConfig(null);
-        try { localStorage.removeItem('warroom_daily_challenge_config'); } catch {}
+      if (e.detail && e.detail.id) {
+        setDailyChallenges(prev => {
+          const exists = prev.some(c => c.id === e.detail.id);
+          if (exists) {
+            return prev.map(c => c.id === e.detail.id ? { ...c, ...e.detail } : (e.detail.isActive ? { ...c, isActive: false } : c));
+          }
+          return [...(e.detail.isActive ? prev.map(c => ({ ...c, isActive: false })) : prev), e.detail];
+        });
       }
     };
 
-    const handleChallengeDeleted = () => {
-      setDailyChallengeConfig(null);
-      try { localStorage.removeItem('warroom_daily_challenge_config'); } catch {}
+    const handleChallengeDeleted = (e: any) => {
+      const id = e?.detail?.id;
+      if (id === 'all') {
+        setDailyChallenges([]);
+      } else if (id) {
+        setDailyChallenges(prev => prev.filter(c => c.id !== id));
+      }
     };
 
     window.addEventListener('warroom_daily_challenge_updated' as any, handleChallengeUpdated);
     window.addEventListener('warroom_daily_challenge_deleted' as any, handleChallengeDeleted);
 
-    // Initial check: Purge stale or deleted challenge cache if no active challenge exists in database
-    void getAllDailyChallenges().then((all) => {
-      const active = all.find(c => c.isActive);
-      if (active) {
-        setDailyChallengeConfig(active);
-      } else {
-        setDailyChallengeConfig(null);
-        try { localStorage.removeItem('warroom_daily_challenge_config'); } catch {}
-      }
-    });
+    // Purge legacy KV row and invalid local items
+    try {
+      localStorage.removeItem('warroom_daily_challenge_config');
+    } catch {}
+    if (isSupabaseEnabled && supabase) {
+      void supabase.from('warroom_kv').delete().eq('id', 'daily_challenge_config');
+    }
 
     return () => {
       window.removeEventListener('warroom_open_squad_modal', openSquad);
@@ -1363,8 +1374,9 @@ export default function App() {
                       setGamePortals={setGamePortals}
                       stages={stages}
                       setStages={setStages}
-                      dailyChallengeConfig={dailyChallengeConfig}
-                      setDailyChallengeConfig={setDailyChallengeConfig}
+                      dailyChallenges={dailyChallenges}
+                      setDailyChallenges={setDailyChallenges}
+                      dailyChallengeConfig={activeDailyChallenge}
                       onBroadcastNotification={(notif) => {
                         setLiveToastNotification(notif);
                       }}
@@ -1393,7 +1405,7 @@ export default function App() {
                       <JourneyView 
                         currentUser={currentUser}
                         stages={stages}
-                        dailyChallengeConfig={dailyChallengeConfig}
+                        dailyChallengeConfig={activeDailyChallenge}
                         showMapBackground={activeTab === 'Journey'}
                         groups={groups}
                         medals={medals}

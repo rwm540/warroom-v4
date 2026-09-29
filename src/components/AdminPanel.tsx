@@ -171,7 +171,9 @@ interface AdminPanelProps {
   // 🆕 مراحل نقشه بازی و چالش روزانه — همگام با Supabase
   stages?: JourneyStage[];
   setStages?: React.Dispatch<React.SetStateAction<JourneyStage[]>>;
-  dailyChallengeConfig?: DailyChallengeConfig;
+  dailyChallenges?: DailyChallengeConfig[];
+  setDailyChallenges?: React.Dispatch<React.SetStateAction<DailyChallengeConfig[]>>;
+  dailyChallengeConfig?: DailyChallengeConfig | null;
   setDailyChallengeConfig?: React.Dispatch<React.SetStateAction<DailyChallengeConfig>>;
   onBroadcastNotification?: (notif: AppNotification) => void;
   triggerAlert: (msg: string) => void;
@@ -226,6 +228,8 @@ export default function AdminPanel({
   setGamePortals,
   stages = [],
   setStages,
+  dailyChallenges = [],
+  setDailyChallenges,
   dailyChallengeConfig,
   setDailyChallengeConfig,
   onBroadcastNotification,
@@ -693,6 +697,7 @@ export default function AdminPanel({
     completedMissions: number;
     xOffsetPercent: number;
     quizQuestions: StageQuizQuestion[];
+    wrongAnswerPenalty?: number;
   }>({
     id: '',
     number: 1,
@@ -702,6 +707,7 @@ export default function AdminPanel({
     iconName: 'flag',
     customIconUrl: '',
     requiredPoints: 0,
+    wrongAnswerPenalty: 10,
     description: '',
     missionsCount: 1,
     completedMissions: 0,
@@ -6329,6 +6335,8 @@ export default function AdminPanel({
             </div>
 
             <AdminDailyChallengeManager
+              challenges={dailyChallenges}
+              setChallenges={setDailyChallenges}
               currentConfig={dailyChallengeConfig}
               onConfigChange={setDailyChallengeConfig}
               triggerAlert={triggerAlert}

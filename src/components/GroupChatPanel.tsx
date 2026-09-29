@@ -1,7 +1,8 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Check, ChevronDown, CheckCircle2, GripVertical, Layers, Menu, MessageCircle, MessageSquare, Pencil, Search, Send, ShieldCheck, Sparkles, Trash2, UserPlus, Users, X } from 'lucide-react';
+import { Check, ChevronDown, CheckCircle2, GripVertical, Layers, Menu, MessageCircle, MessageSquare, Pencil, Search, Send, ShieldCheck, Smile, Sparkles, Trash2, UserPlus, Users, X } from 'lucide-react';
 import { Group, GroupJoinRequest, User } from '../types';
 import { appendGroupChatMessage, deleteGroupChatMessage, editGroupChatMessage, ensureGroupChatRoom, getGroupChatStats, listGroupChatMessages, subscribeGroupChat } from '../lib/groupChatService';
+import { EmojiPickerPopover } from './chat/EmojiPickerPopover';
 
 interface GroupChatPanelProps {
   currentUser: User | null;
@@ -84,6 +85,17 @@ export default function GroupChatPanel({
 
   const [messages, setMessages] = useState<any[]>([]);
   const [draft, setDraft] = useState('');
+  const [isEmojiPickerOpen, setIsEmojiPickerOpen] = useState(false);
+  const textareaRef = useRef<HTMLTextAreaElement | null>(null);
+
+  useEffect(() => {
+    if (textareaRef.current) {
+      textareaRef.current.style.height = 'auto';
+      const scrollHeight = textareaRef.current.scrollHeight;
+      textareaRef.current.style.height = `${Math.min(Math.max(scrollHeight, 40), 160)}px`;
+    }
+  }, [draft]);
+
   const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
   const [editingText, setEditingText] = useState('');
   const [isGroupMenuOpen, setIsGroupMenuOpen] = useState(false);
@@ -366,6 +378,9 @@ export default function GroupChatPanel({
     });
 
     setDraft('');
+    if (textareaRef.current) {
+      textareaRef.current.style.height = '40px';
+    }
     setTimeout(() => scrollToBottom(true), 50);
   };
 
@@ -942,17 +957,51 @@ export default function GroupChatPanel({
       </div>
 
       {/* Input Message Form */}
-      <form onSubmit={sendMessage} className="flex h-14 items-center gap-2 shrink-0 border-t border-slate-800 bg-slate-950/90 p-2.5">
-        <input
+      <form onSubmit={sendMessage} className="relative flex min-h-14 items-end gap-2 shrink-0 border-t border-slate-800 bg-slate-950/90 p-2.5">
+        {/* Emoji Picker Popover */}
+        <EmojiPickerPopover
+          isOpen={isEmojiPickerOpen}
+          onClose={() => setIsEmojiPickerOpen(false)}
+          onSelectEmoji={(emoji) => {
+            setDraft(prev => prev + emoji);
+            if (textareaRef.current) {
+              textareaRef.current.focus();
+            }
+          }}
+        />
+
+        <button
+          type="button"
+          onClick={() => setIsEmojiPickerOpen(prev => !prev)}
+          className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border transition cursor-pointer ${
+            isEmojiPickerOpen
+              ? 'bg-amber-500/20 border-amber-500/50 text-amber-300 shadow-[0_0_15px_rgba(245,158,11,0.25)]'
+              : 'bg-slate-900 border-slate-700 hover:border-amber-400/50 text-slate-400 hover:text-amber-300'
+          }`}
+          title="افزودن شکلک و ایموجی"
+          aria-label="افزودن ایموجی"
+        >
+          <Smile size={18} />
+        </button>
+
+        <textarea
+          ref={textareaRef}
           value={draft}
           onChange={(event) => setDraft(event.target.value)}
-          placeholder="پیام خود را بنویسید..."
-          className="flex-1 rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-xs text-white placeholder:text-slate-500 outline-none transition focus:border-cyan-500 focus:shadow-[0_0_0_2px_rgba(34,211,238,0.15)]"
+          onKeyDown={(event) => {
+            if (event.key === 'Enter' && !event.shiftKey) {
+              event.preventDefault();
+              sendMessage(event);
+            }
+          }}
+          rows={1}
+          placeholder="پیام خود را بنویسید... (Shift + Enter برای خط بعد)"
+          className="flex-1 max-h-40 min-h-[40px] resize-y rounded-xl border border-slate-700 bg-slate-900 px-3.5 py-2.5 text-xs text-white placeholder:text-slate-500 outline-none transition-[height] duration-150 focus:border-cyan-500 focus:shadow-[0_0_0_2px_rgba(34,211,238,0.15)] leading-relaxed overflow-y-auto"
         />
         <button
           type="submit"
           disabled={!draft.trim()}
-          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-cyan-400 to-blue-500 text-slate-950 shadow-[0_0_20px_rgba(34,211,238,0.45)] transition hover:brightness-110 disabled:opacity-40 disabled:hover:brightness-100"
+          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-cyan-400 to-blue-500 text-slate-950 shadow-[0_0_20px_rgba(34,211,238,0.45)] transition hover:brightness-110 disabled:opacity-40 disabled:hover:brightness-100 cursor-pointer"
           aria-label="ارسال پیام"
         >
           <Send size={16} />

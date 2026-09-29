@@ -131,14 +131,14 @@ export default function Navbar({
   const desktopNavItems: { id: string; label: string; icon: any; badge?: string }[] = [
     { id: 'GamePortals', label: 'انتخاب بازی', icon: Gamepad2 },
     { id: 'Journey', label: 'نقشه مراحل بازی', icon: Compass },
-    { id: 'Chat', label: 'اتاق گفتگو', icon: MessageSquare },
     { id: 'Rewards', label: 'جوایز و امتیازات', icon: Gift },
     { id: 'Vitrin', label: 'ویترین و آثار', icon: Grid },
   ];
 
-  // Android Mobile Bottom Navigation (Core 3 tabs)
+  // Android Mobile Bottom Navigation (Core 4 tabs)
   const mobileBottomItems = [
-    { id: 'Journey', label: 'نقشه بازی', icon: Gamepad2 },
+    { id: 'GamePortals', label: 'انتخاب بازی', icon: Gamepad2 },
+    { id: 'Journey', label: 'نقشه بازی', icon: Compass },
     { id: 'Rewards', label: 'جوایز و امتیازات', icon: Gift },
     { id: 'Vitrin', label: 'ویترین و آثار', icon: Grid },
   ];
@@ -229,11 +229,11 @@ export default function Navbar({
                   <LogOut size={16} />
                 </button>
 
-                {/* Chat Room Toggle Button */}
+                {/* Chat Room Toggle Button (Desktop only, in mobile it is in the android navigation) */}
                 {onToggleFloatingChat && currentUser.role !== 'admin' && (
                   <button
                     onClick={onToggleFloatingChat}
-                    className={`px-2.5 py-1.5 rounded-xl border text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shadow-sm ${
+                    className={`hidden md:flex px-2.5 py-1.5 rounded-xl border text-xs font-bold transition items-center gap-1.5 cursor-pointer shadow-sm ${
                       isFloatingChatOpen
                         ? isGirls ? 'bg-fuchsia-950/60 border-fuchsia-500/40 text-fuchsia-300' : 'bg-blue-950/60 border-blue-500/40 text-blue-300'
                         : 'bg-slate-900 border-slate-800 text-slate-400 hover:text-white'
@@ -250,10 +250,10 @@ export default function Navbar({
         </div>
 
         {/* ========================================================================= */}
-        {/* DESKTOP & TABLET FULL NAVIGATION BAR                                      */}
+        {/* DESKTOP & TABLET FULL NAVIGATION BAR (Hidden on Mobile/Android Design)    */}
         {/* ========================================================================= */}
         {currentUser && (
-          <div className="w-full max-w-7xl mx-auto px-3 sm:px-6 py-1.5 border-t border-slate-800/40 bg-slate-950/40 backdrop-blur-md">
+          <div className="hidden md:block w-full max-w-7xl mx-auto px-3 sm:px-6 py-1.5 border-t border-slate-800/40 bg-slate-950/40 backdrop-blur-md">
             <nav className="flex items-center justify-between gap-2 overflow-x-auto no-scrollbar py-0.5">
               <div className="flex items-center gap-1.5 shrink-0 flex-wrap">
                 {desktopNavItems.map((item) => {

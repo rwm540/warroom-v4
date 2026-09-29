@@ -34,8 +34,18 @@ export default function DailyChallengeModal({
   onAwardPoints,
   dailyChallengeConfig
 }: DailyChallengeModalProps) {
+  // Derive active question data from config or local storage or null
+  const config = dailyChallengeConfig || (() => {
+    try {
+      const saved = localStorage.getItem('warroom_daily_challenge_config');
+      if (saved) return JSON.parse(saved);
+    } catch (e) {}
+    return null;
+  })();
+
   const todayKey = new Date().toISOString().slice(0, 10);
-  const storageKey = `warroom_daily_challenge_${todayKey}`;
+  const activeChallengeId = config?.id || dailyChallengeConfig?.id || 'default';
+  const storageKey = `warroom_daily_challenge_${todayKey}_${activeChallengeId}`;
 
   const [isCompletedToday, setIsCompletedToday] = useState<boolean>(() => {
     return localStorage.getItem(storageKey) === 'true';
@@ -55,15 +65,6 @@ export default function DailyChallengeModal({
   const [tenSecLeft, setTenSecLeft] = useState<number>(10);
   const [isTimerRunning, setIsTimerRunning] = useState<boolean>(false);
 
-  // Derive active question data from config or local storage or null
-  const config = dailyChallengeConfig || (() => {
-    try {
-      const saved = localStorage.getItem('warroom_daily_challenge_config');
-      if (saved) return JSON.parse(saved);
-    } catch (e) {}
-    return null;
-  })();
-
   const activeTitle = config?.title || 'چالش تاکتیکی روزانه';
   const activePoints = config?.pointsReward ?? 150;
   const activeScenario = config?.questionText || config?.question || config?.description || '';
@@ -82,6 +83,18 @@ export default function DailyChallengeModal({
       };
     }
   }, [isOpen]);
+
+  // Sync completion status when active challenge ID changes
+  useEffect(() => {
+    if (activeChallengeId) {
+      const isDone = localStorage.getItem(storageKey) === 'true';
+      setIsCompletedToday(isDone);
+      if (!isDone) {
+        setHasSubmitted(false);
+        setSelectedOption(null);
+      }
+    }
+  }, [activeChallengeId, storageKey]);
 
   // Start timer when modal opens
   useEffect(() => {

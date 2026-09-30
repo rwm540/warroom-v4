@@ -1,5 +1,8 @@
 import React, { useState } from 'react';
 import { motion } from 'motion/react';
+import { 
+  Shield, Swords, Flame, Target, Trophy, Flag, Compass, Heart, Star, Zap, Award, Radio, Film
+} from 'lucide-react';
 import { User, SiteSettings } from '../../types';
 import TacticalVideoPlayer from '../TacticalVideoPlayer';
 
@@ -15,6 +18,78 @@ const FALLBACK_VIDEOS = [
   'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4',
   'https://vjs.zencdn.net/v/oceans.mp4'
 ];
+
+/**
+ * کامپوننت تایپ انیمیشنی (Typewriter Effect)
+ * متن را به صورت کاراکتر به کاراکتر با کرسر نئونی تایپ می‌کند
+ */
+export const AnimatedTypingText: React.FC<{ 
+  text: string; 
+  className?: string;
+  color?: string;
+  font?: string;
+  style?: React.CSSProperties;
+}> = ({ text, className, color, font, style }) => {
+  const [displayedText, setDisplayedText] = useState('');
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [loopNum, setLoopNum] = useState(0);
+
+  React.useEffect(() => {
+    if (!text) {
+      setDisplayedText('');
+      return;
+    }
+
+    let timer: any;
+    const fullText = text;
+
+    if (!isDeleting) {
+      if (displayedText.length < fullText.length) {
+        timer = setTimeout(() => {
+          setDisplayedText(fullText.slice(0, displayedText.length + 1));
+        }, 70);
+      } else {
+        timer = setTimeout(() => {
+          setIsDeleting(true);
+        }, 3500);
+      }
+    } else {
+      if (displayedText.length > 0) {
+        timer = setTimeout(() => {
+          setDisplayedText(fullText.slice(0, displayedText.length - 1));
+        }, 35);
+      } else {
+        setIsDeleting(false);
+        setLoopNum(prev => prev + 1);
+      }
+    }
+
+    return () => clearTimeout(timer);
+  }, [displayedText, isDeleting, text, loopNum]);
+
+  if (!text) return null;
+
+  const finalColor = color || '#06b6d4';
+
+  return (
+    <div 
+      className={`flex items-center justify-center gap-1 dir-rtl ${className || ''}`} 
+      dir="rtl"
+      style={{
+        color: finalColor,
+        fontFamily: font || 'inherit',
+        textShadow: `0 0 16px ${finalColor}66`,
+        ...style
+      }}
+    >
+      <span className="inline-block transition-all">{displayedText}</span>
+      <span 
+        className="w-1.5 h-4 sm:h-5 rounded-sm animate-pulse shrink-0" 
+        style={{ backgroundColor: finalColor, boxShadow: `0 0 8px ${finalColor}` }}
+      />
+    </div>
+  );
+};
 
 interface AdventureHeroSectionProps {
   themeMode: 'girls' | 'boys';
@@ -66,9 +141,9 @@ export default function AdventureHeroSection({
   return (
     <div className="w-full text-center space-y-6 dir-rtl">
       {/* 🛡️ WarRoom Logo Header */}
-      <div className="flex justify-center items-center py-1">
+      <div className="flex flex-col justify-center items-center py-1 gap-2">
         <img 
-          src={WARROOM_LOGO_PATH} 
+          src={siteSettings?.customLogoUrl || siteSettings?.heroImage || WARROOM_LOGO_PATH} 
           alt="لوگوی اتاق جنگ" 
           width={112}
           height={112}
@@ -81,14 +156,38 @@ export default function AdventureHeroSection({
           }`}
           onClick={handleBannerAction}
         />
+
+        {/* ✍️ Animated Typing Text (متن نوشتاری انیمیشنی زیر آیکون اول صفحه اصلی) */}
+        {(siteSettings?.iconAnimatedText || siteSettings?.pageIconText) && (
+          <div className="py-0.5 px-3 max-w-xl mx-auto">
+            <AnimatedTypingText 
+              text={siteSettings?.iconAnimatedText || siteSettings?.pageIconText || ''}
+              color={siteSettings?.animatedTextColor}
+              font={siteSettings?.siteFontFamily}
+              className="text-xs sm:text-sm md:text-base font-black tracking-wide"
+            />
+            {siteSettings?.pageIconSubtext && (
+              <p 
+                className="text-[11px] sm:text-xs mt-1 max-w-md mx-auto leading-relaxed"
+                style={{ color: siteSettings?.siteTextColor || '#cbd5e1' }}
+              >
+                {siteSettings.pageIconSubtext}
+              </p>
+            )}
+          </div>
+        )}
       </div>
 
       {/* ==================================================================== */}
-      {/* 1. ANIMATED SIDE-BY-SIDE COMMANDER IMAGES WITH THEME SWITCH */}
+      {/* 1. ANIMATED COMMANDER BANNERS (SINGLE OR DUAL LINE)                  */}
       {/* ==================================================================== */}
       <div className="w-full overflow-hidden bg-transparent">
-        {/* Side-by-Side Grid (2 Columns on ALL devices) */}
-        <div className="grid grid-cols-2 gap-2.5 sm:gap-4 w-full">
+        {/* Banner Grid (Single Line Full-Width or Dual Line Columns) */}
+        <div className={`w-full ${
+          siteSettings?.bannerLayout === 'single'
+            ? 'grid grid-cols-1 gap-4 max-w-xl mx-auto'
+            : 'grid grid-cols-2 gap-2.5 sm:gap-4'
+        }`}>
           
           {/* Female Commander Image (تم دخترانه + هدایت به ثبت نام) */}
           <motion.div 
@@ -164,7 +263,42 @@ export default function AdventureHeroSection({
       </div>
 
       {/* ==================================================================== */}
-      {/* 2. PURE CLEAN VIDEO WITH SMOOTH SCROLL ANIMATION & ULTRA FAST PLAYER */}
+      {/* 2. COMMERCIAL AD VIDEO (IF CONFIGURED IN VISUAL STUDIO)              */}
+      {/* ==================================================================== */}
+      {siteSettings?.adVideoUrl && (
+        <motion.div
+          initial={{ opacity: 0, y: 30 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }}
+          className="w-full max-w-4xl mx-auto p-4 sm:p-5 rounded-3xl bg-gradient-to-r from-purple-950/40 via-slate-950 to-indigo-950/40 border border-purple-500/40 shadow-2xl space-y-3"
+        >
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2 text-purple-300 font-black text-xs sm:text-sm">
+              <Film size={18} className="text-purple-400" />
+              <span>{siteSettings.adVideoTitle || 'تیزر ویدیویی و تبلیغاتی'}</span>
+            </div>
+            {siteSettings.adVideoBadge && (
+              <span className="bg-purple-500/30 text-purple-200 border border-purple-500/50 text-[10px] font-bold px-2.5 py-0.5 rounded-full">
+                {siteSettings.adVideoBadge}
+              </span>
+            )}
+          </div>
+          <div className="relative rounded-2xl overflow-hidden bg-black border border-purple-500/30 aspect-video shadow-xl">
+            <video
+              src={siteSettings.adVideoUrl}
+              controls
+              className="w-full h-full object-cover"
+              poster={siteSettings.heroImage}
+            />
+          </div>
+          {siteSettings.adVideoSubtitle && (
+            <p className="text-xs text-slate-300 leading-relaxed text-right">{siteSettings.adVideoSubtitle}</p>
+          )}
+        </motion.div>
+      )}
+
+      {/* ==================================================================== */}
+      {/* 3. PURE CLEAN VIDEO WITH SMOOTH SCROLL ANIMATION & ULTRA FAST PLAYER */}
       {/* ==================================================================== */}
       <motion.div 
         initial={{ opacity: 0, y: 50, scale: 0.95 }}

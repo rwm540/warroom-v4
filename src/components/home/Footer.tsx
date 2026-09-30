@@ -17,10 +17,11 @@ interface FooterProps {
   onNavigate: (tab: string) => void;
   onOpenAbout: () => void;
   themeMode?: 'girls' | 'boys';
+  siteSettings?: any;
   triggerAlert?: (msg: string) => void;
 }
 
-export default function Footer({ onNavigate, onOpenAbout, themeMode = 'boys', triggerAlert }: FooterProps) {
+export default function Footer({ onNavigate, onOpenAbout, themeMode = 'boys', siteSettings, triggerAlert }: FooterProps) {
   const isGirls = themeMode === 'girls';
 
   return (
@@ -44,23 +45,33 @@ export default function Footer({ onNavigate, onOpenAbout, themeMode = 'boys', tr
           <div className="lg:col-span-7 space-y-4 flex flex-col justify-between">
             <div className="space-y-3">
               <div className="flex items-center gap-3">
-                <div className={`w-11 h-11 rounded-2xl border flex items-center justify-center shrink-0 shadow-lg ${
+                <div className={`w-11 h-11 rounded-2xl border flex items-center justify-center shrink-0 shadow-lg overflow-hidden ${
                   isGirls 
                     ? 'bg-fuchsia-950/80 border-fuchsia-500/40 text-fuchsia-400' 
                     : 'bg-cyan-950/80 border-cyan-500/40 text-cyan-400'
                 }`}>
-                  <Shield size={22} className="animate-pulse" />
+                  {siteSettings?.footerLogoIconUrl || siteSettings?.customLogoUrl ? (
+                    <img 
+                      src={siteSettings.footerLogoIconUrl || siteSettings.customLogoUrl} 
+                      alt="لوگوی فوتر" 
+                      className="w-full h-full object-cover rounded-2xl" 
+                    />
+                  ) : (
+                    <Shield size={22} className="animate-pulse" />
+                  )}
                 </div>
                 <div>
-                  <h3 className="text-base sm:text-lg font-black text-white">سامانه ملی «اتاق جنگ»</h3>
+                  <h3 className="text-base sm:text-lg font-black text-white">
+                    {siteSettings?.footerTitle || 'سامانه ملی «اتاق جنگ»'}
+                  </h3>
                   <p className={`text-xs font-bold ${isGirls ? 'text-fuchsia-300' : 'text-cyan-400'}`}>
-                    سامانه استراتژیک و ارزیابی اتاق جنگ
+                    {siteSettings?.footerSubtitle || 'سامانه استراتژیک و ارزیابی اتاق جنگ'}
                   </p>
                 </div>
               </div>
 
               <p className="text-xs sm:text-sm text-slate-300 leading-relaxed max-w-xl text-justify">
-                تنها سامانه رسمی ارزیابی، مسابقه و آموزش‌های استراتژیک دانش‌آموزی کشور تحت نظارت قرارگاه مرکزی. این مجموعه با هدف توانمندسازی فکری، تفکر تفکیکی و ارتقای آمادگی نخبگان نوجوان فعالیت می‌کند.
+                {siteSettings?.footerAboutText || 'تنها سامانه رسمی ارزیابی، مسابقه و آموزش‌های استراتژیک دانش‌آموزی کشور تحت نظارت قرارگاه مرکزی. این مجموعه با هدف توانمندسازی فکری، تفکر تفکیکی و ارتقای آمادگی نخبگان نوجوان فعالیت می‌کند.'}
               </p>
             </div>
 
@@ -107,22 +118,28 @@ export default function Footer({ onNavigate, onOpenAbout, themeMode = 'boys', tr
                 <li className="flex items-center gap-2">
                   <Phone size={14} className="text-amber-400 shrink-0" />
                   <span>تلفن پشتیبانی: </span>
-                  <strong className="text-amber-300 font-mono tracking-wider">021-88997766</strong>
+                  <strong className="text-amber-300 font-mono tracking-wider">
+                    {siteSettings?.footerPhone || siteSettings?.contactPhone || '021-88997766'}
+                  </strong>
                 </li>
                 <li className="flex items-center gap-2">
                   <Clock size={14} className="text-cyan-400 shrink-0" />
                   <span>ساعات پاسخگویی: </span>
-                  <span className="text-slate-200">شنبه تا چهارشنبه ۸:۰۰ الی ۱۶:۰۰</span>
+                  <span className="text-slate-200">
+                    {siteSettings?.footerHours || 'شنبه تا چهارشنبه ۸:۰۰ الی ۱۶:۰۰'}
+                  </span>
                 </li>
                 <li className="flex items-center gap-2">
                   <Mail size={14} className="text-emerald-400 shrink-0" />
                   <span>پست الکترونیکی: </span>
-                  <span className="text-slate-200 font-mono">support@warroom.ir</span>
+                  <span className="text-slate-200 font-mono">
+                    {siteSettings?.footerEmail || siteSettings?.contactEmail || 'support@warroom.ir'}
+                  </span>
                 </li>
                 <li className="flex items-start gap-2">
                   <MapPin size={14} className="text-rose-400 shrink-0 mt-0.5" />
                   <span className="text-slate-200 leading-relaxed">
-                    نشانی: تهران، خیابان آزادی، مرکز فناوری و نوآوری‌های استراتژیک، پلاک ۱۱۰
+                    {siteSettings?.footerAddress || siteSettings?.address || 'نشانی: تهران، خیابان آزادی، مرکز فناوری و نوآوری‌های استراتژیک، پلاک ۱۱۰'}
                   </span>
                 </li>
               </ul>
@@ -155,34 +172,167 @@ export default function Footer({ onNavigate, onOpenAbout, themeMode = 'boys', tr
         {/* Badges Row */}
         <div className="flex flex-wrap items-center justify-center gap-3">
           
-          {/* ZarinPal Badge */}
-          <div className="px-4 py-2 rounded-2xl bg-[#080d21]/90 border border-cyan-500/30 flex items-center gap-2.5 text-right shadow-lg">
-            <div className="w-8 h-8 rounded-xl bg-cyan-950/80 border border-cyan-500/30 text-cyan-400 flex items-center justify-center shrink-0">
-              <CreditCard size={18} />
-            </div>
-            <div>
-              <div className="text-[11px] font-black text-white">درگاه پرداخت زرین‌پال</div>
-              <div className="text-[9px] text-cyan-400 font-bold">پرداخت ایمن ۲۵۶ بیتی</div>
-            </div>
-          </div>
+          {/* ZarinPal / Payment Gateway Badge */}
+          {(siteSettings?.gatewayTitle !== '' || siteSettings?.gatewayIconUrl) && (
+            siteSettings?.gatewayLinkUrl ? (
+              <a
+                href={siteSettings.gatewayLinkUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={() => triggerAlert?.('هدایت به درگاه پرداخت رسمی...')}
+                className="px-4 py-2 rounded-2xl bg-[#080d21]/90 border border-cyan-500/30 hover:border-cyan-400 flex items-center gap-2.5 text-right shadow-lg transition-all hover:scale-105 active:scale-95 group cursor-pointer no-underline"
+                title={`کلیک برای ورود به ${siteSettings?.gatewayTitle || 'درگاه پرداخت'}`}
+              >
+                <div className="w-8 h-8 rounded-xl bg-cyan-950/80 border border-cyan-500/30 group-hover:border-cyan-400 text-cyan-400 flex items-center justify-center shrink-0 overflow-hidden">
+                  {siteSettings?.gatewayIconUrl ? (
+                    <img src={siteSettings.gatewayIconUrl} alt={siteSettings?.gatewayTitle || 'درگاه'} className="w-full h-full object-contain" />
+                  ) : (
+                    <CreditCard size={18} />
+                  )}
+                </div>
+                <div>
+                  <div className="text-[11px] font-black text-white group-hover:text-cyan-300 transition-colors flex items-center gap-1">
+                    <span>{siteSettings?.gatewayTitle || 'درگاه پرداخت زرین‌پال'}</span>
+                  </div>
+                  <div className="text-[9px] text-cyan-400 font-bold">
+                    {siteSettings?.gatewaySubtitle || 'پرداخت ایمن ۲۵۶ بیتی'}
+                  </div>
+                </div>
+              </a>
+            ) : (
+              <div 
+                className="px-4 py-2 rounded-2xl bg-[#080d21]/90 border border-cyan-500/30 flex items-center gap-2.5 text-right shadow-lg transition-all"
+              >
+                <div className="w-8 h-8 rounded-xl bg-cyan-950/80 border border-cyan-500/30 text-cyan-400 flex items-center justify-center shrink-0 overflow-hidden">
+                  {siteSettings?.gatewayIconUrl ? (
+                    <img src={siteSettings.gatewayIconUrl} alt="درگاه" className="w-full h-full object-contain" />
+                  ) : (
+                    <CreditCard size={18} />
+                  )}
+                </div>
+                <div>
+                  <div className="text-[11px] font-black text-white">
+                    {siteSettings?.gatewayTitle || 'درگاه پرداخت زرین‌پال'}
+                  </div>
+                  <div className="text-[9px] text-cyan-400 font-bold">
+                    {siteSettings?.gatewaySubtitle || 'پرداخت ایمن ۲۵۶ بیتی'}
+                  </div>
+                </div>
+              </div>
+            )
+          )}
 
           {/* Enamad Badge */}
-          <div className="px-4 py-2 rounded-2xl bg-[#080d21]/90 border border-amber-500/30 flex items-center gap-2.5 text-right shadow-lg">
-            <div className="w-8 h-8 rounded-xl bg-amber-950/80 border border-amber-500/30 text-amber-400 flex items-center justify-center shrink-0">
-              <CheckCircle2 size={18} />
-            </div>
-            <div>
-              <div className="text-[11px] font-black text-white">نماد اعتماد الکترونیکی</div>
-              <div className="text-[9px] text-amber-400 font-bold">وزارت صنعت، معدن و تجارت</div>
-            </div>
-          </div>
+          {(siteSettings?.enamadTitle !== '' || siteSettings?.enamadIconUrl) && (
+            siteSettings?.enamadLinkUrl ? (
+              <a 
+                href={siteSettings.enamadLinkUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={() => triggerAlert?.('هدایت به پروفایل رسمی اینماد...')}
+                className="px-4 py-2 rounded-2xl bg-[#080d21]/90 border border-amber-500/30 hover:border-amber-400 flex items-center gap-2.5 text-right shadow-lg transition-all hover:scale-105 active:scale-95 group cursor-pointer no-underline"
+                title={`کلیک برای ورود به ${siteSettings?.enamadTitle || 'نماد اعتماد الکترونیکی'}`}
+              >
+                <div className="w-8 h-8 rounded-xl bg-amber-950/80 border border-amber-500/30 group-hover:border-amber-400 text-amber-400 flex items-center justify-center shrink-0 overflow-hidden">
+                  {siteSettings?.enamadIconUrl ? (
+                    <img src={siteSettings.enamadIconUrl} alt={siteSettings?.enamadTitle || 'اینماد'} className="w-full h-full object-contain" />
+                  ) : (
+                    <CheckCircle2 size={18} />
+                  )}
+                </div>
+                <div>
+                  <div className="text-[11px] font-black text-white group-hover:text-amber-300 transition-colors flex items-center gap-1">
+                    <span>{siteSettings?.enamadTitle || 'نماد اعتماد الکترونیکی'}</span>
+                  </div>
+                  <div className="text-[9px] text-amber-400 font-bold">
+                    {siteSettings?.enamadSubtitle || 'وزارت صنعت، معدن و تجارت'}
+                  </div>
+                </div>
+              </a>
+            ) : (
+              <div 
+                className="px-4 py-2 rounded-2xl bg-[#080d21]/90 border border-amber-500/30 flex items-center gap-2.5 text-right shadow-lg transition-all"
+              >
+                <div className="w-8 h-8 rounded-xl bg-amber-950/80 border border-amber-500/30 text-amber-400 flex items-center justify-center shrink-0 overflow-hidden">
+                  {siteSettings?.enamadIconUrl ? (
+                    <img src={siteSettings.enamadIconUrl} alt="اینماد" className="w-full h-full object-contain" />
+                  ) : (
+                    <CheckCircle2 size={18} />
+                  )}
+                </div>
+                <div>
+                  <div className="text-[11px] font-black text-white">
+                    {siteSettings?.enamadTitle || 'نماد اعتماد الکترونیکی'}
+                  </div>
+                  <div className="text-[9px] text-amber-400 font-bold">
+                    {siteSettings?.enamadSubtitle || 'وزارت صنعت، معدن و تجارت'}
+                  </div>
+                </div>
+              </div>
+            )
+          )}
+
+          {/* Additional Custom Badges */}
+          {Array.isArray(siteSettings?.customFooterBadges) && siteSettings.customFooterBadges.filter((b: any) => b.isActive !== false).map((badge: any) => (
+            badge.linkUrl ? (
+              <a
+                key={badge.id}
+                href={badge.linkUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={() => triggerAlert?.(`هدایت به ${badge.title}...`)}
+                className="px-4 py-2 rounded-2xl bg-[#080d21]/90 border border-purple-500/30 hover:border-purple-400 flex items-center gap-2.5 text-right shadow-lg transition-all hover:scale-105 active:scale-95 group cursor-pointer no-underline"
+              >
+                <div className="w-8 h-8 rounded-xl bg-purple-950/80 border border-purple-500/30 group-hover:border-purple-400 text-purple-400 flex items-center justify-center shrink-0 overflow-hidden">
+                  {badge.iconUrl ? (
+                    <img src={badge.iconUrl} alt={badge.title} className="w-full h-full object-contain" />
+                  ) : (
+                    <Shield size={18} />
+                  )}
+                </div>
+                <div>
+                  <div className="text-[11px] font-black text-white group-hover:text-purple-300 transition-colors">
+                    {badge.title}
+                  </div>
+                  {badge.subtitle && (
+                    <div className="text-[9px] text-purple-400 font-bold">
+                      {badge.subtitle}
+                    </div>
+                  )}
+                </div>
+              </a>
+            ) : (
+              <div
+                key={badge.id}
+                className="px-4 py-2 rounded-2xl bg-[#080d21]/90 border border-purple-500/30 flex items-center gap-2.5 text-right shadow-lg transition-all"
+              >
+                <div className="w-8 h-8 rounded-xl bg-purple-950/80 border border-purple-500/30 text-purple-400 flex items-center justify-center shrink-0 overflow-hidden">
+                  {badge.iconUrl ? (
+                    <img src={badge.iconUrl} alt={badge.title} className="w-full h-full object-contain" />
+                  ) : (
+                    <Shield size={18} />
+                  )}
+                </div>
+                <div>
+                  <div className="text-[11px] font-black text-white">
+                    {badge.title}
+                  </div>
+                  {badge.subtitle && (
+                    <div className="text-[9px] text-purple-400 font-bold">
+                      {badge.subtitle}
+                    </div>
+                  )}
+                </div>
+              </div>
+            )
+          ))}
 
         </div>
 
         {/* Copyright Text */}
         <div className="space-y-1 text-[11px] text-slate-400 leading-relaxed">
           <p className="font-bold text-slate-300">
-            © ۱۴۰۳ تمامی حقوق مادی و معنوی متعلق به قرارگاه مرکزی مسابقات استراتژیک «اتاق جنگ» می‌باشد.
+            {siteSettings?.copyrightText || '© ۱۴۰۳ تمامی حقوق مادی و معنوی متعلق به قرارگاه مرکزی مسابقات استراتژیک «اتاق جنگ» می‌باشد.'}
           </p>
           <p className="text-[10px] text-slate-500 flex items-center justify-center gap-1.5 dir-ltr">
             <Lock size={12} className="text-cyan-500" />

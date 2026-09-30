@@ -3,6 +3,7 @@ import { Send, MessageSquare, ExternalLink, HelpCircle, Map as MapIcon, BookOpen
 
 interface SocialMessengersWidgetsProps {
   themeMode: 'girls' | 'boys';
+  siteSettings?: any;
   onOpenStages?: () => void;
   onOpenGuide?: () => void;
   triggerAlert: (msg: string) => void;
@@ -10,14 +11,19 @@ interface SocialMessengersWidgetsProps {
 
 export default function SocialMessengersWidgets({
   themeMode,
+  siteSettings,
   onOpenStages,
   onOpenGuide,
   triggerAlert
 }: SocialMessengersWidgetsProps) {
   const isGirls = themeMode === 'girls';
 
-  const handleOpenMessenger = (name: string, url: string) => {
+  const handleOpenMessenger = (name: string, defaultUrl: string, customUrl?: string) => {
+    const finalUrl = customUrl || defaultUrl;
     triggerAlert(`هدایت به کانال رسمی در پیام‌رسان ${name}...`);
+    try {
+      window.open(finalUrl, '_blank', 'noopener,noreferrer');
+    } catch {}
   };
 
   return (
@@ -26,7 +32,7 @@ export default function SocialMessengersWidgets({
       {/* 1. Messenger Channels Grid (2 Side-by-Side Widgets Matching Screenshot) */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
         
-        {/* Messenger 1: ایتا (Eitaa) - کانال هیس */}
+        {/* Messenger 1: ایتا (Eitaa) */}
         <div 
           className={`rounded-3xl p-4 sm:p-5 border transition-all duration-200 hover:-translate-y-0.5 flex flex-col justify-between ${
             isGirls
@@ -45,15 +51,15 @@ export default function SocialMessengersWidgets({
             </div>
 
             <h4 className="text-sm font-black text-white">
-              روایت‌ها و پشت‌صحنه اتاق جنگ
+              {siteSettings?.eitaaChannelTitle || 'روایت‌ها و پشت‌صحنه اتاق جنگ'}
             </h4>
             <p className="text-[11px] text-slate-300">
-              روایت‌های اختصاصی کارآگاهان، سرنخ‌های مخفی مراحل و چالش‌های ویژه روزانه.
+              {siteSettings?.eitaaChannelSubtitle || 'روایت‌های اختصاصی کارآگاهان، سرنخ‌های مخفی مراحل و چالش‌های ویژه روزانه.'}
             </p>
           </div>
 
           <button
-            onClick={() => handleOpenMessenger('ایتا (Eitaa)', 'https://eitaa.com/warroom')}
+            onClick={() => handleOpenMessenger('ایتا (Eitaa)', 'https://eitaa.com/warroom', siteSettings?.eitaaChannelUrl)}
             className="w-full py-2.5 rounded-2xl bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 text-slate-950 font-black text-xs shadow-md flex items-center justify-center gap-2 transition-transform duration-150 active:scale-[0.98] cursor-pointer"
           >
             <span>کانال اتاق جنگ در ایتا</span>
@@ -61,7 +67,7 @@ export default function SocialMessengersWidgets({
           </button>
         </div>
 
-        {/* Messenger 2: بله (Bale) - کانال اتاق جنگ */}
+        {/* Messenger 2: بله (Bale) */}
         <div 
           className={`rounded-3xl p-4 sm:p-5 border transition-all duration-200 hover:-translate-y-0.5 flex flex-col justify-between ${
             isGirls
@@ -80,15 +86,15 @@ export default function SocialMessengersWidgets({
             </div>
 
             <h4 className="text-sm font-black text-white">
-              اخبار و اطلاعیه‌های رسمی اتاق جنگ
+              {siteSettings?.baleChannelTitle || 'اخبار و اطلاعیه‌های رسمی اتاق جنگ'}
             </h4>
             <p className="text-[11px] text-slate-300">
-              اطلاعیه‌های فوری ستاد برگزاری، اعلام برندگان هفتگی و زمان‌بندی جوایز.
+              {siteSettings?.baleChannelSubtitle || 'اطلاعیه‌های فوری ستاد برگزاری، اعلام برندگان هفتگی و زمان‌بندی جوایز.'}
             </p>
           </div>
 
           <button
-            onClick={() => handleOpenMessenger('بله (Bale)', 'https://ble.ir/warroom')}
+            onClick={() => handleOpenMessenger('بله (Bale)', 'https://ble.ir/warroom', siteSettings?.baleChannelUrl)}
             className={`w-full py-2.5 rounded-2xl text-white font-black text-xs shadow-md flex items-center justify-center gap-2 transition-transform duration-150 active:scale-[0.98] cursor-pointer ${
               isGirls 
                 ? 'bg-gradient-to-r from-emerald-500 to-teal-500 text-slate-950' 

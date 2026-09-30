@@ -7,12 +7,14 @@ import { PrizeItem } from '../../types';
 interface PrizesAwardsBannerProps {
   themeMode: 'girls' | 'boys';
   prizes?: PrizeItem[];
+  siteSettings?: any;
   onExplorePrizes?: () => void;
 }
 
 export default function PrizesAwardsBanner({
   themeMode,
   prizes = [],
+  siteSettings,
   onExplorePrizes
 }: PrizesAwardsBannerProps) {
   const isGirls = themeMode === 'girls';
@@ -44,11 +46,11 @@ export default function PrizesAwardsBanner({
       <div className="text-center sm:text-right space-y-1">
         <h3 className="text-lg sm:text-xl font-black text-white flex items-center justify-center sm:justify-start gap-2">
           <Trophy size={20} className={isGirls ? 'text-pink-400' : 'text-blue-400'} />
-          <span>ویترین جایزه‌ها</span>
+          <span>{siteSettings?.prizesSectionTitle || 'ویترین جایزه‌ها'}</span>
         </h3>
         <p className="text-xs text-slate-300 font-medium flex items-center justify-center sm:justify-start gap-1.5">
           <Sparkles size={13} className={isGirls ? 'text-pink-400' : 'text-red-400'} />
-          <span>کریستال جمع کن و جوایز ویژه سامانه را بازگشایی کن</span>
+          <span>{siteSettings?.prizesSectionSubtitle || 'کریستال جمع کن و جوایز ویژه سامانه را بازگشایی کن'}</span>
         </p>
       </div>
 

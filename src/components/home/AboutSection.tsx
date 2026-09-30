@@ -3,9 +3,10 @@ import { ChevronLeft, Info, Sparkles } from 'lucide-react';
 
 interface AboutSectionProps {
   onOpenMore: () => void;
+  siteSettings?: any;
 }
 
-export default function AboutSection({ onOpenMore }: AboutSectionProps) {
+export default function AboutSection({ onOpenMore, siteSettings }: AboutSectionProps) {
   return (
     <div 
       onClick={onOpenMore}
@@ -22,16 +23,18 @@ export default function AboutSection({ onOpenMore }: AboutSectionProps) {
             </div>
             <div>
               <h2 className="text-sm font-black text-white">
-                درباره ما و پروژه اتاق جنگ
+                {siteSettings?.aboutSectionTitle || 'درباره ما و پروژه اتاق جنگ'}
               </h2>
-              <span className="text-[10px] text-amber-300/80 font-bold block">معرفی اهداف و رسالت سامانه</span>
+              <span className="text-[10px] text-amber-300/80 font-bold block">
+                {siteSettings?.aboutSectionSubtitle || 'معرفی اهداف و رسالت سامانه'}
+              </span>
             </div>
           </div>
           <ChevronLeft size={18} className="text-amber-400 group-hover:translate-x-[-3px] transition-transform" />
         </div>
 
         <p className="text-xs text-slate-300 leading-relaxed text-justify">
-          پلتفرم اتاق جنگ، سامانه جامع شبیه‌سازی تصمیم‌گیری استراتژیک، ارزیابی هوشمند و رقابت‌های گروهی دانش‌آموزی است که با هدف ارتقای آگاهی و تفکر تفکیکی طراحی گردیده است.
+          {siteSettings?.aboutSectionText || siteSettings?.aboutText || 'پلتفرم اتاق جنگ، سامانه جامع شبیه‌سازی تصمیم‌گیری استراتژیک، ارزیابی هوشمند و رقابت‌های گروهی دانش‌آموزی است که با هدف ارتقای آگاهی و تفکر تفکیکی طراحی گردیده است.'}
         </p>
       </div>
     </div>

@@ -487,6 +487,83 @@ export interface SiteSettings {
   prizeImage?: string;
   homeButtons?: HomeButtonConfig[];
   homeBlocks?: HomePageBlock[];
+  // 🌟 فیلدهای جدید استودیوی مدیریت دیداری محتوا و صفحات
+  pageIcon?: string;
+  pageIconText?: string;
+  pageIconSubtext?: string;
+  iconAnimatedText?: string; // متن انیمیشنی تایپ‌شونده زیر آیکون اول صفحه اصلی
+  iconAnimatedSpeed?: number;
+  customLogoUrl?: string; // تصویر لوگوی اول صفحه اصلی
+  homeSectionsOrder?: string[]; // ترتیب سکشن‌های صفحه اصلی: ['hero', 'prizes', 'messengers', 'about', 'footer']
+  adVideoUrl?: string;
+  adVideoTitle?: string;
+  adVideoSubtitle?: string;
+  adVideoBadge?: string;
+  bannerLayout?: 'single' | 'dual'; // تک‌لاینی زیر هم یا دو لاینی کنار هم
+  // فونت‌ها و رنگ‌های متن سفارشی
+  siteFontFamily?: string; // فونت دلخواه
+  customFontName?: string; // نام فونت بارگذاری‌شده
+  customFontDataUrl?: string; // داده فایل فونت بارگذاری‌شده (Base64 یا لینک)
+  customFontFormat?: string; // woff2, woff, ttf, otf
+  customFontCssUrl?: string; // لینک انلاین CSS وب‌فونت
+  siteTextColor?: string; // رنگ متن‌های عمومی
+  animatedTextColor?: string; // رنگ متن انیمیشنی زیر آیکون
+  titleColor?: string; // رنگ عنوان‌ها
+  accentColor?: string; // رنگ اصلی المان‌ها و دکمه‌ها
+  // فیلدهای محتوایی بخش‌های صفحه اصلی
+  prizesSectionTitle?: string;
+  prizesSectionSubtitle?: string;
+  baleChannelTitle?: string;
+  baleChannelSubtitle?: string;
+  baleChannelUrl?: string;
+  eitaaChannelTitle?: string;
+  eitaaChannelSubtitle?: string;
+  eitaaChannelUrl?: string;
+  aboutSectionTitle?: string;
+  aboutSectionSubtitle?: string;
+  aboutSectionText?: string;
+  footerPhone?: string;
+  footerEmail?: string;
+  footerAddress?: string;
+  footerHours?: string;
+  footerLogoIconUrl?: string; // تصویر یا آیکون آپلودشده لوگوی فوتر
+  footerTitle?: string;
+  footerSubtitle?: string;
+  footerAboutText?: string;
+  gatewayTitle?: string; // عنوان درگاه پرداخت (مثلا درگاه زرین‌پال)
+  gatewaySubtitle?: string; // زیرنویس درگاه پرداخت
+  gatewayIconUrl?: string; // تصویر یا آیکون آپلودشده درگاه پرداخت
+  gatewayLinkUrl?: string; // لینک هدایت هنگام کلیک روی درگاه پرداخت
+  enamadTitle?: string; // عنوان نماد اعتماد الکترونیکی
+  enamadSubtitle?: string; // زیرنویس اینماد
+  enamadIconUrl?: string; // تصویر یا آیکون آپلودشده نماد اینماد
+  enamadLinkUrl?: string; // لینک هدایت هنگام کلیک روی نماد اینماد
+  customFooterBadges?: Array<{
+    id: string;
+    title: string;
+    subtitle?: string;
+    iconUrl: string;
+    linkUrl?: string;
+    isActive: boolean;
+  }>;
+  copyrightText?: string; // متن کپی‌رایت انتهای فوتر
+  effectsConfig?: {
+    particleEffect?: boolean;
+    neonGlow?: boolean;
+    matrixCyberRain?: boolean;
+    fogAtmosphere?: boolean;
+    scanlines?: boolean;
+    order?: string[];
+  };
+  customBanners?: Array<{
+    id: string;
+    title: string;
+    subtitle?: string;
+    imageUrl: string;
+    linkUrl?: string;
+    isFullWidth?: boolean;
+    isActive: boolean;
+  }>;
 }
 
 

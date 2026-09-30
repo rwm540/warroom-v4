@@ -4,7 +4,9 @@ import {
   Sparkles, 
   Gem, 
   Lock, 
-  Trophy
+  Trophy,
+  Home,
+  ArrowRight
 } from 'lucide-react';
 import { User, Group, Medal, UserMedal, PrizeItem } from '../types';
 import { formatToPersianDigits } from '../utils/jalali';
@@ -66,8 +68,45 @@ export default function PrizesPointsView({
   };
 
   return (
-    <div className="space-y-6 dir-rtl pb-28 max-w-5xl mx-auto px-3 sm:px-6 pt-4 font-sans select-none">
+    <div className="space-y-4 sm:space-y-6 dir-rtl pb-28 max-w-5xl mx-auto px-3 sm:px-6 pt-3 sm:pt-4 font-sans select-none">
       
+      {/* 1. Top Header with Clear Return to Home Button */}
+      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 bg-gradient-to-r from-slate-950 via-[#070e24] to-slate-950 p-3 sm:p-4 rounded-2xl border border-slate-800 shadow-xl">
+        <div className="flex items-center gap-3">
+          <div className={`w-10 h-10 rounded-xl flex items-center justify-center border shadow-inner shrink-0 ${
+            isGirls
+              ? 'bg-pink-500/20 border-pink-500/40 text-pink-300'
+              : 'bg-cyan-500/20 border-cyan-500/40 text-cyan-300'
+          }`}>
+            <Trophy size={20} />
+          </div>
+          <div>
+            <h2 className="text-sm sm:text-base font-black text-white">جوایز، کریستال‌ها و جدول رده‌بندی</h2>
+            <p className="text-[11px] text-slate-400">مشاهده ویترین جوایز و سکوی افتخار برترین جوخه‌ها و رزمندگان</p>
+          </div>
+        </div>
+
+        {onNavigate && (
+          <div className="flex items-center gap-2 self-stretch sm:self-auto">
+            <button
+              type="button"
+              onClick={() => onNavigate(currentUser ? 'Journey' : 'Home')}
+              className={`w-full sm:w-auto px-4 py-2.5 rounded-xl font-black text-xs transition-all flex items-center justify-center gap-2 cursor-pointer shadow-lg active:scale-95 shrink-0 ${
+                isGirls
+                  ? 'bg-gradient-to-r from-pink-500 to-rose-600 hover:from-pink-400 hover:to-rose-500 text-white shadow-pink-900/40'
+                  : 'bg-gradient-to-r from-cyan-400 via-blue-500 to-indigo-600 hover:brightness-110 text-slate-950 shadow-cyan-900/40'
+              }`}
+              id="btn-back-to-home"
+              title="بازگشت به صفحه اصلی"
+            >
+              <Home size={16} />
+              <span>بازگشت به صفحه اصلی</span>
+              <ArrowRight size={15} className="rotate-180" />
+            </button>
+          </div>
+        )}
+      </div>
+
       {/* 2. Main Tab Switcher: "ویترین جایزه‌ها" vs "جدول رده‌بندی" */}
       <div className="grid grid-cols-2 gap-2 bg-slate-950/80 p-1.5 rounded-2xl border border-slate-800">
         <button

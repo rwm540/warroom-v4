@@ -440,13 +440,31 @@ export default function JourneyView({
       <div className="w-full max-w-4xl mx-auto flex flex-col gap-3 pb-36 md:pb-16 px-1.5 sm:px-3 relative z-10">
 
         {/* ========================================================================= */}
-        {/* 1. STICKY TOP HUD BAR: User Profile Avatar & 4 Stats Cards */}
+        {/* 1. STICKY TOP HUD BAR: Back to Home + User Profile Avatar & 4 Stats Cards */}
         {/* ========================================================================= */}
         <div className={`sticky top-0 z-30 w-full p-1.5 sm:p-2 rounded-2xl backdrop-blur-xl border shadow-xl flex items-center justify-between gap-2 sm:gap-3 transition-all duration-300 ${
           isGirls 
             ? 'bg-[#150220]/92 border-fuchsia-500/35 shadow-[0_10px_30px_rgba(0,0,0,0.8),0_0_20px_rgba(255,19,137,0.2)]'
             : 'bg-[#060c20]/92 border-blue-500/35 shadow-[0_10px_30px_rgba(0,0,0,0.8),0_0_20px_rgba(37,99,235,0.2)]'
         }`}>
+
+          {/* 🏠 Return to Home Button */}
+          {onNavigateTab && (
+            <button
+              type="button"
+              onClick={() => onNavigateTab('Home')}
+              className={`px-3 py-2 sm:py-2.5 rounded-xl font-black text-xs transition-all flex items-center gap-1.5 cursor-pointer shadow-md active:scale-95 shrink-0 ${
+                isGirls
+                  ? 'bg-gradient-to-r from-pink-500 to-rose-600 hover:from-pink-400 hover:to-rose-500 text-white shadow-pink-900/40'
+                  : 'bg-gradient-to-r from-cyan-400 via-blue-500 to-indigo-600 hover:brightness-110 text-slate-950 shadow-cyan-900/40'
+              }`}
+              title="بازگشت به صفحه اصلی سایت"
+              id="btn-journey-back-home"
+            >
+              <Home size={15} />
+              <span className="hidden sm:inline">صفحه اصلی</span>
+            </button>
+          )}
 
           {/* Stats Bar (4 Columns: سطح شما, امتیاز کل, نشان‌ها, درصد مسیر) — کاملاً پویا از Supabase */}
           <section className="flex-1 grid grid-cols-4 gap-1.5 sm:gap-2 bg-[#0d1524]/90 border border-slate-800/80 rounded-xl p-1.5 sm:p-2 backdrop-blur-md shadow-md">
@@ -758,6 +776,16 @@ export default function JourneyView({
                   <p className="text-xs text-slate-400 max-w-xs leading-relaxed">
                     مدیر سامانه می‌تواند از بخش مدیریت مراحل جدید اضافه کند.
                   </p>
+                  {onNavigateTab && (
+                    <button
+                      type="button"
+                      onClick={() => onNavigateTab('Home')}
+                      className="mt-2 px-4 py-2 rounded-xl bg-gradient-to-r from-cyan-400 to-blue-600 hover:brightness-110 text-slate-950 font-black text-xs transition shadow-lg flex items-center gap-1.5 cursor-pointer active:scale-95"
+                    >
+                      <Home size={14} />
+                      <span>بازگشت به صفحه اصلی</span>
+                    </button>
+                  )}
                 </div>
               ) : (
                 <div className="relative w-full h-full flex flex-col justify-between items-center py-2 z-10">

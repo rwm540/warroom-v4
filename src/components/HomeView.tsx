@@ -154,7 +154,12 @@ export default function HomeView({
       </div>
 
       {/* Responsive Container: Mobile-Optimized + Full Desktop Experience */}
-      <div className={`w-full max-w-[500px] md:max-w-6xl min-h-screen md:min-h-0 relative shadow-[0_0_70px_rgba(0,0,0,0.95)] border-x md:border md:rounded-3xl flex flex-col pb-10 md:pb-8 overflow-hidden z-10 transition-colors duration-500 ${
+      <div 
+        style={{
+          fontFamily: siteSettings?.siteFontFamily || undefined,
+          color: siteSettings?.siteTextColor || undefined
+        }}
+        className={`w-full max-w-[500px] md:max-w-6xl min-h-screen md:min-h-0 relative shadow-[0_0_70px_rgba(0,0,0,0.95)] border-x md:border md:rounded-3xl flex flex-col pb-10 md:pb-8 overflow-hidden z-10 transition-colors duration-500 ${
         isGirls 
           ? 'girls-card-surface border-fuchsia-500/35 shadow-[0_0_80px_rgba(255,19,137,0.22)]' 
           : 'boys-card-surface border-blue-500/35 shadow-[0_0_80px_rgba(37,99,235,0.22)]'
@@ -165,82 +170,93 @@ export default function HomeView({
           {/* Main Landing Content with Clean Performance Rendering */}
           <div className="p-3 sm:p-5 md:p-6 space-y-6 sm:space-y-8">
             
-            {/* 1. Adventure Hero Section - Instant Render (No Scroll Waiting) */}
-            <section 
-              aria-label="بخش معرفی مسابقه و بنر ثبت‌نام"
-              className="transform-gpu"
-            >
-              <AdventureHeroSection 
-                themeMode={themeMode}
-                currentUser={currentUser}
-                siteSettings={siteSettings}
-                onNavigate={(tab) => setActiveTab(tab)}
-                onOpenRegister={() => onOpenAuth('register_individual')}
-                onSelectTheme={(targetTheme) => {
-                  if (onChangeCampaign) {
-                    onChangeCampaign(targetTheme);
-                  }
-                }}
-                onGoToDashboard={() => {
-                  if (currentUser?.role === 'admin') {
-                    setActiveTab('Admin');
-                    return;
-                  }
-                  const hasGame = typeof window !== 'undefined' ? sessionStorage.getItem('warroom_selected_game_id') : null;
-                  if (!hasGame && onOpenGamePortal) {
-                    onOpenGamePortal();
-                    return;
-                  }
-                  setActiveTab('Journey');
-                }}
-              />
-            </section>
+            {/* Dynamic Reorderable Sections from Site Settings */}
+            {(siteSettings?.homeSectionsOrder || ['hero', 'prizes', 'messengers', 'about', 'footer']).map((secKey: string) => {
+              if (secKey === 'hero') {
+                return (
+                  <section key="sec-hero" aria-label="بخش معرفی مسابقه و بنر ثبت‌نام" className="transform-gpu">
+                    <AdventureHeroSection 
+                      themeMode={themeMode}
+                      currentUser={currentUser}
+                      siteSettings={siteSettings}
+                      onNavigate={(tab) => setActiveTab(tab)}
+                      onOpenRegister={() => onOpenAuth('register_individual')}
+                      onSelectTheme={(targetTheme) => {
+                        if (onChangeCampaign) {
+                          onChangeCampaign(targetTheme);
+                        }
+                      }}
+                      onGoToDashboard={() => {
+                        if (currentUser?.role === 'admin') {
+                          setActiveTab('Admin');
+                          return;
+                        }
+                        const hasGame = typeof window !== 'undefined' ? sessionStorage.getItem('warroom_selected_game_id') : null;
+                        if (!hasGame && onOpenGamePortal) {
+                          onOpenGamePortal();
+                          return;
+                        }
+                        setActiveTab('Journey');
+                      }}
+                    />
+                  </section>
+                );
+              }
 
-            {/* 2. Dedicated Banner for Prizes & Awards - Instant Render */}
-            <section 
-              aria-label="جوایز و هدایای مسابقه"
-              className="transform-gpu"
-            >
-              <PrizesAwardsBanner 
-                themeMode={themeMode}
-                prizes={prizes}
-                onExplorePrizes={() => setActiveTab('RewardsLeaderboard')}
-              />
-            </section>
+              if (secKey === 'prizes') {
+                return (
+                  <section key="sec-prizes" aria-label="جوایز و هدایای مسابقه" className="transform-gpu">
+                    <PrizesAwardsBanner 
+                      themeMode={themeMode}
+                      prizes={prizes}
+                      siteSettings={siteSettings}
+                      onExplorePrizes={() => setActiveTab('RewardsLeaderboard')}
+                    />
+                  </section>
+                );
+              }
 
-            {/* 3. Social Media Widgets: Local Messengers + Stages & Guide */}
-            <section 
-              aria-label="شبکه‌های اجتماعی و پیام‌رسان‌های بله و ایتا"
-              className="transform-gpu"
-            >
-              <SocialMessengersWidgets 
-                themeMode={themeMode}
-                onOpenStages={() => setActiveTab('Journey')}
-                onOpenGuide={() => setShowGuideModal(true)}
-                triggerAlert={triggerAlert}
-              />
-            </section>
+              if (secKey === 'messengers') {
+                return (
+                  <section key="sec-messengers" aria-label="شبکه‌های اجتماعی و پیام‌رسان‌های بله و ایتا" className="transform-gpu">
+                    <SocialMessengersWidgets 
+                      themeMode={themeMode}
+                      siteSettings={siteSettings}
+                      onOpenStages={() => setActiveTab('Journey')}
+                      onOpenGuide={() => setShowGuideModal(true)}
+                      triggerAlert={triggerAlert}
+                    />
+                  </section>
+                );
+              }
 
-            {/* 4. About Us Section */}
-            <section 
-              aria-label="درباره ما"
-              className="transform-gpu"
-            >
-              <AboutSection onOpenMore={() => setActiveTab('About')} />
-            </section>
+              if (secKey === 'about') {
+                return (
+                  <section key="sec-about" aria-label="درباره ما" className="transform-gpu">
+                    <AboutSection 
+                      onOpenMore={() => setActiveTab('About')} 
+                      siteSettings={siteSettings}
+                    />
+                  </section>
+                );
+              }
 
-            {/* 5. Footer Section */}
-            <section 
-              aria-label="فوتر و اطلاعات تماس"
-              className="transform-gpu pt-2"
-            >
-              <Footer 
-                themeMode={themeMode}
-                onNavigate={(tab) => setActiveTab(tab)}
-                onOpenAbout={() => setActiveTab('About')}
-                triggerAlert={triggerAlert}
-              />
-            </section>
+              if (secKey === 'footer') {
+                return (
+                  <section key="sec-footer" aria-label="فوتر و اطلاعات تماس" className="transform-gpu pt-2">
+                    <Footer 
+                      themeMode={themeMode}
+                      siteSettings={siteSettings}
+                      onNavigate={(tab) => setActiveTab(tab)}
+                      onOpenAbout={() => setActiveTab('About')}
+                      triggerAlert={triggerAlert}
+                    />
+                  </section>
+                );
+              }
+
+              return null;
+            })}
 
           </div>
 

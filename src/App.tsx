@@ -42,6 +42,7 @@ import {
   initialNews,
   initialNotifications 
 } from './data';
+import { injectCustomFontFace, injectCustomFontCssUrl } from './utils/dynamicFonts';
 
 import {
   initialHomeAnnouncements, 
@@ -361,6 +362,18 @@ export default function App() {
       heroVideoUrl: '',
       girlsBannerImage: '',
       boysBannerImage: '',
+      bannerLayout: 'dual',
+      iconAnimatedText: 'به بزرگترین رویداد رقابتی و استراتژیک اتاق جنگ خوش آمدید!',
+      customLogoUrl: '/images/logos/warroom_logo.webp',
+      homeSectionsOrder: ['hero', 'prizes', 'messengers', 'about', 'footer'],
+      gatewayTitle: 'درگاه پرداخت زرین‌پال',
+      gatewaySubtitle: 'پرداخت ایمن ۲۵۶ بیتی',
+      gatewayIconUrl: '',
+      gatewayLinkUrl: 'https://zarinpal.com',
+      enamadTitle: 'نماد اعتماد الکترونیکی',
+      enamadSubtitle: 'وزارت صنعت، معدن و تجارت',
+      enamadIconUrl: '',
+      enamadLinkUrl: 'https://enamad.ir',
       heroButtonText: 'ورود و ثبت‌نام',
       contactPhone: '۰۲۱-۸۸۹۹۷۷۶۶',
       contactEmail: 'info@warroom.ir',
@@ -442,6 +455,25 @@ export default function App() {
     table: 'warroom_password_reset_requests',
     initial: []
   });
+
+  // 🔤 بارگذاری و فعال‌سازی پویای فونت‌های سفارشی و آپلودشده
+  useEffect(() => {
+    if (siteSettings?.customFontName && siteSettings?.customFontDataUrl) {
+      injectCustomFontFace(
+        siteSettings.customFontName,
+        siteSettings.customFontDataUrl,
+        siteSettings.customFontFormat || 'woff2'
+      );
+    }
+    if (siteSettings?.customFontCssUrl) {
+      injectCustomFontCssUrl(siteSettings.customFontCssUrl);
+    }
+  }, [
+    siteSettings?.customFontName,
+    siteSettings?.customFontDataUrl,
+    siteSettings?.customFontFormat,
+    siteSettings?.customFontCssUrl
+  ]);
 
   const [paymentSettings, setPaymentSettings] = useSyncedSetting<PaymentSettings>({
     storageKey: 'warroom_payment_settings',

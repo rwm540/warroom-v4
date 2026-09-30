@@ -9,7 +9,9 @@ import {
   Shield, 
   Star,
   Award,
-  Zap
+  Zap,
+  Home,
+  ArrowRight
 } from 'lucide-react';
 import { User, Group, Medal as MedalType, UserMedal } from '../types';
 import { formatToPersianDigits } from '../utils/jalali';
@@ -108,29 +110,45 @@ export default function RewardsLeaderboardView({
             </p>
           </div>
 
-          <div className="flex items-center gap-2 bg-slate-900/80 p-1 rounded-2xl border border-slate-800">
-            <button
-              onClick={() => setRankingType('squads')}
-              className={`px-3 py-1.5 rounded-xl text-xs font-black transition flex items-center gap-1.5 ${
-                rankingType === 'squads'
-                  ? 'bg-amber-500 text-slate-950 shadow-md'
-                  : 'text-slate-400 hover:text-white'
-              }`}
-            >
-              <Users size={14} />
-              <span>جوخه‌ها ({formatToPersianDigits(squadList.length)})</span>
-            </button>
-            <button
-              onClick={() => setRankingType('individuals')}
-              className={`px-3 py-1.5 rounded-xl text-xs font-black transition flex items-center gap-1.5 ${
-                rankingType === 'individuals'
-                  ? 'bg-amber-500 text-slate-950 shadow-md'
-                  : 'text-slate-400 hover:text-white'
-              }`}
-            >
-              <UserIcon size={14} />
-              <span>کاربران ({formatToPersianDigits(individualList.length)})</span>
-            </button>
+          <div className="flex items-center gap-2 flex-wrap justify-center sm:justify-end">
+            <div className="flex items-center gap-2 bg-slate-900/80 p-1 rounded-2xl border border-slate-800">
+              <button
+                onClick={() => setRankingType('squads')}
+                className={`px-3 py-1.5 rounded-xl text-xs font-black transition flex items-center gap-1.5 cursor-pointer ${
+                  rankingType === 'squads'
+                    ? 'bg-amber-500 text-slate-950 shadow-md'
+                    : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                <Users size={14} />
+                <span>جوخه‌ها ({formatToPersianDigits(squadList.length)})</span>
+              </button>
+              <button
+                onClick={() => setRankingType('individuals')}
+                className={`px-3 py-1.5 rounded-xl text-xs font-black transition flex items-center gap-1.5 cursor-pointer ${
+                  rankingType === 'individuals'
+                    ? 'bg-amber-500 text-slate-950 shadow-md'
+                    : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                <UserIcon size={14} />
+                <span>کاربران ({formatToPersianDigits(individualList.length)})</span>
+              </button>
+            </div>
+
+            {onNavigate && (
+              <button
+                type="button"
+                onClick={() => onNavigate('Home')}
+                className="px-3.5 py-2 rounded-2xl bg-amber-500/15 hover:bg-amber-500/25 text-amber-300 hover:text-amber-200 border border-amber-500/40 text-xs font-black transition flex items-center gap-1.5 cursor-pointer shadow-sm active:scale-95 shrink-0"
+                title="بازگشت به صفحه اصلی"
+                id="btn-return-home-leaderboard"
+              >
+                <Home size={14} className="text-amber-400" />
+                <span>بازگشت به خانه</span>
+                <ArrowRight size={13} className="rotate-180 text-amber-400" />
+              </button>
+            )}
           </div>
         </div>
       </div>

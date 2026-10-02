@@ -469,6 +469,15 @@ export interface SiteSettings {
   heroTitle?: string;
   heroProgress?: string;
   heroCountdown?: string;
+  showCountdownTimer?: boolean; // نمایش یا عدم نمایش تایمر معکوس در صفحه اصلی
+  countdownTitle?: string; // عنوان بالای تایمر معکوس
+  countdownTargetDate?: string; // تاریخ هدف تایمر معکوس (مثلاً 2026-11-20T23:59:59)
+  countdownPosition?: 'top' | 'middle' | 'bottom' | 'floating'; // موقعیت قرارگیری تایمر در صفحه (سه گزینه‌ای: بالا، میانه، پایین)
+  countdownStyle?: 'tactical' | 'compact' | 'neon'; // طرح نمایشی تایمر (سه گزینه‌ای: تاکتیکال، فشرده، نئونی)
+  removeTimerBorder?: boolean; // حذف کامل کادر/بردر تایمر معکوس
+  disableBannerLinks?: boolean; // غیرفعال‌سازی لینک‌های دو بنر (عدم هدایت کاربر به ثبت‌نام و ورود)
+  hideRegistrationBanners?: boolean; // مخفی‌سازی دستی دو بنر ثبت‌نام دختران و پسران
+  hideBannersOnExpiry?: boolean; // حذف خودکار دو بنر پس از اتمام زمان تایمر معکوس
   heroImage?: string;
   heroVideoUrl?: string;
   teaserVideoUrl?: string;
@@ -511,17 +520,72 @@ export interface SiteSettings {
   titleColor?: string; // رنگ عنوان‌ها
   accentColor?: string; // رنگ اصلی المان‌ها و دکمه‌ها
   // فیلدهای محتوایی بخش‌های صفحه اصلی
+  // ۱. ویترین جایزه‌ها (متن‌ها، عناوین، بنرها، فیچرها و کارت‌های جوایز)
   prizesSectionTitle?: string;
   prizesSectionSubtitle?: string;
+  prizesBadgeText?: string;
+  prizesHeadingText?: string;
+  prizesDescTitle?: string;
+  prizesDescText?: string;
+  prizesFeature1Title?: string;
+  prizesFeature1Desc?: string;
+  prizesFeature1IconUrl?: string;
+  prizesFeature2Title?: string;
+  prizesFeature2Desc?: string;
+  prizesFeature2IconUrl?: string;
+  prizesFeature3Title?: string;
+  prizesFeature3Desc?: string;
+  prizesFeature3IconUrl?: string;
+  prizesFeature4Title?: string;
+  prizesFeature4Desc?: string;
+  prizesFeature4IconUrl?: string;
+  prizesTopCardTitle?: string;
+  prizesTopCardTag?: string;
+  prizesTopCardImage?: string;
+  prizesSideCard1Title?: string;
+  prizesSideCard1Tag?: string;
+  prizesSideCard1Image?: string;
+  prizesSideCard2Title?: string;
+  prizesSideCard2Tag?: string;
+  prizesSideCard2Image?: string;
+
+  // ۲. کانال‌های بله و ایتا و دکمه‌های راهنما و مراحل
+  baleBadgeText?: string;
+  baleHandle?: string;
   baleChannelTitle?: string;
   baleChannelSubtitle?: string;
+  baleButtonText?: string;
   baleChannelUrl?: string;
+  baleLogoUrl?: string;
+  
+  eitaaBadgeText?: string;
+  eitaaHandle?: string;
   eitaaChannelTitle?: string;
   eitaaChannelSubtitle?: string;
+  eitaaButtonText?: string;
   eitaaChannelUrl?: string;
+  eitaaLogoUrl?: string;
+
+  stagesButtonTitle?: string;
+  stagesButtonSubtitle?: string;
+  stagesButtonIconUrl?: string;
+  guideButtonTitle?: string;
+  guideButtonSubtitle?: string;
+  guideButtonIconUrl?: string;
+
+  // ۳. درباره ما و اهداف سامانه
   aboutSectionTitle?: string;
   aboutSectionSubtitle?: string;
   aboutSectionText?: string;
+  aboutSectionIconUrl?: string;
+  aboutSectionBannerImage?: string;
+  aboutSectionBadgeText?: string;
+  aboutFeature1Title?: string;
+  aboutFeature1Desc?: string;
+  aboutFeature2Title?: string;
+  aboutFeature2Desc?: string;
+  aboutFeature3Title?: string;
+  aboutFeature3Desc?: string;
   footerPhone?: string;
   footerEmail?: string;
   footerAddress?: string;

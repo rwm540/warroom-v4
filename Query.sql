@@ -873,12 +873,100 @@ insert into public.warroom_kv (id, value) values (
 )
 on conflict (id) do update set value = excluded.value, updated_at = now();
 
--- ⚙️ تنظیمات پایه صفحه اصلی و سامانه در warroom_kv
+-- ⚙️ تنظیمات جامع و به‌روز صفحه اصلی، ویترین جوایز، کانال‌های بله و ایتا و سامانه در warroom_kv
 insert into public.warroom_kv (id, value) values (
   'site_settings',
-  $${"siteName":"اتاق جنگ","siteTagline":"سامانه جامع مسابقات، مأموریت‌ها و ارزیابی هوشمند","badgeText":"پرونده ماجراجویی هفت‌خوان","heroTitle":"مأموریت اصلی: مسابقه بزرگ اتاق جنگ","heroProgress":"۷۲٪","heroCountdown":"۰۲:۱۴:۳۹:۱۵","heroButtonText":"ورود و ثبت‌نام","contactPhone":"۰۲۱-۸۸۹۹۷۷۶۶","contactEmail":"info@warroom.ir","telegram":"WarRoom_Support","baleLink":"https://bale.ai/warroom","eitaaLink":"https://eitaa.com/warroom","address":"تهران، بزرگراه شهید همت، ستاد مرکزی قرارگاه فضای مجازی","aboutText":"پلتفرم اتاق جنگ یک سامانه تعاملی، رقابتی و آموزشی است که با هدف پرورش تفکر استراتژیک، افزایش توان تحلیل مسئله و تقویت روحیه کار تیمی در میان نوجوانان و جوانان طراحی شده است.","prizeTitle":"جایزه‌ها و هدایای مسابقه بزرگ","prizeDescription":"کریستال جمع کن و جایزه‌های نفیس اعم از کنسول بازی، تبلت و گوشی برنده شو!"}$$::jsonb
+  $${
+    "siteName": "اتاق جنگ",
+    "siteTagline": "سامانه جامع مسابقات، مأموریت‌ها و ارزیابی هوشمند",
+    "badgeText": "پرونده ماجراجویی هفت‌خوان",
+    "heroTitle": "مأموریت اصلی: مسابقه بزرگ اتاق جنگ",
+    "heroProgress": "۷۲٪",
+    "heroCountdown": "۰۲:۱۴:۳۹:۱۵",
+    "showCountdownTimer": true,
+    "countdownTitle": "مهلت ثبت‌نام و آغاز رویداد بزرگ اتاق جنگ",
+    "countdownPosition": "middle",
+    "countdownStyle": "tactical",
+    "removeTimerBorder": true,
+    "disableBannerLinks": false,
+    "hideRegistrationBanners": false,
+    "hideBannersOnExpiry": true,
+    "bannerLayout": "dual",
+    "girlsBannerImage": "/images/banners/girls_registration_banner.webp",
+    "boysBannerImage": "/images/banners/boys_registration_banner.webp",
+    "iconAnimatedText": "به بزرگترین رویداد رقابتی و استراتژیک اتاق جنگ خوش آمدید!",
+    "customLogoUrl": "/images/logos/warroom_logo.webp",
+    "homeSectionsOrder": ["hero", "timer", "prizes", "messengers", "about", "footer"],
+    "prizesSectionTitle": "ویترین جایزه‌ها",
+    "prizesSectionSubtitle": "کریستال جمع کن و جوایز ویژه سامانه را بازگشایی کن",
+    "prizesBadgeText": "جوایز کشوری و استانی",
+    "prizesHeadingText": "جوایز و هدایای ویژه برای نفرات برتر کشور و استان",
+    "prizesDescTitle": "اهدای جوایز اختصاصی بر اساس کریستال‌های کسب‌شده",
+    "prizesDescText": "تمام جوایز و امتیازات مورد نیاز توسط مدیر سامانه در پنل مدیریت تعیین و به روز می‌شوند.",
+    "prizesTopCardTitle": "جوایز ارزنده سامانه",
+    "prizesTopCardTag": "رتبه اول کشوری",
+    "prizesSideCard1Title": "جایزه ویژه",
+    "prizesSideCard1Tag": "ویترین",
+    "prizesSideCard2Title": "هدایای رده‌بندی",
+    "prizesSideCard2Tag": "برترین‌ها",
+    "prizesFeature1Title": "جوایز دیجیتال و الکترونیک",
+    "prizesFeature1Desc": "تعریف در پنل ادمین",
+    "prizesFeature2Title": "کنسول بازی و هدایای ویژه",
+    "prizesFeature2Desc": "بر اساس امتیازات",
+    "prizesFeature3Title": "تبلت‌های دانش‌آموزی و قلم",
+    "prizesFeature3Desc": "برندگان استانی",
+    "prizesFeature4Title": "بسته‌های هدیه و نشان‌ها",
+    "prizesFeature4Desc": "نفرات برتر",
+    "baleBadgeText": "پیام‌رسان بله",
+    "baleHandle": "@warroom_app",
+    "baleChannelTitle": "اخبار و اطلاعیه‌های رسمی اتاق جنگ",
+    "baleChannelSubtitle": "اطلاعیه‌های فوری ستاد برگزاری، اعلام برندگان هفتگی و زمان‌بندی جوایز.",
+    "baleButtonText": "کانال اتاق جنگ در بله",
+    "baleChannelUrl": "https://ble.ir/warroom_app",
+    "eitaaBadgeText": "پیام‌رسان ایتا",
+    "eitaaHandle": "@hisstory_official",
+    "eitaaChannelTitle": "روایت‌ها و پشت‌صحنه اتاق جنگ",
+    "eitaaChannelSubtitle": "روایت‌های اختصاصی کارآگاهان، سرنخ‌های مخفی مراحل و چالش‌های ویژه روزانه.",
+    "eitaaButtonText": "کانال اتاق جنگ در ایتا",
+    "eitaaChannelUrl": "https://eitaa.com/hisstory_official",
+    "stagesButtonTitle": "مراحل مسابقه",
+    "stagesButtonSubtitle": "نقشه ۷ مرحله ماجراجویی",
+    "guideButtonTitle": "راهنمای مسابقه",
+    "guideButtonSubtitle": "قوانین و نحوه امتیازگیری",
+    "aboutSectionTitle": "درباره ما و پروژه اتاق جنگ",
+    "aboutSectionSubtitle": "معرفی اهداف و رسالت سامانه",
+    "aboutSectionText": "پلتفرم اتاق جنگ، سامانه جامع شبیه‌سازی تصمیم‌گیری استراتژیک، ارزیابی هوشمند و رقابت‌های گروهی دانش‌آموزی است که با هدف ارتقای آگاهی و تفکر تفکیکی طراحی گردیده است.",
+    "aboutSectionBadgeText": "معرفی سامانه",
+    "aboutFeature1Title": "شبیه‌سازی استراتژیک",
+    "aboutFeature1Desc": "تصمیم‌گیری در شرایط بحران نبرد",
+    "aboutFeature2Title": "ارزیابی هوشمند",
+    "aboutFeature2Desc": "سنجش تفکر تحلیلی و تاکتیکی",
+    "aboutFeature3Title": "رقابت‌های تیمی",
+    "aboutFeature3Desc": "هم‌افزایی جوخه‌ها و گردان‌ها",
+    "gatewayTitle": "درگاه پرداخت زرین‌پال",
+    "gatewaySubtitle": "پرداخت ایمن ۲۵۶ بیتی",
+    "gatewayLinkUrl": "https://zarinpal.com",
+    "enamadTitle": "نماد اعتماد الکترونیکی",
+    "enamadSubtitle": "وزارت صنعت، معدن و تجارت",
+    "enamadLinkUrl": "https://enamad.ir",
+    "footerPhone": "۰۲۱-۸۸۹۹۷۷۶۶",
+    "footerEmail": "support@warroom.ir",
+    "footerAddress": "نشانی: تهران، خیابان آزادی، مرکز نوآوری‌های استراتژیک، پلاک ۱۱۰",
+    "footerHours": "ساعات پاسخگویی: شنبه تا چهارشنبه ۸:۰۰ الی ۱۶:۰۰",
+    "footerTitle": "سامانه ملی «اتاق جنگ»",
+    "footerSubtitle": "سامانه استراتژیک و ارزیابی اتاق جنگ",
+    "siteFontFamily": "Vazirmatn, sans-serif"
+  }$$::jsonb
 )
 on conflict (id) do update set value = excluded.value, updated_at = now();
+
+-- 🎁 جوایز و پاداش‌های پیش‌فرض سامانه در warroom_prizes
+insert into public.warroom_prizes (id, data) values 
+('prize_console', $${"id":"prize_console","title":"کنسول بازی پلی‌استیشن ۵","description":"جایزه ویژه رتبه اول مسابقات استراتژیک کشوری","requiredPoints":5000,"category":"digital","imageUrl":"https://images.unsplash.com/photo-1606813907291-d86efa9b94db?auto=format&fit=crop&w=400&q=80","isActive":true}$$::jsonb),
+('prize_tablet', $${"id":"prize_tablet","title":"تبلت دانش‌آموزی و قلم نوری","description":"جایزه ویژه رتبه‌های دوم تا پنجم","requiredPoints":3500,"category":"digital","imageUrl":"https://images.unsplash.com/photo-1544244015-0df4b3ffc6b0?auto=format&fit=crop&w=400&q=80","isActive":true}$$::jsonb),
+('prize_smartwatch', $${"id":"prize_smartwatch","title":"ساعت هوشمند ورزشی و سلامت","description":"پاداش ارزیابی هوشمند و تحلیل برتر","requiredPoints":2200,"category":"gadget","imageUrl":"https://images.unsplash.com/photo-1523275335684-37898b6baf30?auto=format&fit=crop&w=400&q=80","isActive":true}$$::jsonb),
+('prize_headset', $${"id":"prize_headset","title":"هدست بی‌سیم گیمینگ حرفه‌ای","description":"پاداش جوخه‌ها و گردان‌های برتر هفته","requiredPoints":1500,"category":"gadget","imageUrl":"https://images.unsplash.com/photo-1505740420928-5e560c06d30e?auto=format&fit=crop&w=400&q=80","isActive":true}$$::jsonb)
+on conflict (id) do update set data = excluded.data, updated_at = now();
 
 -- سایر داده‌ها (کاربران، مأموریت‌ها، ویترین و ...) خالی است و از طریق خود
 -- برنامه / پنل مدیریت در Supabase ذخیره و همگام می‌شوند.

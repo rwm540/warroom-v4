@@ -1,12 +1,17 @@
 /**
- * ابزار بارگذاری پویا و تزریق فونت‌های سفارشی آپلود شده و آنلاین
+ * Utility to dynamically inject custom uploaded fonts and online CSS webfonts
  */
 
-export function injectCustomFontFace(fontName: string, fontDataOrUrl: string, format: string = 'woff2') {
-  if (typeof document === 'undefined' || !fontName || !fontDataOrUrl) return;
-  
-  const styleId = 'warroom-dynamic-custom-font-style';
+export function injectCustomFontFace(
+  fontName: string,
+  dataUrl: string,
+  format: string = 'woff2'
+): void {
+  if (typeof document === 'undefined' || !fontName || !dataUrl) return;
+
+  const styleId = `custom-font-face-${fontName.replace(/[^a-zA-Z0-9_-]/g, '_')}`;
   let styleEl = document.getElementById(styleId) as HTMLStyleElement | null;
+
   if (!styleEl) {
     styleEl = document.createElement('style');
     styleEl.id = styleId;
@@ -14,17 +19,20 @@ export function injectCustomFontFace(fontName: string, fontDataOrUrl: string, fo
   }
 
   // Format mapping
-  let fmt = format.toLowerCase();
-  if (fmt.includes('woff2')) fmt = 'woff2';
-  else if (fmt.includes('woff')) fmt = 'woff';
-  else if (fmt.includes('ttf') || fmt.includes('truetype')) fmt = 'truetype';
-  else if (fmt.includes('otf') || fmt.includes('opentype')) fmt = 'opentype';
-  else fmt = 'woff2';
+  const normalizedFormat = format.toLowerCase().includes('woff2')
+    ? 'woff2'
+    : format.toLowerCase().includes('woff')
+    ? 'woff'
+    : format.toLowerCase().includes('ttf')
+    ? 'truetype'
+    : format.toLowerCase().includes('otf')
+    ? 'opentype'
+    : format;
 
   styleEl.textContent = `
     @font-face {
       font-family: "${fontName}";
-      src: url("${fontDataOrUrl}") format("${fmt}");
+      src: url("${dataUrl}") format("${normalizedFormat}");
       font-weight: 100 900;
       font-style: normal;
       font-display: swap;
@@ -32,16 +40,18 @@ export function injectCustomFontFace(fontName: string, fontDataOrUrl: string, fo
   `;
 }
 
-export function injectCustomFontCssUrl(cssUrl: string) {
+export function injectCustomFontCssUrl(cssUrl: string): void {
   if (typeof document === 'undefined' || !cssUrl || !cssUrl.trim()) return;
-  
-  const linkId = 'warroom-dynamic-font-css-link';
+
+  const linkId = 'custom-font-css-link';
   let linkEl = document.getElementById(linkId) as HTMLLinkElement | null;
+
   if (!linkEl) {
     linkEl = document.createElement('link');
     linkEl.id = linkId;
     linkEl.rel = 'stylesheet';
     document.head.appendChild(linkEl);
   }
+
   linkEl.href = cssUrl.trim();
 }

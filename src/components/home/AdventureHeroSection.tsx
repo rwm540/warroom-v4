@@ -1,10 +1,11 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion } from 'motion/react';
 import { 
-  Shield, Swords, Flame, Target, Trophy, Flag, Compass, Heart, Star, Zap, Award, Radio, Film
+  Shield, Swords, Flame, Target, Trophy, Flag, Compass, Heart, Star, Zap, Award, Radio, Film, Lock, Clock
 } from 'lucide-react';
 import { User, SiteSettings } from '../../types';
 import TacticalVideoPlayer from '../TacticalVideoPlayer';
+import CountdownTimerCard from './CountdownTimerCard';
 
 const WARROOM_LOGO_PATH = '/images/logos/warroom_logo.webp';
 const BOYS_BANNER_PATH = '/images/banners/boys_registration_banner.webp';
@@ -120,7 +121,63 @@ export default function AdventureHeroSection({
   const customVideoUrl = siteSettings?.heroVideoUrl?.trim() || siteSettings?.teaserVideoUrl?.trim();
   const currentVideoUrl = customVideoUrl || FALLBACK_VIDEOS[videoIndex] || FALLBACK_VIDEOS[0];
 
+  // ⏱️ Check if countdown timer is expired
+  const [isTimerExpired, setIsTimerExpired] = useState<boolean>(() => {
+    if (siteSettings?.countdownTargetDate) {
+      const t = new Date(siteSettings.countdownTargetDate).getTime();
+      return !isNaN(t) && t <= Date.now();
+    }
+    if (siteSettings?.heroCountdown) {
+      const clean = siteSettings.heroCountdown.trim();
+      return clean === '00:00:00:00' || clean === '۰۰:۰۰:۰۰:۰۰' || clean === '0' || clean === '۰';
+    }
+    return false;
+  });
+
+  useEffect(() => {
+    if (siteSettings?.countdownTargetDate) {
+      const t = new Date(siteSettings.countdownTargetDate).getTime();
+      if (!isNaN(t) && t <= Date.now()) {
+        setIsTimerExpired(true);
+        return;
+      } else if (!isNaN(t) && t > Date.now()) {
+        setIsTimerExpired(false);
+        return;
+      }
+    }
+    if (siteSettings?.heroCountdown) {
+      const clean = siteSettings.heroCountdown.trim();
+      if (clean === '00:00:00:00' || clean === '۰۰:۰۰:۰۰:۰۰' || clean === '0' || clean === '۰') {
+        setIsTimerExpired(true);
+        return;
+      } else {
+        setIsTimerExpired(false);
+        return;
+      }
+    }
+    setIsTimerExpired(false);
+  }, [siteSettings?.heroCountdown, siteSettings?.countdownTargetDate]);
+
+  // 🔒 هل بنرها یا تایمر غیرفعال شده‌اند؟
+  const isBannersDisabled = Boolean(siteSettings?.disableBannerLinks);
+  const isTimerDisabled = siteSettings?.showCountdownTimer === false;
+
+  // 🚫 آیا بنرها باید به طور کامل از صفحه برداشته شوند؟
+  // دستور مستقیم کاربر:
+  // "کلا بنر ها برداشته بشن رو ی صفحه وقتی تایمر تمام شد و یا غیر فعال شد"
+  // و "باید یکی حالت بذاری که بتونیم این دو تا بنر رو غیر فعال کنیم که دیگه سمت صفحهی ثبت نام و ررود نروند"
+  const shouldHideBanners = Boolean(
+    siteSettings?.hideRegistrationBanners ||
+    isBannersDisabled ||
+    isTimerDisabled ||
+    isTimerExpired
+  );
+
   const handleBannerAction = () => {
+    // اگر بنرها غیرفعال شده باشند، به صفحه ثبت‌نام و ورود هدایت نمی‌شوند
+    if (isBannersDisabled) {
+      return;
+    }
     if (currentUser) {
       onGoToDashboard?.();
     } else {
@@ -129,11 +186,13 @@ export default function AdventureHeroSection({
   };
 
   const handleFemaleClick = () => {
+    if (isBannersDisabled) return;
     onSelectTheme?.('girls');
     handleBannerAction();
   };
 
   const handleMaleClick = () => {
+    if (isBannersDisabled) return;
     onSelectTheme?.('boys');
     handleBannerAction();
   };
@@ -178,89 +237,173 @@ export default function AdventureHeroSection({
         )}
       </div>
 
+      {/* ⏱️ TACTICAL COUNTDOWN TIMER (گزینه ۱: بالای صفحه پیش از بنرها) */}
+      {siteSettings?.showCountdownTimer !== false && siteSettings?.countdownPosition === 'top' && (
+        <motion.div
+          initial={{ opacity: 0, y: -15, scale: 0.98 }}
+          animate={{ opacity: 1, y: 0, scale: 1 }}
+          transition={{ duration: 0.4, ease: 'easeOut' }}
+          className="w-full max-w-xl mx-auto px-1 sm:px-0 my-2 border-0"
+        >
+          <CountdownTimerCard 
+            themeMode={themeMode}
+            countdownTitle={siteSettings?.countdownTitle}
+            countdownString={siteSettings?.heroCountdown}
+            targetDate={siteSettings?.countdownTargetDate}
+            countdownStyle={siteSettings?.countdownStyle}
+            removeBorder={true}
+            onExpire={(expired) => setIsTimerExpired(expired)}
+          />
+        </motion.div>
+      )}
+
       {/* ==================================================================== */}
       {/* 1. ANIMATED COMMANDER BANNERS (SINGLE OR DUAL LINE)                  */}
+      {/* (در صورت اتمام زمان تایمر، غیرفعال شدن تایمر یا غیرفعال‌سازی بنرها،   */}
+      {/*  به طور کامل از روی صفحه برداشته می‌شوند)                              */}
       {/* ==================================================================== */}
-      <div className="w-full overflow-hidden bg-transparent">
-        {/* Banner Grid (Single Line Full-Width or Dual Line Columns) */}
-        <div className={`w-full ${
-          siteSettings?.bannerLayout === 'single'
-            ? 'grid grid-cols-1 gap-4 max-w-xl mx-auto'
-            : 'grid grid-cols-2 gap-2.5 sm:gap-4'
-        }`}>
-          
-          {/* Female Commander Image (تم دخترانه + هدایت به ثبت نام) */}
-          <motion.div 
-            onClick={handleFemaleClick}
-            initial={{ opacity: 0, y: 15, scale: 0.96 }}
-            animate={{ opacity: 1, scale: 1, y: [0, -5, 0] }}
-            whileHover={{ scale: 1.03, y: -6 }}
-            whileTap={{ scale: 0.96 }}
-            transition={{
-              y: { duration: 3.2, repeat: Infinity, ease: 'easeInOut' },
-              scale: { duration: 0.2 },
-              opacity: { duration: 0.3 }
-            }}
-            role="button"
-            tabIndex={0}
-            className="group relative rounded-2xl overflow-hidden cursor-pointer transition-shadow duration-300 shadow-[0_0_15px_rgba(236,72,153,0.25)] hover:shadow-[0_0_30px_rgba(236,72,153,0.5)] bg-slate-900/60 aspect-[16/10]"
+      {shouldHideBanners ? (
+        isTimerExpired ? (
+          <motion.div
+            initial={{ opacity: 0, y: 15 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="w-full max-w-xl mx-auto p-4 sm:p-5 rounded-3xl bg-slate-900/80 border-0 text-center space-y-2 shadow-2xl backdrop-blur-xl"
           >
-            <img 
-              src={girlsBannerSrc}
-              srcSet={
-                !isCustomBanner
-                  ? `${GIRLS_BANNER_MOBILE_PATH} 750w, ${GIRLS_BANNER_PATH} 1200w`
-                  : undefined
-              }
-              sizes="(max-width: 640px) 50vw, 600px"
-              alt="تصویر دختران - تم دخترانه" 
-              width={600}
-              height={375}
-              referrerPolicy="no-referrer"
-              loading="eager"
-              fetchPriority="high"
-              decoding="async"
-              className="w-full h-full object-cover rounded-2xl"
-            />
+            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-500/20 text-amber-300 text-xs font-black border-0">
+              <Clock size={14} />
+              <span>مهلت ثبت‌نام در رویداد به پایان رسید</span>
+            </div>
+            <p className="text-xs sm:text-sm text-slate-300 leading-relaxed font-bold">
+              فرصت ثبت‌نام این دوره خاتمه یافت. شرکت‌کنندگان وارد مراحل ارزیابی و داوری مأموریت‌ها شده‌اند.
+            </p>
           </motion.div>
+        ) : null
+      ) : (
+        <div className="w-full overflow-hidden bg-transparent border-0">
+          {/* Banner Grid (Single Line Full-Width or Dual Line Columns) */}
+          <div className={`w-full ${
+            siteSettings?.bannerLayout === 'single'
+              ? 'grid grid-cols-1 gap-4 max-w-xl mx-auto'
+              : 'grid grid-cols-2 gap-2.5 sm:gap-4'
+          }`}>
+            
+            {/* Female Commander Image (تم دخترانه) */}
+            <motion.div 
+              onClick={isBannersDisabled ? undefined : handleFemaleClick}
+              initial={{ opacity: 0, y: 15, scale: 0.96 }}
+              animate={{ opacity: 1, scale: 1, y: [0, -5, 0] }}
+              whileHover={isBannersDisabled ? {} : { scale: 1.03, y: -6 }}
+              whileTap={isBannersDisabled ? {} : { scale: 0.96 }}
+              transition={{
+                y: { duration: 3.2, repeat: Infinity, ease: 'easeInOut' },
+                scale: { duration: 0.2 },
+                opacity: { duration: 0.3 }
+              }}
+              role={isBannersDisabled ? 'img' : 'button'}
+              tabIndex={isBannersDisabled ? -1 : 0}
+              className={`group relative rounded-2xl overflow-hidden transition-shadow duration-300 shadow-[0_0_20px_rgba(0,0,0,0.4)] aspect-[16/10] border-0 border-transparent select-none ${
+                isBannersDisabled 
+                  ? 'cursor-default opacity-85' 
+                  : 'cursor-pointer hover:shadow-[0_0_30px_rgba(236,72,153,0.45)]'
+              }`}
+            >
+              <img 
+                src={girlsBannerSrc}
+                srcSet={
+                  !isCustomBanner
+                    ? `${GIRLS_BANNER_MOBILE_PATH} 750w, ${GIRLS_BANNER_PATH} 1200w`
+                    : undefined
+                }
+                sizes="(max-width: 640px) 50vw, 600px"
+                alt="تصویر دختران - تم دخترانه" 
+                width={600}
+                height={375}
+                referrerPolicy="no-referrer"
+                loading="eager"
+                fetchPriority="high"
+                decoding="async"
+                className="w-full h-full object-cover rounded-2xl border-0"
+              />
+              {isBannersDisabled && (
+                <div className="absolute top-2 right-2 bg-slate-950/85 backdrop-blur-md px-2.5 py-1 rounded-full text-[10px] font-black text-rose-300 flex items-center gap-1 shadow-lg">
+                  <Lock size={11} />
+                  <span>ثبت‌نام بسته است</span>
+                </div>
+              )}
+            </motion.div>
 
-          {/* Male Commander Image (تم مردانه/پسرانه + هدایت به ثبت نام) */}
-          <motion.div 
-            onClick={handleMaleClick}
-            initial={{ opacity: 0, y: 15, scale: 0.96 }}
-            animate={{ opacity: 1, scale: 1, y: [0, -5, 0] }}
-            whileHover={{ scale: 1.03, y: -6 }}
-            whileTap={{ scale: 0.96 }}
-            transition={{
-              y: { duration: 3.2, repeat: Infinity, ease: 'easeInOut', delay: 0.2 },
-              scale: { duration: 0.2 },
-              opacity: { duration: 0.3 }
-            }}
-            role="button"
-            tabIndex={0}
-            className="group relative rounded-2xl overflow-hidden cursor-pointer transition-shadow duration-300 shadow-[0_0_15px_rgba(6,182,212,0.25)] hover:shadow-[0_0_30px_rgba(6,182,212,0.5)] bg-slate-900/60 aspect-[16/10]"
-          >
-            <img 
-              src={boysBannerSrc}
-              srcSet={
-                !isCustomBanner
-                  ? `${BOYS_BANNER_MOBILE_PATH} 750w, ${BOYS_BANNER_PATH} 1200w`
-                  : undefined
-              }
-              sizes="(max-width: 640px) 50vw, 600px"
-              alt="تصویر پسران - تم مردانه" 
-              width={600}
-              height={375}
-              referrerPolicy="no-referrer"
-              loading="eager"
-              fetchPriority="high"
-              decoding="async"
-              className="w-full h-full object-cover rounded-2xl"
-            />
-          </motion.div>
+            {/* Male Commander Image (تم مردانه/پسرانه) */}
+            <motion.div 
+              onClick={isBannersDisabled ? undefined : handleMaleClick}
+              initial={{ opacity: 0, y: 15, scale: 0.96 }}
+              animate={{ opacity: 1, scale: 1, y: [0, -5, 0] }}
+              whileHover={isBannersDisabled ? {} : { scale: 1.03, y: -6 }}
+              whileTap={isBannersDisabled ? {} : { scale: 0.96 }}
+              transition={{
+                y: { duration: 3.2, repeat: Infinity, ease: 'easeInOut', delay: 0.2 },
+                scale: { duration: 0.2 },
+                opacity: { duration: 0.3 }
+              }}
+              role={isBannersDisabled ? 'img' : 'button'}
+              tabIndex={isBannersDisabled ? -1 : 0}
+              className={`group relative rounded-2xl overflow-hidden transition-shadow duration-300 shadow-[0_0_20px_rgba(0,0,0,0.4)] aspect-[16/10] border-0 border-transparent select-none ${
+                isBannersDisabled 
+                  ? 'cursor-default opacity-85' 
+                  : 'cursor-pointer hover:shadow-[0_0_30px_rgba(6,182,212,0.45)]'
+              }`}
+            >
+              <img 
+                src={boysBannerSrc}
+                srcSet={
+                  !isCustomBanner
+                    ? `${BOYS_BANNER_MOBILE_PATH} 750w, ${BOYS_BANNER_PATH} 1200w`
+                    : undefined
+                }
+                sizes="(max-width: 640px) 50vw, 600px"
+                alt="تصویر پسران - تم مردانه" 
+                width={600}
+                height={375}
+                referrerPolicy="no-referrer"
+                loading="eager"
+                fetchPriority="high"
+                decoding="async"
+                className="w-full h-full object-cover rounded-2xl border-0"
+              />
+              {isBannersDisabled && (
+                <div className="absolute top-2 right-2 bg-slate-950/85 backdrop-blur-md px-2.5 py-1 rounded-full text-[10px] font-black text-rose-300 flex items-center gap-1 shadow-lg">
+                  <Lock size={11} />
+                  <span>ثبت‌نام بسته است</span>
+                </div>
+              )}
+            </motion.div>
 
+          </div>
         </div>
-      </div>
+      )}
+
+      {/* ==================================================================== */}
+      {/* ⏱️ TACTICAL COUNTDOWN TIMER (گزینه ۲: میانه صفحه - زیر بنرها)        */}
+      {/* ==================================================================== */}
+      {siteSettings?.showCountdownTimer !== false && 
+       (siteSettings?.countdownPosition === 'middle' || !siteSettings?.countdownPosition) && (
+        <motion.div
+          initial={{ opacity: 0, y: 25, scale: 0.98 }}
+          whileInView={{ opacity: 1, y: 0, scale: 1 }}
+          viewport={{ once: true }}
+          transition={{ duration: 0.5, ease: 'easeOut' }}
+          className="w-full max-w-xl mx-auto px-1 sm:px-0 border-0"
+        >
+          <CountdownTimerCard 
+            themeMode={themeMode}
+            countdownTitle={siteSettings?.countdownTitle}
+            countdownString={siteSettings?.heroCountdown}
+            targetDate={siteSettings?.countdownTargetDate}
+            countdownStyle={siteSettings?.countdownStyle}
+            removeBorder={true}
+            onExpire={(expired) => setIsTimerExpired(expired)}
+          />
+        </motion.div>
+      )}
 
       {/* ==================================================================== */}
       {/* 2. COMMERCIAL AD VIDEO (IF CONFIGURED IN VISUAL STUDIO)              */}

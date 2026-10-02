@@ -261,54 +261,8 @@ export function useSyncedCollection<T extends { id: string }>(options: {
       }
     })();
 
-    // اشتراک بلادرنگ (Realtime) در تغییرات جدول جهت دریافت آنی پیام‌ها و داده‌ها
-    let channel: any = null;
-    try {
-      channel = supabase
-        .channel(`realtime_${table}_${Math.random().toString(36).slice(2, 7)}`)
-        .on(
-          'postgres_changes',
-          { event: '*', schema: 'public', table },
-          (payload: any) => {
-            if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
-              const newRow = payload.new as any;
-              if (newRow && newRow.data) {
-                const item = newRow.data as T;
-                setValue(current => {
-                  const idx = current.findIndex(x => x.id === item.id);
-                  if (idx >= 0) {
-                    const updated = [...current];
-                    updated[idx] = item;
-                    return updated;
-                  }
-                  return [item, ...current];
-                });
-
-                // اگر پیام یا نوتیفیکیشن جدید بود، رویداد پخش زنده فعال شود
-                if (table === 'warroom_notifications') {
-                  window.dispatchEvent(new CustomEvent('warroom_live_broadcast', { detail: item }));
-                }
-              }
-            } else if (payload.eventType === 'DELETE') {
-              const oldRow = payload.old as any;
-              if (oldRow && oldRow.id) {
-                setValue(current => current.filter(x => x.id !== oldRow.id));
-              }
-            }
-          }
-        )
-        .subscribe();
-    } catch (e) {
-      console.warn(`[WarRoom Supabase] عدم امکان ایجاد اشتراک بلادرنگ برای ${table}:`, e);
-    }
-
     return () => {
       cancelled = true;
-      if (channel && supabase) {
-        try {
-          supabase.removeChannel(channel);
-        } catch {}
-      }
     };
   }, [table]);
 
@@ -461,6 +415,7 @@ export function useSyncedSetting<T extends Record<string, any>>(options: {
         dbLoadedRef.current = true;
       }
     })();
+
     return () => {
       cancelled = true;
     };

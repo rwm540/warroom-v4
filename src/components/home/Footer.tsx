@@ -6,11 +6,10 @@ import {
   MapPin, 
   Clock, 
   Info, 
-  CreditCard,
-  MessageCircle,
-  Headphones,
-  CheckCircle2,
-  Lock
+  CreditCard, 
+  MessageCircle, 
+  Headphones, 
+  CheckCircle2 
 } from 'lucide-react';
 
 interface FooterProps {
@@ -327,17 +326,6 @@ export default function Footer({ onNavigate, onOpenAbout, themeMode = 'boys', si
             )
           ))}
 
-        </div>
-
-        {/* Copyright Text */}
-        <div className="space-y-1 text-[11px] text-slate-400 leading-relaxed">
-          <p className="font-bold text-slate-300">
-            {siteSettings?.copyrightText || '© ۱۴۰۳ تمامی حقوق مادی و معنوی متعلق به قرارگاه مرکزی مسابقات استراتژیک «اتاق جنگ» می‌باشد.'}
-          </p>
-          <p className="text-[10px] text-slate-500 flex items-center justify-center gap-1.5 dir-ltr">
-            <Lock size={12} className="text-cyan-500" />
-            <span>طراحی و توسعه یافته با استاندارد امنیتی AES-256 و پروتکل TLS 1.3</span>
-          </p>
         </div>
 
       </div>

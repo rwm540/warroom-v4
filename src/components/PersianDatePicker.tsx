@@ -1,80 +1,74 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { motion, AnimatePresence } from 'motion/react';
-import { Calendar as CalendarIcon, ChevronLeft, ChevronRight, Check, X, Sparkles } from 'lucide-react';
-import { formatToPersianDigits, normalizeToEnglishDigits } from '../utils/jalali';
+import { Calendar as CalendarIcon, ChevronRight, ChevronLeft, X, Check } from 'lucide-react';
+import { formatToPersianDigits, normalizeToEnglishDigits, getTodayJalali } from '../utils/jalali';
 
 interface PersianDatePickerProps {
-  value: string;
-  onChange: (dateStr: string) => void;
+  value?: string;
+  onChange: (value: string) => void;
   isGirls?: boolean;
-  placeholder?: string;
   required?: boolean;
-  id?: string;
+  placeholder?: string;
   className?: string;
+  disabled?: boolean;
 }
 
 const PERSIAN_MONTHS = [
-  { id: 1, name: 'فروردین', days: 31 },
-  { id: 2, name: 'اردیبهشت', days: 31 },
-  { id: 3, name: 'خرداد', days: 31 },
-  { id: 4, name: 'تیر', days: 31 },
-  { id: 5, name: 'مرداد', days: 31 },
-  { id: 6, name: 'شهریور', days: 31 },
-  { id: 7, name: 'مهر', days: 30 },
-  { id: 8, name: 'آبان', days: 30 },
-  { id: 9, name: 'آذر', days: 30 },
-  { id: 10, name: 'دی', days: 30 },
-  { id: 11, name: 'بهمن', days: 30 },
-  { id: 12, name: 'اسفند', days: 29 }
+  'فروردین',
+  'اردیبهشت',
+  'خرداد',
+  'تیر',
+  'مرداد',
+  'شهریور',
+  'مهر',
+  'آبان',
+  'آذر',
+  'دی',
+  'بهمن',
+  'اسفند'
 ];
 
-export default function PersianDatePicker({
-  value,
+export const PersianDatePicker: React.FC<PersianDatePickerProps> = ({
+  value = '',
   onChange,
   isGirls = false,
-  placeholder = 'انتخاب تاریخ تولد',
   required = false,
-  id,
-  className
-}: PersianDatePickerProps) {
+  placeholder = 'انتخاب تاریخ (مثال: ۱۳۸۸/۰۴/۱۵)',
+  className = '',
+  disabled = false
+}) => {
   const [isOpen, setIsOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
 
-  // Parse current value or default to a reasonable student birth year (e.g. 1388)
-  const parseDate = (dateString: string) => {
-    const clean = normalizeToEnglishDigits(dateString).replace(/-/g, '/');
-    const parts = clean.split('/');
+  // Parse existing value or today
+  const today = getTodayJalali();
+  const parseValue = () => {
+    if (!value) return { year: today.year - 15, month: 1, day: 1 };
+    const parts = normalizeToEnglishDigits(value).split(/[/\\-]/);
     if (parts.length === 3) {
-      const y = parseInt(parts[0], 10);
-      const m = parseInt(parts[1], 10);
-      const d = parseInt(parts[2], 10);
-      if (!isNaN(y) && !isNaN(m) && !isNaN(d)) {
-        return { year: y, month: m, day: d };
-      }
+      const y = parseInt(parts[0], 10) || today.year - 15;
+      const m = parseInt(parts[1], 10) || 1;
+      const d = parseInt(parts[2], 10) || 1;
+      return { year: y, month: Math.min(12, Math.max(1, m)), day: Math.min(31, Math.max(1, d)) };
     }
-    return { year: 1388, month: 6, day: 15 };
+    return { year: today.year - 15, month: 1, day: 1 };
   };
 
-  const initial = parseDate(value);
-  const [selectedYear, setSelectedYear] = useState<number>(initial.year);
-  const [selectedMonth, setSelectedMonth] = useState<number>(initial.month);
-  const [selectedDay, setSelectedDay] = useState<number>(initial.day);
-  const [viewMode, setViewMode] = useState<'days' | 'months' | 'years'>('days');
+  const initial = parseValue();
+  const [selectedYear, setSelectedYear] = useState(initial.year);
+  const [selectedMonth, setSelectedMonth] = useState(initial.month);
+  const [selectedDay, setSelectedDay] = useState(initial.day);
 
-  // Sync state if external value changes
   useEffect(() => {
-    if (value) {
-      const parsed = parseDate(value);
-      setSelectedYear(parsed.year);
-      setSelectedMonth(parsed.month);
-      setSelectedDay(parsed.day);
-    }
+    const parsed = parseValue();
+    setSelectedYear(parsed.year);
+    setSelectedMonth(parsed.month);
+    setSelectedDay(parsed.day);
   }, [value]);
 
   // Click outside to close
   useEffect(() => {
-    const handleClickOutside = (e: MouseEvent) => {
-      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
         setIsOpen(false);
       }
     };
@@ -86,331 +80,155 @@ export default function PersianDatePicker({
     };
   }, [isOpen]);
 
-  // List of candidate years from 1405 down to 1340
-  const MIN_YEAR = 1340;
-  const MAX_YEAR = 1405;
-  const yearsList = Array.from({ length: MAX_YEAR - MIN_YEAR + 1 }, (_, i) => MAX_YEAR - i);
+  const maxDaysInMonth = selectedMonth <= 6 ? 31 : selectedMonth <= 11 ? 30 : 29;
 
-  // Get days in selected month
-  const currentMonthInfo = PERSIAN_MONTHS.find(m => m.id === selectedMonth) || PERSIAN_MONTHS[0];
-  const maxDays = currentMonthInfo.days;
-
-  const handleSelectDay = (day: number) => {
-    setSelectedDay(day);
-    const formatted = `${selectedYear}/${String(selectedMonth).padStart(2, '0')}/${String(day).padStart(2, '0')}`;
+  const handleApply = (y = selectedYear, m = selectedMonth, d = selectedDay) => {
+    const pad = (n: number) => n.toString().padStart(2, '0');
+    const formatted = `${y}/${pad(m)}/${pad(d)}`;
     onChange(formatted);
     setIsOpen(false);
   };
 
-  const handleQuickPreset = (year: number) => {
-    setSelectedYear(year);
-    const formatted = `${year}/${String(selectedMonth).padStart(2, '0')}/${String(selectedDay).padStart(2, '0')}`;
-    onChange(formatted);
-  };
-
-  const activeThemeColor = isGirls ? 'pink' : 'cyan';
+  // Generate Year options (from 1350 to 1410)
+  const currentJalaliYear = today.year;
+  const years = Array.from({ length: 60 }, (_, i) => currentJalaliYear - 45 + i);
 
   return (
-    <div className="relative w-full" ref={containerRef} id={id}>
-      
-      {/* Input trigger button */}
-      <button
-        type="button"
-        onClick={() => setIsOpen(!isOpen)}
-        className={`w-full py-2 px-3 rounded-xl border text-xs font-mono transition flex items-center justify-between shadow-inner focus:outline-none ${
-          className || (isGirls
-            ? 'bg-pink-950/40 border-pink-500/50 hover:border-pink-400 text-pink-100 focus:border-pink-400 focus:ring-1 focus:ring-pink-500/40'
-            : 'bg-slate-950/70 border-slate-700 hover:border-cyan-400 text-white focus:border-cyan-400 focus:ring-1 focus:ring-cyan-500/40')
-        } ${isOpen ? (isGirls ? 'border-pink-400 ring-2 ring-pink-500/30' : 'border-cyan-400 ring-2 ring-cyan-500/30') : ''}`}
+    <div className="relative w-full dir-rtl" ref={containerRef}>
+      {/* Input Display Button */}
+      <div
+        onClick={() => !disabled && setIsOpen(!isOpen)}
+        className={`w-full flex items-center justify-between px-3 py-2 rounded-xl border text-xs cursor-pointer transition select-none ${
+          disabled
+            ? 'opacity-50 cursor-not-allowed bg-slate-900 border-slate-800 text-slate-500'
+            : isGirls
+            ? 'border-pink-500/30 hover:border-pink-400 bg-slate-950/80 text-white'
+            : 'border-cyan-500/30 hover:border-cyan-400 bg-slate-950/80 text-white'
+        } ${className}`}
       >
-        <div className="flex items-center gap-2">
-          <CalendarIcon 
-            size={15} 
-            className={isGirls ? 'text-pink-400' : 'text-cyan-400'} 
-          />
-          <span className={value ? 'text-white font-bold' : 'text-slate-500 font-sans'}>
-            {value ? formatToPersianDigits(value) : placeholder}
-          </span>
-        </div>
-
-        {value ? (
-          <span className={`text-[10px] px-1.5 py-0.5 rounded font-sans font-bold ${
-            isGirls ? 'bg-pink-900/60 text-pink-300' : 'bg-cyan-900/60 text-cyan-300'
-          }`}>
-            {currentMonthInfo.name} {formatToPersianDigits(selectedYear)}
-          </span>
-        ) : (
-          <span className="text-[10px] text-slate-500 font-sans">انتخاب تقویم</span>
-        )}
-      </button>
-
-      {/* Hidden input for form requirements if necessary */}
-      {required && (
-        <input 
-          type="text" 
-          required 
-          value={value} 
-          onChange={() => {}} 
-          className="sr-only" 
-          tabIndex={-1}
+        <span className={value ? 'text-white font-mono font-bold' : 'text-slate-500'}>
+          {value ? formatToPersianDigits(value) : placeholder}
+        </span>
+        <CalendarIcon
+          size={16}
+          className={isGirls ? 'text-pink-400' : 'text-cyan-400'}
         />
-      )}
+      </div>
 
-      {/* Calendar Picker Modal Overlay */}
-      <AnimatePresence>
-        {isOpen && (
-          <div className="fixed inset-0 z-[100] flex items-center justify-center p-3 sm:p-5 bg-black/85 backdrop-blur-md overflow-y-auto">
-            
-            {/* Backdrop click to close */}
-            <div 
-              className="absolute inset-0" 
-              onClick={() => setIsOpen(false)} 
-            />
+      {/* Hidden input for HTML form requirement validation if needed */}
+      <input
+        type="hidden"
+        value={value}
+        required={required}
+      />
 
-            <motion.div
-              initial={{ opacity: 0, scale: 0.92, y: 10 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.92, y: 10 }}
-              transition={{ duration: 0.2 }}
-              className={`relative z-10 w-full max-w-[340px] sm:max-w-sm rounded-3xl border p-4 sm:p-5 shadow-2xl font-sans text-right select-none my-auto max-h-[85vh] sm:max-h-[88vh] overflow-y-auto ${
+      {/* Dropdown Calendar Popup */}
+      {isOpen && (
+        <div className="absolute top-full mt-1.5 z-50 w-72 sm:w-80 p-3.5 rounded-2xl bg-[#090d20] border border-cyan-500/40 shadow-2xl backdrop-blur-xl animate-in fade-in zoom-in-95 duration-150 right-0 sm:right-auto sm:left-0">
+          <div className="flex items-center justify-between pb-2.5 border-b border-slate-800 text-xs font-black">
+            <span className={isGirls ? 'text-pink-300' : 'text-cyan-300'}>
+              انتخاب تاریخ تولد شمسی
+            </span>
+            <button
+              type="button"
+              onClick={() => setIsOpen(false)}
+              className="text-slate-400 hover:text-white p-1 rounded-lg transition"
+            >
+              <X size={15} />
+            </button>
+          </div>
+
+          {/* Quick Selectors: Year & Month */}
+          <div className="grid grid-cols-2 gap-2 my-3">
+            <div>
+              <label className="text-[10px] text-slate-400 block mb-1">ماه:</label>
+              <select
+                value={selectedMonth}
+                onChange={(e) => setSelectedMonth(parseInt(e.target.value, 10))}
+                className="w-full bg-slate-900 border border-slate-700 text-white text-xs rounded-xl p-1.5 outline-none focus:border-cyan-400"
+              >
+                {PERSIAN_MONTHS.map((m, idx) => (
+                  <option key={idx + 1} value={idx + 1}>
+                    {m} ({formatToPersianDigits(idx + 1)})
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label className="text-[10px] text-slate-400 block mb-1">سال:</label>
+              <select
+                value={selectedYear}
+                onChange={(e) => setSelectedYear(parseInt(e.target.value, 10))}
+                className="w-full bg-slate-900 border border-slate-700 text-white text-xs rounded-xl p-1.5 outline-none focus:border-cyan-400 font-mono"
+              >
+                {years.map((y) => (
+                  <option key={y} value={y}>
+                    {formatToPersianDigits(y)}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          {/* Day Grid */}
+          <div className="mb-3">
+            <label className="text-[10px] text-slate-400 block mb-1.5">روز:</label>
+            <div className="grid grid-cols-7 gap-1 text-center">
+              {Array.from({ length: maxDaysInMonth }, (_, i) => i + 1).map((d) => {
+                const isSelected = selectedDay === d;
+                return (
+                  <button
+                    key={d}
+                    type="button"
+                    onClick={() => {
+                      setSelectedDay(d);
+                      handleApply(selectedYear, selectedMonth, d);
+                    }}
+                    className={`py-1.5 rounded-lg text-xs font-mono font-bold transition ${
+                      isSelected
+                        ? isGirls
+                          ? 'bg-pink-600 text-white shadow-lg'
+                          : 'bg-cyan-500 text-slate-950 font-black shadow-lg'
+                        : 'bg-slate-900/60 hover:bg-slate-800 text-slate-300'
+                    }`}
+                  >
+                    {formatToPersianDigits(d)}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Action Bar */}
+          <div className="flex items-center justify-between pt-2 border-t border-slate-800/80">
+            <button
+              type="button"
+              onClick={() => {
+                onChange('');
+                setIsOpen(false);
+              }}
+              className="text-[11px] text-rose-400 hover:text-rose-300"
+            >
+              پاک کردن
+            </button>
+            <button
+              type="button"
+              onClick={() => handleApply()}
+              className={`px-3 py-1.5 rounded-xl text-xs font-black flex items-center gap-1 shadow transition ${
                 isGirls
-                  ? 'bg-[#1a0820] border-pink-500/50 text-pink-100 shadow-[0_0_50px_rgba(244,63,94,0.35)]'
-                  : 'bg-[#081226] border-cyan-500/50 text-slate-100 shadow-[0_0_50px_rgba(6,182,212,0.35)]'
+                  ? 'bg-pink-600 hover:bg-pink-500 text-white'
+                  : 'bg-cyan-500 hover:bg-cyan-400 text-slate-950'
               }`}
             >
-              
-              {/* Header: Title & Close Button */}
-              <div className="flex items-center justify-between pb-3 mb-3 border-b border-white/10">
-                <div className="flex items-center gap-2">
-                  <div className={`p-1.5 rounded-xl ${isGirls ? 'bg-pink-950 text-pink-400 border border-pink-500/40' : 'bg-cyan-950 text-cyan-400 border border-cyan-500/40'}`}>
-                    <CalendarIcon size={16} />
-                  </div>
-                  <span className="text-xs sm:text-sm font-black text-white">
-                    انتخاب تاریخ تولد
-                  </span>
-                </div>
-
-                <button
-                  type="button"
-                  onClick={() => setIsOpen(false)}
-                  className="p-1.5 rounded-xl bg-white/5 hover:bg-white/10 text-slate-400 hover:text-white transition"
-                >
-                  <X size={16} />
-                </button>
-              </div>
-
-              {/* Month & Year Navigation Bar */}
-              <div className="flex items-center justify-between mb-3 bg-black/30 p-1.5 rounded-2xl border border-white/5">
-                <div className="flex items-center gap-1.5">
-                  <button
-                    type="button"
-                    onClick={() => setViewMode(viewMode === 'months' ? 'days' : 'months')}
-                    className={`px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1 ${
-                      viewMode === 'months'
-                        ? (isGirls ? 'bg-pink-500 text-white shadow-md' : 'bg-cyan-500 text-slate-950 shadow-md')
-                        : 'bg-white/5 hover:bg-white/10 text-white'
-                    }`}
-                  >
-                    <span>{currentMonthInfo.name}</span>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => setViewMode(viewMode === 'years' ? 'days' : 'years')}
-                    className={`px-3 py-1.5 rounded-xl text-xs font-bold font-mono transition flex items-center gap-1 ${
-                      viewMode === 'years'
-                        ? (isGirls ? 'bg-pink-500 text-white shadow-md' : 'bg-cyan-500 text-slate-950 shadow-md')
-                        : 'bg-white/5 hover:bg-white/10 text-white'
-                    }`}
-                  >
-                    <span>{formatToPersianDigits(selectedYear)}</span>
-                  </button>
-                </div>
-
-                <div className="flex items-center gap-1">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      if (selectedMonth > 1) {
-                        setSelectedMonth(selectedMonth - 1);
-                      } else if (selectedYear > MIN_YEAR) {
-                        setSelectedMonth(12);
-                        setSelectedYear(selectedYear - 1);
-                      }
-                    }}
-                    disabled={selectedMonth === 1 && selectedYear <= MIN_YEAR}
-                    className="p-1.5 rounded-xl hover:bg-white/10 text-slate-300 hover:text-white transition disabled:opacity-30 disabled:cursor-not-allowed"
-                    title="ماه قبل"
-                  >
-                    <ChevronRight size={18} />
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      if (selectedMonth < 12) {
-                        setSelectedMonth(selectedMonth + 1);
-                      } else if (selectedYear < MAX_YEAR) {
-                        setSelectedMonth(1);
-                        setSelectedYear(selectedYear + 1);
-                      }
-                    }}
-                    disabled={selectedMonth === 12 && selectedYear >= MAX_YEAR}
-                    className="p-1.5 rounded-xl hover:bg-white/10 text-slate-300 hover:text-white transition disabled:opacity-30 disabled:cursor-not-allowed"
-                    title="ماه بعد"
-                  >
-                    <ChevronLeft size={18} />
-                  </button>
-                </div>
-              </div>
-
-              {/* VIEW 1: DAYS GRID */}
-              {viewMode === 'days' && (
-                <div className="space-y-2.5">
-                  {/* Weekday headers */}
-                  <div className="grid grid-cols-7 gap-1 text-center text-[11px] font-bold text-slate-400 pb-1">
-                    <span>ش</span>
-                    <span>ی</span>
-                    <span>د</span>
-                    <span>س</span>
-                    <span>چ</span>
-                    <span>پ</span>
-                    <span className="text-rose-400">ج</span>
-                  </div>
-
-                  {/* Days buttons */}
-                  <div className="grid grid-cols-7 gap-1.5 text-center">
-                    {Array.from({ length: maxDays }, (_, i) => i + 1).map((d) => {
-                      const isSelected = d === selectedDay;
-                      return (
-                        <button
-                          key={d}
-                          type="button"
-                          onClick={() => setSelectedDay(d)}
-                          className={`h-9 sm:h-9 rounded-xl text-xs font-mono font-bold transition flex items-center justify-center ${
-                            isSelected
-                              ? (isGirls
-                                  ? 'bg-gradient-to-r from-pink-500 to-rose-600 text-white shadow-[0_0_15px_rgba(244,63,94,0.8)] scale-105'
-                                  : 'bg-gradient-to-r from-cyan-400 to-teal-500 text-slate-950 shadow-[0_0_15px_rgba(6,182,212,0.8)] scale-105')
-                              : 'hover:bg-white/10 text-slate-200 bg-white/[0.03]'
-                          }`}
-                        >
-                          {formatToPersianDigits(d)}
-                        </button>
-                      );
-                    })}
-                  </div>
-
-                  {/* Quick birth year presets for students */}
-                  <div className="pt-2.5 mt-2 border-t border-white/10 flex items-center justify-between gap-1 overflow-x-auto text-[10px]">
-                    <span className="text-slate-400 whitespace-nowrap text-[10px] font-bold">سال‌های متداول:</span>
-                    {[1386, 1387, 1388, 1389, 1390, 1391].map((yr) => (
-                      <button
-                        key={yr}
-                        type="button"
-                        onClick={() => setSelectedYear(yr)}
-                        className={`px-2 py-1 rounded-lg text-[10px] font-mono transition ${
-                          selectedYear === yr
-                            ? (isGirls ? 'bg-pink-500 text-white font-bold' : 'bg-cyan-500 text-slate-950 font-bold')
-                            : 'bg-white/5 hover:bg-white/10 text-slate-300'
-                        }`}
-                      >
-                        {formatToPersianDigits(yr)}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* VIEW 2: MONTHS SELECTOR */}
-              {viewMode === 'months' && (
-                <div className="grid grid-cols-3 gap-2 py-2">
-                  {PERSIAN_MONTHS.map((m) => {
-                    const isSelected = m.id === selectedMonth;
-                    return (
-                      <button
-                        key={m.id}
-                        type="button"
-                        onClick={() => {
-                          setSelectedMonth(m.id);
-                          setViewMode('days');
-                        }}
-                        className={`py-2.5 px-2 rounded-xl text-xs font-bold transition ${
-                          isSelected
-                            ? (isGirls ? 'bg-pink-500 text-white shadow-md' : 'bg-cyan-500 text-slate-950 shadow-md')
-                            : 'bg-white/5 hover:bg-white/10 text-slate-200'
-                        }`}
-                      >
-                        {m.name}
-                      </button>
-                    );
-                  })}
-                </div>
-              )}
-
-              {/* VIEW 3: YEARS SELECTOR */}
-              {viewMode === 'years' && (
-                <div className="max-h-56 overflow-y-auto grid grid-cols-3 gap-2 py-2 pr-1 custom-scrollbar">
-                  {yearsList.map((yr) => {
-                    const isSelected = yr === selectedYear;
-                    return (
-                      <button
-                        key={yr}
-                        type="button"
-                        onClick={() => {
-                          setSelectedYear(yr);
-                          setViewMode('days');
-                        }}
-                        className={`py-2.5 px-2 rounded-xl text-xs font-mono font-bold transition ${
-                          isSelected
-                            ? (isGirls ? 'bg-pink-500 text-white shadow-md' : 'bg-cyan-500 text-slate-950 shadow-md')
-                            : 'bg-white/5 hover:bg-white/10 text-slate-200'
-                        }`}
-                      >
-                        {formatToPersianDigits(yr)}
-                      </button>
-                    );
-                  })}
-                </div>
-              )}
-
-              {/* Bottom Actions Bar */}
-              <div className="mt-3 pt-3 border-t border-white/10 flex items-center justify-between gap-2">
-                <div className="text-slate-300 flex items-center gap-1.5 font-mono text-xs">
-                  <span className="text-slate-400">تاریخ:</span>
-                  <span className={isGirls ? 'text-pink-300 font-bold' : 'text-cyan-300 font-bold'}>
-                    {formatToPersianDigits(`${selectedYear}/${String(selectedMonth).padStart(2, '0')}/${String(selectedDay).padStart(2, '0')}`)}
-                  </span>
-                </div>
-
-                <div className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setIsOpen(false)}
-                    className="px-3 py-1.5 rounded-xl text-xs font-bold bg-white/5 hover:bg-white/10 text-slate-300 transition"
-                  >
-                    انصراف
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => handleSelectDay(selectedDay)}
-                    className={`px-4 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow-lg ${
-                      isGirls
-                        ? 'bg-gradient-to-r from-pink-600 to-rose-600 hover:from-pink-500 hover:to-rose-500 text-white'
-                        : 'bg-gradient-to-r from-cyan-400 to-teal-400 hover:from-cyan-300 hover:to-teal-300 text-slate-950'
-                    }`}
-                  >
-                    <Check size={14} />
-                    <span>تایید تاریخ</span>
-                  </button>
-                </div>
-              </div>
-
-            </motion.div>
+              <Check size={13} />
+              <span>تأیید تاریخ</span>
+            </button>
           </div>
-        )}
-      </AnimatePresence>
-
+        </div>
+      )}
     </div>
   );
-}
+};
+
+export default PersianDatePicker;

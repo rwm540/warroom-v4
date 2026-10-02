@@ -26,18 +26,39 @@ export default function PrizesAwardsBanner({
   const secondPrize = realPrizes[1];
   const thirdPrize = realPrizes[2];
 
-  const prizeHighlights = hasPrizes 
+  const customFeature1 = siteSettings?.prizesFeature1Title ? { title: siteSettings.prizesFeature1Title, count: siteSettings.prizesFeature1Desc || 'تعریف در پنل ادمین', iconUrl: siteSettings.prizesFeature1IconUrl, icon: Smartphone } : null;
+  const customFeature2 = siteSettings?.prizesFeature2Title ? { title: siteSettings.prizesFeature2Title, count: siteSettings.prizesFeature2Desc || 'بر اساس امتیازات', iconUrl: siteSettings.prizesFeature2IconUrl, icon: Gamepad } : null;
+  const customFeature3 = siteSettings?.prizesFeature3Title ? { title: siteSettings.prizesFeature3Title, count: siteSettings.prizesFeature3Desc || 'برندگان استانی', iconUrl: siteSettings.prizesFeature3IconUrl, icon: Tablet } : null;
+  const customFeature4 = siteSettings?.prizesFeature4Title ? { title: siteSettings.prizesFeature4Title, count: siteSettings.prizesFeature4Desc || 'نفرات برتر', iconUrl: siteSettings.prizesFeature4IconUrl, icon: Gift } : null;
+
+  const defaultHighlights = [
+    customFeature1 || { title: 'جوایز دیجیتال و الکترونیک', count: 'تعریف در پنل ادمین', icon: Smartphone },
+    customFeature2 || { title: 'کنسول بازی و هدایای ویژه', count: 'بر اساس امتیازات', icon: Gamepad },
+    customFeature3 || { title: 'تبلت‌های دانش‌آموزی و قلم', count: 'برندگان استانی', icon: Tablet },
+    customFeature4 || { title: 'بسته‌های هدیه و نشان‌ها', count: 'نفرات برتر', icon: Gift },
+  ];
+
+  const prizeHighlights = hasPrizes && !siteSettings?.prizesFeature1Title
     ? realPrizes.slice(0, 4).map(p => ({
         title: p.title,
         count: `${formatToPersianDigits(p.requiredPoints)} امتیاز`,
-        icon: Gift
+        icon: Gift,
+        iconUrl: p.imageUrl
       }))
-    : [
-        { title: 'جوایز دیجیتال و الکترونیک', count: 'تعریف در پنل ادمین', icon: Smartphone },
-        { title: 'کنسول بازی و هدایای ویژه', count: 'بر اساس امتیازات', icon: Gamepad },
-        { title: 'تبلت‌های دانش‌آموزی و قلم', count: 'برندگان استانی', icon: Tablet },
-        { title: 'بسته‌های هدیه و نشان‌ها', count: 'نفرات برتر', icon: Gift },
-      ];
+    : defaultHighlights;
+
+  // Custom Card Overrides from siteSettings
+  const topCardImg = siteSettings?.prizesTopCardImage || topPrize?.imageUrl;
+  const topCardTitle = siteSettings?.prizesTopCardTitle || topPrize?.title || 'جوایز ارزنده سامانه';
+  const topCardTag = siteSettings?.prizesTopCardTag || (topPrize ? `${formatToPersianDigits(topPrize.requiredPoints)} امتیاز` : 'تعریف توسط ادمین');
+
+  const side1CardImg = siteSettings?.prizesSideCard1Image || secondPrize?.imageUrl;
+  const side1CardTitle = siteSettings?.prizesSideCard1Title || secondPrize?.title || 'جایزه ویژه';
+  const side1CardTag = siteSettings?.prizesSideCard1Tag || (secondPrize ? `${formatToPersianDigits(secondPrize.requiredPoints)} امتیاز` : 'ویترین');
+
+  const side2CardImg = siteSettings?.prizesSideCard2Image || thirdPrize?.imageUrl;
+  const side2CardTitle = siteSettings?.prizesSideCard2Title || thirdPrize?.title || 'هدایای رده‌بندی';
+  const side2CardTag = siteSettings?.prizesSideCard2Tag || (thirdPrize ? `${formatToPersianDigits(thirdPrize.requiredPoints)} امتیاز` : 'برترین‌ها');
 
   return (
     <div className="w-full space-y-3">
@@ -83,7 +104,7 @@ export default function PrizesAwardsBanner({
               {/* Realistic Gadget Collage Illustration Box */}
               <div className="relative z-10 flex items-center justify-center gap-2 sm:gap-3">
                 
-                {/* 1. Camera / First side prize Card */}
+                {/* 1. Side prize Card 1 */}
                 <div 
                   onClick={onExplorePrizes}
                   className={`w-18 sm:w-22 h-24 sm:h-28 rounded-2xl p-2 shadow-xl flex flex-col items-center justify-center -rotate-12 translate-y-3 border relative overflow-hidden group cursor-pointer transition-transform duration-200 hover:scale-105 hover:-rotate-6 ${
@@ -94,17 +115,17 @@ export default function PrizesAwardsBanner({
                 >
                   <div className="absolute -right-4 -bottom-4 w-16 h-16 rounded-full border border-dashed opacity-20 pointer-events-none" />
                   <div className="relative z-10 p-2 rounded-xl bg-black/60 border border-white/10 mb-1">
-                    {secondPrize?.imageUrl ? (
-                      <img src={secondPrize.imageUrl} alt="" className="w-5 h-5 object-cover rounded" />
+                    {side1CardImg ? (
+                      <img src={side1CardImg} alt="" className="w-5 h-5 object-cover rounded" />
                     ) : (
                       <Gift size={20} className={isGirls ? 'text-pink-300' : 'text-cyan-300'} />
                     )}
                   </div>
                   <span className="relative z-10 text-[9px] font-bold text-slate-200 text-center truncate max-w-full">
-                    {secondPrize?.title || 'جایزه ویژه'}
+                    {side1CardTitle}
                   </span>
                   <span className="relative z-10 text-[7px] text-amber-300 font-mono">
-                    {secondPrize ? `${formatToPersianDigits(secondPrize.requiredPoints)} امتیاز` : 'ویترین'}
+                    {side1CardTag}
                   </span>
                 </div>
 
@@ -126,18 +147,18 @@ export default function PrizesAwardsBanner({
                   </div>
 
                   <div className="relative mt-3 p-2 rounded-2xl bg-black/60 border border-white/15 shadow-inner">
-                    {topPrize?.imageUrl ? (
-                      <img src={topPrize.imageUrl} alt="" className="w-10 h-10 object-cover rounded-xl" />
+                    {topCardImg ? (
+                      <img src={topCardImg} alt="" className="w-10 h-10 object-cover rounded-xl" />
                     ) : (
                       <Gift size={32} className={isGirls ? 'text-pink-300' : 'text-cyan-300'} />
                     )}
                   </div>
 
                   <span className="text-[11px] sm:text-xs font-black text-white mt-2 text-center drop-shadow-md truncate max-w-full px-1">
-                    {topPrize?.title || 'جوایز ارزنده سامانه'}
+                    {topCardTitle}
                   </span>
                   <span className="text-[9px] sm:text-[10px] text-amber-300 font-bold font-mono mt-0.5 bg-amber-950/60 px-2 py-0.5 rounded-full border border-amber-500/40">
-                    {topPrize ? `${formatToPersianDigits(topPrize.requiredPoints)} امتیاز` : 'تعریف توسط ادمین'}
+                    {topCardTag}
                   </span>
                 </div>
 
@@ -152,17 +173,17 @@ export default function PrizesAwardsBanner({
                 >
                   <div className="absolute inset-0 bg-[radial-gradient(rgba(255,255,255,0.06)_1px,transparent_1px)] bg-[size:6px_6px] pointer-events-none" />
                   <div className="relative z-10 p-2 rounded-xl bg-black/60 border border-white/10 mb-1">
-                    {thirdPrize?.imageUrl ? (
-                      <img src={thirdPrize.imageUrl} alt="" className="w-5 h-5 object-cover rounded" />
+                    {side2CardImg ? (
+                      <img src={side2CardImg} alt="" className="w-5 h-5 object-cover rounded" />
                     ) : (
                       <Award size={20} className="text-amber-300" />
                     )}
                   </div>
                   <span className="relative z-10 text-[9px] font-bold text-slate-200 text-center truncate max-w-full">
-                    {thirdPrize?.title || 'هدایای رده‌بندی'}
+                    {side2CardTitle}
                   </span>
                   <span className="relative z-10 text-[7px] text-cyan-300 font-mono">
-                    {thirdPrize ? `${formatToPersianDigits(thirdPrize.requiredPoints)} امتیاز` : 'برترین‌ها'}
+                    {side2CardTag}
                   </span>
                 </div>
 
@@ -189,10 +210,10 @@ export default function PrizesAwardsBanner({
             <div className="space-y-1.5">
               <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-950/80 border border-amber-500/50 text-amber-300 text-xs font-bold shadow-sm">
                 <Award size={14} className="text-amber-400" />
-                <span>جوایز کشوری و استانی</span>
+                <span>{siteSettings?.prizesBadgeText || 'جوایز کشوری و استانی'}</span>
               </div>
               <h4 className="text-base sm:text-xl font-black text-white leading-snug">
-                جوایز و هدایای ویژه برای نفرات برتر کشور و استان
+                {siteSettings?.prizesHeadingText || 'جوایز و هدایای ویژه برای نفرات برتر کشور و استان'}
               </h4>
             </div>
 
@@ -206,16 +227,16 @@ export default function PrizesAwardsBanner({
                 isGirls ? 'text-pink-300' : 'text-blue-300'
               }`}>
                 <ShoppingBag size={15} className={isGirls ? 'text-pink-400' : 'text-blue-400'} />
-                <span>اهدای جوایز اختصاصی بر اساس کریستال‌های کسب‌شده</span>
+                <span>{siteSettings?.prizesDescTitle || 'اهدای جوایز اختصاصی بر اساس کریستال‌های کسب‌شده'}</span>
               </div>
               <p className="text-[11px] text-slate-300">
-                تمام جوایز و امتیازات مورد نیاز توسط مدیر سامانه در پنل مدیریت تعیین و به روز می‌شوند.
+                {siteSettings?.prizesDescText || 'تمام جوایز و امتیازات مورد نیاز توسط مدیر سامانه در پنل مدیریت تعیین و به روز می‌شوند.'}
               </p>
             </div>
 
             {/* Prize mini tags */}
             <div className="grid grid-cols-2 gap-2 pt-1">
-              {prizeHighlights.map((item, idx) => {
+              {prizeHighlights.map((item: any, idx: number) => {
                 const Icon = item.icon;
                 return (
                   <motion.div 
@@ -227,7 +248,11 @@ export default function PrizesAwardsBanner({
                         : 'bg-[#060c1d]/70 border-blue-900/40 hover:border-blue-500/50'
                     }`}
                   >
-                    <Icon size={14} className={isGirls ? 'text-pink-400' : 'text-blue-400'} />
+                    {item.iconUrl ? (
+                      <img src={item.iconUrl} alt="" className="w-4 h-4 object-cover rounded shrink-0" />
+                    ) : (
+                      <Icon size={14} className={isGirls ? 'text-pink-400' : 'text-blue-400'} />
+                    )}
                     <div className="text-right">
                       <span className="text-white font-bold block">{item.title}</span>
                       <span className="text-slate-400 font-mono">{item.count}</span>

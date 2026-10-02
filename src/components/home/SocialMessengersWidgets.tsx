@@ -44,10 +44,16 @@ export default function SocialMessengersWidgets({
             <div className="flex items-center justify-between">
               {/* Eitaa Logo Badge */}
               <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-orange-950/80 border border-orange-500/50 text-orange-400 text-[10px] font-bold">
-                <span className="w-2 h-2 rounded-full bg-orange-500 inline-block" />
-                <span>پیام‌رسان ایتا</span>
+                {siteSettings?.eitaaLogoUrl ? (
+                  <img src={siteSettings.eitaaLogoUrl} alt="" className="w-3.5 h-3.5 object-cover rounded-full" />
+                ) : (
+                  <span className="w-2 h-2 rounded-full bg-orange-500 inline-block" />
+                )}
+                <span>{siteSettings?.eitaaBadgeText || 'پیام‌رسان ایتا'}</span>
               </div>
-              <span className="text-[10px] text-slate-400 font-mono">@hisstory_official</span>
+              <span className="text-[10px] text-slate-400 font-mono">
+                {siteSettings?.eitaaHandle || '@hisstory_official'}
+              </span>
             </div>
 
             <h4 className="text-sm font-black text-white">
@@ -59,10 +65,10 @@ export default function SocialMessengersWidgets({
           </div>
 
           <button
-            onClick={() => handleOpenMessenger('ایتا (Eitaa)', 'https://eitaa.com/warroom', siteSettings?.eitaaChannelUrl)}
+            onClick={() => handleOpenMessenger('ایتا (Eitaa)', 'https://eitaa.com/hisstory_official', siteSettings?.eitaaChannelUrl)}
             className="w-full py-2.5 rounded-2xl bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 text-slate-950 font-black text-xs shadow-md flex items-center justify-center gap-2 transition-transform duration-150 active:scale-[0.98] cursor-pointer"
           >
-            <span>کانال اتاق جنگ در ایتا</span>
+            <span>{siteSettings?.eitaaButtonText || 'کانال اتاق جنگ در ایتا'}</span>
             <ExternalLink size={13} />
           </button>
         </div>
@@ -79,10 +85,16 @@ export default function SocialMessengersWidgets({
             <div className="flex items-center justify-between">
               {/* Bale Logo Badge */}
               <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-emerald-950/80 border border-emerald-500/50 text-emerald-400 text-[10px] font-bold">
-                <span className="w-2 h-2 rounded-full bg-emerald-500 inline-block" />
-                <span>پیام‌رسان بله</span>
+                {siteSettings?.baleLogoUrl ? (
+                  <img src={siteSettings.baleLogoUrl} alt="" className="w-3.5 h-3.5 object-cover rounded-full" />
+                ) : (
+                  <span className="w-2 h-2 rounded-full bg-emerald-500 inline-block" />
+                )}
+                <span>{siteSettings?.baleBadgeText || 'پیام‌رسان بله'}</span>
               </div>
-              <span className="text-[10px] text-slate-400 font-mono">@warroom_app</span>
+              <span className="text-[10px] text-slate-400 font-mono">
+                {siteSettings?.baleHandle || '@warroom_app'}
+              </span>
             </div>
 
             <h4 className="text-sm font-black text-white">
@@ -94,14 +106,14 @@ export default function SocialMessengersWidgets({
           </div>
 
           <button
-            onClick={() => handleOpenMessenger('بله (Bale)', 'https://ble.ir/warroom', siteSettings?.baleChannelUrl)}
+            onClick={() => handleOpenMessenger('بله (Bale)', 'https://ble.ir/warroom_app', siteSettings?.baleChannelUrl)}
             className={`w-full py-2.5 rounded-2xl text-white font-black text-xs shadow-md flex items-center justify-center gap-2 transition-transform duration-150 active:scale-[0.98] cursor-pointer ${
               isGirls 
                 ? 'bg-gradient-to-r from-emerald-500 to-teal-500 text-slate-950' 
                 : 'bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500'
             }`}
           >
-            <span>کانال اتاق جنگ در بله</span>
+            <span>{siteSettings?.baleButtonText || 'کانال اتاق جنگ در بله'}</span>
             <ExternalLink size={13} />
           </button>
         </div>
@@ -121,16 +133,22 @@ export default function SocialMessengersWidgets({
           }`}
         >
           <div className="flex items-center gap-3">
-            <div className={`w-10 h-10 rounded-xl flex items-center justify-center transition group-hover:scale-105 ${
+            <div className={`w-10 h-10 rounded-xl flex items-center justify-center transition group-hover:scale-105 overflow-hidden ${
               isGirls ? 'bg-pink-950/80 text-pink-400 border border-pink-800' : 'bg-blue-950/80 text-blue-400 border border-blue-800'
             }`}>
-              <MapIcon size={20} />
+              {siteSettings?.stagesButtonIconUrl ? (
+                <img src={siteSettings.stagesButtonIconUrl} alt="" className="w-full h-full object-cover" />
+              ) : (
+                <MapIcon size={20} />
+              )}
             </div>
             <div className="text-right">
               <h5 className={`text-xs sm:text-sm font-black text-white transition ${isGirls ? 'group-hover:text-pink-300' : 'group-hover:text-blue-300'}`}>
-                مراحل مسابقه
+                {siteSettings?.stagesButtonTitle || 'مراحل مسابقه'}
               </h5>
-              <span className="text-[10px] text-slate-400">نقشه ۷ مرحله ماجراجویی</span>
+              <span className="text-[10px] text-slate-400">
+                {siteSettings?.stagesButtonSubtitle || 'نقشه ۷ مرحله ماجراجویی'}
+              </span>
             </div>
           </div>
           <span className="text-xs text-slate-500 group-hover:text-white transition">←</span>
@@ -146,16 +164,22 @@ export default function SocialMessengersWidgets({
           }`}
         >
           <div className="flex items-center gap-3">
-            <div className={`w-10 h-10 rounded-xl flex items-center justify-center transition group-hover:scale-105 ${
+            <div className={`w-10 h-10 rounded-xl flex items-center justify-center transition group-hover:scale-105 overflow-hidden ${
               isGirls ? 'bg-purple-950/80 text-purple-400 border border-purple-800' : 'bg-red-950/80 text-red-400 border border-red-800'
             }`}>
-              <BookOpen size={20} />
+              {siteSettings?.guideButtonIconUrl ? (
+                <img src={siteSettings.guideButtonIconUrl} alt="" className="w-full h-full object-cover" />
+              ) : (
+                <BookOpen size={20} />
+              )}
             </div>
             <div className="text-right">
               <h5 className={`text-xs sm:text-sm font-black text-white transition ${isGirls ? 'group-hover:text-purple-300' : 'group-hover:text-red-300'}`}>
-                راهنمای مسابقه
+                {siteSettings?.guideButtonTitle || 'راهنمای مسابقه'}
               </h5>
-              <span className="text-[10px] text-slate-400">قوانین و نحوه امتیازگیری</span>
+              <span className="text-[10px] text-slate-400">
+                {siteSettings?.guideButtonSubtitle || 'قوانین و نحوه امتیازگیری'}
+              </span>
             </div>
           </div>
           <span className="text-xs text-slate-500 group-hover:text-white transition">←</span>

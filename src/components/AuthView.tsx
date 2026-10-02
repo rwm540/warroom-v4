@@ -782,14 +782,7 @@ export default function AuthView({
               </div>
             )}
 
-            <div className="rounded-2xl border border-amber-500/40 bg-amber-500/10 p-3 text-right text-[11px] leading-6 text-amber-100">
-              <div className="mb-1 flex items-center gap-2 font-black text-amber-300">
-                <ShieldAlert size={14} />
-                <span>ثبت‌نام فقط توسط سرگروه انجام می‌شود</span>
-              </div>
-              <p>Registration must be performed by the Team Leader only.</p>
-              <p className="mt-1 text-amber-200/90">سرگروه تیم، ابتدا گروه را ثبت می‌کند و اعتبارنامه مشترک را دریافت می‌کند.</p>
-            </div>
+
 
             {/* Gender Selection */}
             <div className="space-y-1">

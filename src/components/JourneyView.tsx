@@ -431,9 +431,7 @@ export default function JourneyView({
   return (
     <div 
       ref={journeyContainerRef}
-      className={`w-full h-full overflow-x-hidden overflow-y-auto touch-pan-y relative flex flex-col p-1 sm:p-2 dir-rtl font-sans selection:bg-amber-500 selection:text-black transition-colors duration-700 ${
-        isGirls ? 'girls-atmosphere-bg text-pink-50' : 'boys-atmosphere-bg text-slate-100'
-      }`}
+      className="w-full h-full overflow-x-hidden overflow-y-auto touch-pan-y relative flex flex-col p-1 sm:p-2 dir-rtl font-sans selection:bg-amber-500 selection:text-black bg-transparent text-slate-100"
     >
       
       {/* پس‌زمینه تمام‌صفحه نقشه حذف شد — کل صفحه مسیر همان پس‌زمینه بنفش قبلی (atmosphere-bg) را دارد؛ نقشه فقط داخل بورد مسیر بازی است */}

@@ -1309,6 +1309,40 @@ export default function AdminPanel({
   const [prizeTitle, setPrizeTitle] = useState(siteSettings?.prizeTitle || 'جایزه‌ها و هدایای مسابقه بزرگ');
   const [prizeDescription, setPrizeDescription] = useState(siteSettings?.prizeDescription || 'کریستال جمع کن و جایزه‌های نفیس برنده شو!');
   const [homeButtons, setHomeButtons] = useState<HomeButtonConfig[]>(siteSettings?.homeButtons || defaultHomeButtons);
+  const [guideSteps, setGuideSteps] = useState(siteSettings?.guideSteps || [
+    { title: 'خوش آمدی فرمانده!', text: 'به سامانه بزرگ ماجراجویی و ارزیابی استراتژیک «اتاق جنگ» خوش آمدی! پرونده هفت‌خوان آماده آغاز است.', highlight: 'پرونده ویژه هفت‌خوان' },
+    { title: 'نقشه عملیاتی و چالش‌ها', text: 'مسابقه شامل ۷ مرحله داستانی است. با ورود به هر مرحله، پاسخ به معماها و حل چالش‌های فکری، کریستال‌های امتیاز آزاد می‌شوند.', highlight: '۷ مرحله کارآگاهی' },
+    { title: 'جوایز ۵۰ میلیارد ریالی', text: 'علاوه بر کنسول‌های بازی و تبلت برای برترین‌های کشوری، بیش از ۱۰۰ هزار جایزه و کد تخفیف برای تمام شرکت‌کنندگان در نظر گرفته شده است.', highlight: 'جوایز و امتیازات' }
+  ]);
+  const [boysGuideImage, setBoysGuideImage] = useState(siteSettings?.boysGuideImage || '/src/assets/images/guide_commander_boy_1790940066682.jpg');
+  const [girlsGuideImage, setGirlsGuideImage] = useState(siteSettings?.girlsGuideImage || '/src/assets/images/guide_commander_girl_1790940078146.jpg');
+
+  const handleBoyImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      if (event.target?.result) {
+        setBoysGuideImage(event.target.result as string);
+        triggerAlert('تصویر کاراکتر پسر با موفقیت آپلود شد.');
+      }
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleGirlImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      if (event.target?.result) {
+        setGirlsGuideImage(event.target.result as string);
+        triggerAlert('تصویر کاراکتر دختر با موفقیت آپلود شد.');
+      }
+    };
+    reader.readAsDataURL(file);
+  };
+
   const [isElementorOpen, setIsElementorOpen] = useState(false);
 
   // Training Form Video Upload States
@@ -2183,7 +2217,7 @@ export default function AdminPanel({
           id="btn-tab-guide-tutorial"
         >
           <Compass size={15} className="text-amber-400" />
-          <span>مدیریت راهنما و تور تعاملی</span>
+          <span>مدیریت راهنما</span>
         </button>
 
       </div>
@@ -5369,6 +5403,172 @@ export default function AdminPanel({
         faqs={faqs || []}
         currentUser={currentUser}
       />
+
+      {/* ==================================================================== */}
+      {/* GUIDE & TUTORIAL MANAGER TAB — مدیریت راهنما و تور تعاملی             */}
+      {/* ==================================================================== */}
+      {activeAdminTab === 'guide_tutorial' && (
+        <div className="space-y-6 dir-rtl font-sans">
+          {/* Header Banner */}
+          <div className="bg-gradient-to-r from-amber-950/70 via-slate-900 to-amber-950/40 border border-amber-500/40 rounded-3xl p-5 sm:p-7 shadow-2xl relative overflow-hidden">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 relative z-10">
+              <div className="space-y-2">
+                <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-300 text-xs font-bold">
+                  <Compass size={15} className="animate-pulse text-amber-400" />
+                  <span>راهنمای تعاملی و کاراکترهای راهنما</span>
+                </div>
+                <h2 className="text-lg sm:text-xl font-black text-white">مدیریت متون، گام‌ها و تصاویر کاراکترهای راهنما</h2>
+                <p className="text-xs text-slate-300">
+                  در این بخش می‌توانید توضیحات دیالوگ‌های راهنما و تصاویر آیکون کاراکترهای راهنمای دختر و پسر را تنظیم و ذخیره کنید.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  const updated = {
+                    ...siteSettings,
+                    guideSteps,
+                    boysGuideImage,
+                    girlsGuideImage
+                  };
+                  setSiteSettings(updated);
+                  try {
+                    localStorage.setItem('warroom_site_settings', JSON.stringify(updated));
+                  } catch {}
+                  triggerAlert('تنظیمات راهنما و کاراکترها در دیتابیس و سامانه ذخیره شد.');
+                }}
+                className="px-5 py-3 rounded-xl bg-gradient-to-r from-amber-500 to-yellow-500 hover:brightness-110 text-slate-950 font-black text-xs transition shadow-lg flex items-center justify-center gap-2 cursor-pointer active:scale-95 shrink-0"
+              >
+                <CheckCircle2 size={16} />
+                <span>ذخیره تغییرات راهنما در دیتابیس</span>
+              </button>
+            </div>
+          </div>
+
+          {/* Character Images Config */}
+          <div className="bg-slate-950 border border-amber-500/30 rounded-3xl p-5 space-y-4 shadow-xl">
+            <h3 className="text-sm font-black text-amber-300 flex items-center gap-2">
+              <Sparkles size={16} className="text-amber-400" />
+              <span>تصاویر کاراکترهای راهنمای بازی</span>
+            </h3>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="p-4 rounded-2xl bg-slate-900 border border-cyan-500/30 space-y-3">
+                <span className="text-xs font-bold text-cyan-300 block">آیکون و تصویر کاراکتر پسر:</span>
+                <div className="flex items-center gap-3">
+                  <div className="w-16 h-16 rounded-full overflow-hidden border-2 border-cyan-500 bg-slate-950 shrink-0">
+                    <img src={boysGuideImage} alt="پسر" className="w-full h-full object-cover" />
+                  </div>
+                  <label className="flex-1 px-3 py-2.5 bg-slate-950 border border-slate-700 hover:border-cyan-400 text-cyan-300 hover:text-white rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 cursor-pointer">
+                    <Upload size={14} />
+                    <span>آپلود تصویر پسر</span>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={handleBoyImageUpload}
+                      className="hidden"
+                    />
+                  </label>
+                </div>
+              </div>
+
+              <div className="p-4 rounded-2xl bg-slate-900 border border-fuchsia-500/30 space-y-3">
+                <span className="text-xs font-bold text-fuchsia-300 block">آیکون و تصویر کاراکتر دختر:</span>
+                <div className="flex items-center gap-3">
+                  <div className="w-16 h-16 rounded-full overflow-hidden border-2 border-fuchsia-500 bg-slate-950 shrink-0">
+                    <img src={girlsGuideImage} alt="دختر" className="w-full h-full object-cover" />
+                  </div>
+                  <label className="flex-1 px-3 py-2.5 bg-slate-950 border border-slate-700 hover:border-fuchsia-400 text-fuchsia-300 hover:text-white rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 cursor-pointer">
+                    <Upload size={14} />
+                    <span>آپلود تصویر دختر</span>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={handleGirlImageUpload}
+                      className="hidden"
+                    />
+                  </label>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Guide Steps Dialogues Config */}
+          <div className="bg-slate-950 border border-slate-800 rounded-3xl p-5 space-y-4 shadow-xl">
+            <div className="flex items-center justify-between">
+              <h3 className="text-sm font-black text-amber-300 flex items-center gap-2">
+                <BookOpen size={16} className="text-amber-400" />
+                <span>گام‌ها و دیالوگ‌های راهنما ({guideSteps.length})</span>
+              </h3>
+              <button
+                type="button"
+                onClick={() => {
+                  setGuideSteps((prev: any) => [...prev, { title: 'گام جدید', text: 'توضیحات گام...', highlight: 'نکته' }]);
+                }}
+                className="px-3 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs font-black flex items-center gap-1.5 transition cursor-pointer"
+              >
+                <Plus size={14} />
+                <span>افزودن گام جدید</span>
+              </button>
+            </div>
+
+            <div className="space-y-3">
+              {guideSteps.map((step: any, idx: number) => (
+                <div key={idx} className="p-4 rounded-2xl bg-slate-900/90 border border-slate-800 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-black text-amber-400">گام شماره {idx + 1}</span>
+                    <button
+                      type="button"
+                      onClick={() => setGuideSteps((prev: any) => prev.filter((_: any, i: number) => i !== idx))}
+                      className="text-rose-400 hover:text-rose-300 text-xs flex items-center gap-1 cursor-pointer"
+                    >
+                      <Trash2 size={13} />
+                      <span>حذف</span>
+                    </button>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <label className="text-[11px] text-slate-400 block mb-1">عنوان دیالوگ:</label>
+                      <input
+                        type="text"
+                        value={step.title}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          setGuideSteps((prev: any) => prev.map((s: any, i: number) => i === idx ? { ...s, title: val } : s));
+                        }}
+                        className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[11px] text-slate-400 block mb-1">نکته برجسته (Highlight):</label>
+                      <input
+                        type="text"
+                        value={step.highlight}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          setGuideSteps((prev: any) => prev.map((s: any, i: number) => i === idx ? { ...s, highlight: val } : s));
+                        }}
+                        className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-amber-300"
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="text-[11px] text-slate-400 block mb-1">متن توضیحات:</label>
+                    <textarea
+                      rows={2}
+                      value={step.text}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        setGuideSteps((prev: any) => prev.map((s: any, i: number) => i === idx ? { ...s, text: val } : s));
+                      }}
+                      className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white leading-relaxed"
+                    />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ==================================================================== */}
       {/* 13. 🎖️ VITRIN (SHOWCASE) MANAGER TAB — ویترین آثار                     */}

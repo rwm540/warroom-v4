@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { CreditCard, Save, ExternalLink, RefreshCw } from 'lucide-react';
 import { PaymentSettings, PaymentTransaction } from '../types';
+import { formatToPersianDigits } from '../utils/jalali';
 
 interface AdminPaymentsPanelProps {
   settings: PaymentSettings;
@@ -36,7 +37,10 @@ export default function AdminPaymentsPanel({ settings, setSettings, transactions
           دریافت هزینه ثبت‌نام فعال باشد
         </label>
         <label className="text-xs text-slate-300">مبلغ
-          <input className="mt-2 w-full rounded-xl border border-slate-700 bg-slate-900 p-3 text-white" type="number" min="0" value={form.amount} onChange={e => setForm({ ...form, amount: Number(e.target.value) })} />
+          <input className="mt-2 w-full rounded-xl border border-slate-700 bg-slate-900 p-3 text-white font-mono" type="number" min="0" value={form.amount} onChange={e => setForm({ ...form, amount: Number(e.target.value) })} />
+          <span className="block mt-1 text-[11px] text-amber-400 font-mono">
+            مبلغ نمایشی: {formatToPersianDigits(form.amount.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ','))} {form.currency === 'IRT' ? 'تومان' : 'ریال'}
+          </span>
         </label>
         <label className="text-xs text-slate-300">واحد پول
           <select className="mt-2 w-full rounded-xl border border-slate-700 bg-slate-900 p-3 text-white" value={form.currency} onChange={e => setForm({ ...form, currency: e.target.value as 'IRR' | 'IRT' })}>

@@ -1605,6 +1605,7 @@ export default function App() {
                         paymentSettings={paymentSettings}
                         triggerAlert={triggerAlert}
                         onNavigate={(tab) => handleTabChange(tab)}
+                        onAddTransaction={(tx) => setPaymentTransactions(prev => [tx, ...prev])}
                       />
                     )}
 

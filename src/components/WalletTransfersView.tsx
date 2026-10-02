@@ -18,6 +18,7 @@ import {
   X
 } from 'lucide-react';
 import { PaymentSettings, PaymentTransaction, User } from '../types';
+import { formatToPersianDigits } from '../utils/jalali';
 
 interface WalletTransfersViewProps {
   currentUser: User;
@@ -25,6 +26,7 @@ interface WalletTransfersViewProps {
   paymentSettings?: PaymentSettings;
   triggerAlert: (message: string) => void;
   onNavigate?: (tab: string) => void;
+  onAddTransaction?: (transaction: PaymentTransaction) => void;
 }
 
 export default function WalletTransfersView({
@@ -32,7 +34,8 @@ export default function WalletTransfersView({
   paymentTransactions,
   paymentSettings,
   triggerAlert,
-  onNavigate
+  onNavigate,
+  onAddTransaction
 }: WalletTransfersViewProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'paid' | 'pending' | 'failed'>('all');
@@ -237,6 +240,103 @@ export default function WalletTransfersView({
           <p className="text-[11px] text-slate-500 mt-1">تخصیص اختصاصی توسط ستاد ادمین</p>
         </div>
       </div>
+
+      {/* Mandatory Payment Notice if not paid */}
+      {paymentSettings?.enabled && paymentSettings.amount > 0 && paidCount === 0 && (
+        <div className="rounded-3xl border-2 border-amber-500/60 bg-gradient-to-r from-amber-950/80 via-slate-900 to-amber-950/60 p-6 shadow-[0_0_40px_rgba(245,158,11,0.25)] space-y-4">
+          <div className="flex items-center gap-3">
+            <div className="w-12 h-12 rounded-2xl bg-amber-500/20 border border-amber-500/40 text-amber-300 flex items-center justify-center shrink-0">
+              <CreditCard size={24} className="animate-pulse" />
+            </div>
+            <div>
+              <h3 className="text-base sm:text-lg font-black text-white">پرداخت هزینه ثبت‌نام الزامی است</h3>
+              <p className="text-xs text-amber-200/80 mt-0.5">
+                برای ورود به پنل کاربری و استفاده از امکانات سامانه، پرداخت مبلغ ثبت‌نام الزامی می‌باشد.
+              </p>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 bg-slate-950/80 border border-slate-800 rounded-2xl p-4">
+            <div>
+              <span className="text-[11px] text-slate-400 block">مبلغ قابل پرداخت:</span>
+              <div className="text-lg font-black text-amber-300 font-mono mt-0.5">
+                {formatToPersianDigits((paymentSettings.amount || 0).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ','))}
+                <span className="text-xs font-normal mr-1.5 text-amber-400/80">
+                  {paymentSettings.currency === 'IRT' ? 'تومان' : 'ریال'}
+                </span>
+              </div>
+            </div>
+            <div>
+              <span className="text-[11px] text-slate-400 block">شرح پرداخت:</span>
+              <p className="text-xs font-bold text-white mt-1">
+                {paymentSettings.description || 'ثبت‌نام در مسابقه بزرگ اتاق جنگ'}
+              </p>
+            </div>
+          </div>
+
+          <div className="flex flex-col sm:flex-row items-center gap-3 pt-2">
+            {paymentSettings.redirect_url ? (
+              <a
+                href={paymentSettings.redirect_url}
+                target="_blank"
+                rel="noreferrer"
+                onClick={() => {
+                  if (onAddTransaction) {
+                    onAddTransaction({
+                      id: 'tx_' + Date.now(),
+                      user_id: currentUser.id,
+                      national_code: currentUser.national_code,
+                      full_name: `${currentUser.first_name || ''} ${currentUser.last_name || ''}`.trim(),
+                      amount: paymentSettings.amount,
+                      currency: paymentSettings.currency,
+                      gateway: paymentSettings.gateway,
+                      status: 'paid',
+                      ref_id: 'REF_' + Math.floor(100000 + Math.random() * 900000),
+                      created_at: new Date().toISOString()
+                    });
+                  }
+                  triggerAlert('انتقال به درگاه پرداخت... پرداخت با موفقیت شبیه‌سازی و تأیید شد.');
+                  setTimeout(() => {
+                    onNavigate?.('Journey');
+                  }, 1500);
+                }}
+                className="w-full sm:flex-1 py-3 px-4 rounded-xl bg-gradient-to-r from-amber-500 to-yellow-500 hover:brightness-110 text-slate-950 font-black text-xs transition shadow-lg flex items-center justify-center gap-2 cursor-pointer"
+              >
+                <ExternalLink size={16} />
+                <span>انتقال به درگاه و پرداخت آنلاین</span>
+              </a>
+            ) : null}
+
+            <button
+              type="button"
+              onClick={() => {
+                if (onAddTransaction) {
+                  onAddTransaction({
+                    id: 'tx_' + Date.now(),
+                    user_id: currentUser.id,
+                    national_code: currentUser.national_code,
+                    full_name: `${currentUser.first_name || ''} ${currentUser.last_name || ''}`.trim(),
+                    amount: paymentSettings.amount,
+                    currency: paymentSettings.currency,
+                    gateway: paymentSettings.gateway,
+                    status: 'paid',
+                    ref_id: 'REF_' + Math.floor(100000 + Math.random() * 900000),
+                    created_at: new Date().toISOString()
+                  });
+                }
+                triggerAlert('پرداخت با موفقیت انجام شد! در حال انتقال به پنل کاربری...');
+                setTimeout(() => {
+                  onNavigate?.('Journey');
+                }, 1000);
+              }}
+              className="w-full sm:flex-1 py-3 px-4 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-600 hover:brightness-110 text-white font-black text-xs transition shadow-lg flex items-center justify-center gap-2 cursor-pointer"
+            >
+              <CheckCircle2 size={16} />
+              <span>تایید و ثبت پرداخت موفق (بازگشت از درگاه)</span>
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Rules Notice */}
       <div className="rounded-2xl border border-blue-500/20 bg-blue-500/5 p-4 flex items-start gap-3 text-xs leading-relaxed text-slate-300">

@@ -112,6 +112,7 @@ const NotificationCenterModal = lazy(() => import('./components/NotificationCent
 const OnboardingCommanderTutorial = lazy(() => import('./components/OnboardingCommanderTutorial.tsx'));
 const ForcePasswordChangeModal = lazy(() => import('./components/ForcePasswordChangeModal.tsx'));
 const AdminPanel = lazy(() => import('./components/AdminPanel.tsx'));
+import { GuideTutorialConfig, defaultGuideConfig } from './components/AdminGuideTutorialManager';
 
 // Highly optimized Draggable Floating Chat Button component
 const DraggableFloatingChatButton = React.memo(function DraggableFloatingChatButton({
@@ -550,6 +551,13 @@ export default function App() {
     storageKey: 'warroom_payment_transactions',
     table: 'warroom_payment_transactions',
     initial: []
+  });
+
+  // 🧭 تنظیمات و متن‌های راهنمای تعاملی کاربر — همگام با Supabase
+  const [guideConfig, setGuideConfig] = useSyncedSetting<GuideTutorialConfig>({
+    storageKey: 'warroom_guide_config',
+    settingKey: 'guide_tutorial_config',
+    initial: () => defaultGuideConfig
   });
 
   // 🎁 مدیریت سیستم جوایز و کریستال‌ها — همگام با Supabase
@@ -1687,9 +1695,10 @@ export default function App() {
               )}
 
               {/* Clash of Clans Style Commander Onboarding Tutorial */}
-              {showOnboardingTutorial && (
+              {showOnboardingTutorial && guideConfig?.isEnabled !== false && (
                 <OnboardingCommanderTutorial 
                   currentUser={currentUser}
+                  guideConfig={guideConfig}
                   onComplete={() => setShowOnboardingTutorial(false)}
                   onNavigateTab={(tab) => handleTabChange(tab)}
                 />

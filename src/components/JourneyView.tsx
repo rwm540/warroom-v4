@@ -53,6 +53,7 @@ import { initialJourneyStages } from '../data/initialStages';
 import SavedVitrinReelsModal from './SavedVitrinReelsModal';
 import StageQuizModal from './StageQuizModal';
 import DailyChallengeModal from './DailyChallengeModal';
+import GameCharacterGuideModal from './common/GameCharacterGuideModal';
 import { getAvatarsByGender, getDefaultAvatar } from '../data/avatars';
 
 // Project commander character avatars
@@ -448,24 +449,6 @@ export default function JourneyView({
             : 'bg-[#060c20]/92 border-blue-500/35 shadow-[0_10px_30px_rgba(0,0,0,0.8),0_0_20px_rgba(37,99,235,0.2)]'
         }`}>
 
-          {/* 🏠 Return to Home Button */}
-          {onNavigateTab && (
-            <button
-              type="button"
-              onClick={() => onNavigateTab('Home')}
-              className={`px-3 py-2 sm:py-2.5 rounded-xl font-black text-xs transition-all flex items-center gap-1.5 cursor-pointer shadow-md active:scale-95 shrink-0 ${
-                isGirls
-                  ? 'bg-gradient-to-r from-pink-500 to-rose-600 hover:from-pink-400 hover:to-rose-500 text-white shadow-pink-900/40'
-                  : 'bg-gradient-to-r from-cyan-400 via-blue-500 to-indigo-600 hover:brightness-110 text-slate-950 shadow-cyan-900/40'
-              }`}
-              title="بازگشت به صفحه اصلی سایت"
-              id="btn-journey-back-home"
-            >
-              <Home size={15} />
-              <span className="hidden sm:inline">صفحه اصلی</span>
-            </button>
-          )}
-
           {/* Stats Bar (4 Columns: سطح شما, امتیاز کل, نشان‌ها, درصد مسیر) — کاملاً پویا از Supabase */}
           <section className="flex-1 grid grid-cols-4 gap-1.5 sm:gap-2 bg-[#0d1524]/90 border border-slate-800/80 rounded-xl p-1.5 sm:p-2 backdrop-blur-md shadow-md">
             
@@ -635,7 +618,9 @@ export default function JourneyView({
         {/* ========================================================================= */}
         {/* 3. MAIN INTERACTIVE SERPENTINE JOURNEY MAP (Fixed Background, Smooth Scroll) */}
         {/* ========================================================================= */}
-        <div className="relative w-full max-w-md mx-auto my-3 rounded-3xl overflow-hidden border border-amber-500/50 shadow-[0_0_50px_rgba(0,0,0,0.5)] bg-slate-950">
+        <div className={`relative w-full max-w-md mx-auto my-3 rounded-3xl overflow-hidden border shadow-[0_0_50px_rgba(0,0,0,0.5)] ${
+          isGirls ? 'boys-card-surface border-fuchsia-500/50' : 'boys-card-surface border-amber-500/50'
+        }`}>
           
           {/* 1. Static Fixed Tactical Map Background */}
           {showMapBackground && (
@@ -776,16 +761,6 @@ export default function JourneyView({
                   <p className="text-xs text-slate-400 max-w-xs leading-relaxed">
                     مدیر سامانه می‌تواند از بخش مدیریت مراحل جدید اضافه کند.
                   </p>
-                  {onNavigateTab && (
-                    <button
-                      type="button"
-                      onClick={() => onNavigateTab('Home')}
-                      className="mt-2 px-4 py-2 rounded-xl bg-gradient-to-r from-cyan-400 to-blue-600 hover:brightness-110 text-slate-950 font-black text-xs transition shadow-lg flex items-center gap-1.5 cursor-pointer active:scale-95"
-                    >
-                      <Home size={14} />
-                      <span>بازگشت به صفحه اصلی</span>
-                    </button>
-                  )}
                 </div>
               ) : (
                 <div className="relative w-full h-full flex flex-col justify-between items-center py-2 z-10">
@@ -1003,120 +978,15 @@ export default function JourneyView({
         )}
       </AnimatePresence>
 
-      {/* 6. ROUTE GUIDE MODAL (راهنمای مسیر)                                      */}
+      {/* 6. ROUTE GUIDE MODAL (راهنمای مسیر و کاراکتر سبک بازی)                */}
       {/* ========================================================================= */}
-      <AnimatePresence>
-        {showGuideModal && (
-          <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 sm:p-6 dir-rtl overflow-hidden">
-            {/* Backdrop - Separate layer for clean blur and click-to-close */}
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              onClick={() => setShowGuideModal(false)}
-              className="absolute inset-0 bg-black/90 backdrop-blur-md cursor-pointer"
-            />
-
-            {/* Modal Card - Fixed center, internal scroll only */}
-            <motion.div
-              initial={{ scale: 0.9, opacity: 0, y: 30 }}
-              animate={{ scale: 1, opacity: 1, y: 0 }}
-              exit={{ scale: 0.9, opacity: 0, y: 30 }}
-              className="bg-[#0f172a] border border-cyan-500/50 rounded-[2.5rem] max-w-lg w-full p-6 sm:p-8 space-y-6 shadow-[0_0_60px_rgba(6,182,212,0.3)] relative z-10 overflow-y-auto max-h-[92vh] scrollbar-hide"
-            >
-              {/* Header */}
-              <div className="flex items-center justify-between border-b border-slate-800 pb-5">
-                <div className="flex items-center gap-4 text-cyan-400">
-                  <div className="p-3.5 rounded-2xl bg-cyan-950/80 border border-cyan-700/50 shadow-lg shadow-cyan-950/40">
-                    <Compass size={26} className="animate-spin-slow" />
-                  </div>
-                  <div>
-                    <h2 className="text-xl font-black text-white">راهنمای نقشه و دستورات فرمانده</h2>
-                    <p className="text-[11px] text-slate-400 mt-1">پروتکل عملیاتی هفت‌خوان مقاومت</p>
-                  </div>
-                </div>
-                <button 
-                  onClick={() => setShowGuideModal(false)}
-                  className="p-2.5 rounded-2xl bg-slate-900 border border-slate-700 text-slate-400 hover:text-white transition cursor-pointer hover:bg-slate-800"
-                  title="بستن پنجره"
-                >
-                  <X size={20} />
-                </button>
-              </div>
-
-              {/* COMMANDER AVATAR & TAC DEBRIEFING CARD */}
-              <div className="p-5 rounded-[2rem] bg-gradient-to-br from-[#0f172a] via-[#1e293b] to-[#0f172a] border border-slate-800 relative overflow-hidden shadow-2xl space-y-5">
-                <div className="flex items-center gap-4.5">
-                  {/* Commander Avatar Frame */}
-                  <div className="relative w-16 h-16 sm:w-20 sm:h-20 rounded-2xl p-[2px] bg-gradient-to-tr from-amber-400 via-cyan-400 to-emerald-400 shadow-[0_0_20px_rgba(6,182,212,0.3)] shrink-0">
-                    <div className="w-full h-full bg-[#050b18] rounded-[14px] overflow-hidden relative">
-                      <img 
-                        src="https://images.unsplash.com/photo-1544717305-2782549b5136?auto=format&fit=crop&w=400&q=80" 
-                        alt="فرمانده قرارگاه تاکتیکی" 
-                        className="w-full h-full object-cover object-top"
-                        referrerPolicy="no-referrer"
-                      />
-                      <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent" />
-                    </div>
-                    <span className="absolute -bottom-1 -right-1 w-4 h-4 rounded-full bg-emerald-500 border-2 border-[#0f172a] animate-pulse" />
-                  </div>
-
-                  {/* Commander Identity */}
-                  <div className="space-y-1.5">
-                    <div className="flex items-center gap-2">
-                      <span className="text-[10px] font-black px-2.5 py-1 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/40">
-                        فرماندهی ارشد عملیات
-                      </span>
-                    </div>
-                    <h3 className="text-base sm:text-lg font-black text-white leading-tight">سردار ستاد قرارگاه تاکتیکی</h3>
-                    <p className="text-[11px] text-cyan-400 font-bold">راهبر عالی عملیات‌های هفت‌خوان</p>
-                  </div>
-                </div>
-
-                {/* Briefing Speech Bubble */}
-                <div className="bg-slate-950/60 p-4.5 rounded-2xl border border-slate-800/80 text-slate-300 leading-relaxed space-y-2.5">
-                  <div className="text-amber-400 font-black flex items-center gap-2 text-[11px]">
-                    <Sparkles size={14} />
-                    <span>دستورالعمل تاکتیکی فرمانده:</span>
-                  </div>
-                  <p className="text-[13px] leading-relaxed text-justify">
-                    «رزمندگان غیور! نقشه هفت‌خوان پیش روی شما، میدان فتح و محک آمادگی است. با کلیک بر روی آیکون‌های مسیر، وارد آزمون‌های زمان‌دار می‌شوید. زمان محدود است؛ با تمرکز و مشورت، گزینه‌های صحیح را انتخاب کنید.»
-                  </p>
-                </div>
-              </div>
-
-              {/* Status Legend */}
-              <div className="space-y-3.5 px-1">
-                <span className="font-bold text-slate-500 block text-[11px] uppercase tracking-wider">وضعیت المان‌های نقشه:</span>
-                
-                <div className="grid gap-2.5 text-xs">
-                  <div className="flex items-center gap-4 bg-slate-900/60 p-4 rounded-2xl border border-slate-800/60">
-                    <span className="text-emerald-500 text-xl leading-none">●</span>
-                    <span className="text-slate-300"><strong>مراحل فتح‌شده:</strong> مأموریت با موفقیت به پایان رسیده است.</span>
-                  </div>
-
-                  <div className="flex items-center gap-4 bg-amber-500/10 p-4 rounded-2xl border border-amber-500/20">
-                    <span className="text-amber-500 text-xl leading-none animate-pulse">●</span>
-                    <span className="text-amber-200"><strong>مرحله جاری:</strong> مرحله فعال و آماده شروع عملیات جدید.</span>
-                  </div>
-
-                  <div className="flex items-center gap-4 bg-slate-900/60 p-4 rounded-2xl border border-slate-800/60 opacity-60">
-                    <span className="text-slate-500 text-xl leading-none">🔒</span>
-                    <span className="text-slate-400"><strong>مراحل قفل‌شده:</strong> پس از پیروزی در مرحله قبل باز می‌شوند.</span>
-                  </div>
-                </div>
-              </div>
-
-              <button
-                onClick={() => setShowGuideModal(false)}
-                className="w-full bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-slate-950 font-black text-sm py-4.5 rounded-[1.5rem] transition shadow-2xl shadow-cyan-900/40 cursor-pointer active:scale-[0.98]"
-              >
-                تایید و ورود به نقشه عملیاتی
-              </button>
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
+      <GameCharacterGuideModal
+        isOpen={showGuideModal}
+        onClose={() => setShowGuideModal(false)}
+        onAction={() => setShowGuideModal(false)}
+        themeMode={currentUser?.gender === 'دختر' ? 'girls' : 'boys'}
+        actionText="تایید و ورود به نقشه"
+      />
 
         {/* ========================================================================= */}
         {/* INTEGRATED PROFILE & DOSSIER MODAL (پروفایل و نشان‌های رزمنده)             */}

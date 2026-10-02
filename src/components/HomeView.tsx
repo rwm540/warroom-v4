@@ -19,7 +19,8 @@ import StatsStrip from './home/StatsStrip';
 import FaqAccordion from './home/FaqAccordion';
 import Footer from './home/Footer';
 import CountdownTimerCard from './home/CountdownTimerCard';
-import { Shield, BookOpen, Sparkles, X, CheckCircle, Gem, Trophy, ChevronLeft } from 'lucide-react';
+import GameCharacterGuideModal from './common/GameCharacterGuideModal';
+import { Shield, Sparkles } from 'lucide-react';
 
 interface HomeViewProps {
   currentUser: User | null;
@@ -303,120 +304,18 @@ export default function HomeView({
           announcements={announcements}
         />
 
-        {/* Competition Guide & Rules Modal - Portal into document.body for guaranteed fixed viewport centering */}
-        {showGuideModal && typeof document !== 'undefined' && createPortal(
-          <div 
-            className="fixed inset-0 z-[9999] flex items-center justify-center p-4 sm:p-6 dir-rtl"
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="guide-modal-title"
-          >
-            {/* Backdrop with smooth blur and click-to-close */}
-            <div 
-              className="fixed inset-0 bg-black/85 backdrop-blur-md cursor-pointer transition-opacity"
-              onClick={() => setShowGuideModal(false)}
-            />
-
-            {/* Modal Card - Centered, standard width, no redundant nested scrollbars */}
-            <div 
-              className={`relative z-10 w-full max-w-lg rounded-3xl p-5 sm:p-6 text-right border shadow-2xl space-y-5 animate-in fade-in zoom-in-95 duration-200 ${
-                isGirls 
-                  ? 'bg-[#16081d] border-pink-500/40 shadow-[0_0_50px_rgba(255,19,137,0.25)] text-pink-50' 
-                  : 'bg-[#0b1224] border-blue-500/40 shadow-[0_0_50px_rgba(37,99,235,0.25)] text-slate-100'
-              }`}
-            >
-              {/* Header */}
-              <div className="flex items-center justify-between border-b border-slate-800/80 pb-4">
-                <div className="flex items-center gap-3">
-                  <div className={`p-2.5 rounded-2xl shrink-0 ${
-                    isGirls 
-                      ? 'bg-pink-950/80 text-pink-400 border border-pink-700/50 shadow-md' 
-                      : 'bg-blue-950/80 text-blue-400 border border-blue-700/50 shadow-md'
-                  }`}>
-                    <BookOpen size={22} />
-                  </div>
-                  <div>
-                    <h3 id="guide-modal-title" className="text-base sm:text-lg font-black text-white leading-tight">
-                      راهنما و قوانین ماجراجویی اتاق جنگ
-                    </h3>
-                    <p className={`text-xs font-semibold mt-0.5 ${isGirls ? 'text-pink-300' : 'text-blue-300'}`}>
-                      پرونده بزرگ هفت‌خوان
-                    </p>
-                  </div>
-                </div>
-
-                <button
-                  type="button"
-                  onClick={() => setShowGuideModal(false)}
-                  className="p-2 rounded-xl bg-slate-900 border border-slate-700/80 text-slate-400 hover:text-white hover:border-slate-500 transition cursor-pointer"
-                  title="بستن پنجره"
-                >
-                  <X size={18} />
-                </button>
-              </div>
-
-              {/* 3 Main Rules / Guidance Cards - High contrast, legible typography */}
-              <div className="space-y-3 text-xs leading-relaxed">
-                <div className={`p-3.5 sm:p-4 rounded-2xl space-y-1.5 border ${
-                  isGirls ? 'bg-slate-900/70 border-pink-900/30' : 'bg-slate-900/80 border-slate-800'
-                }`}>
-                  <div className="flex items-center gap-2">
-                    <CheckCircle size={16} className="text-emerald-400 shrink-0" />
-                    <strong className="text-white text-xs sm:text-sm font-black">۱. ساختار هفت مرحله مسابقه:</strong>
-                  </div>
-                  <p className="text-slate-300 text-xs leading-relaxed pr-6">
-                    مسابقه شامل ۷ مرحله داستانی به سبک کارآگاهی است. با اتمام هر مرحله کریستال‌های امتیاز آزاد شده و مرحله بعدی باز می‌شود.
-                  </p>
-                </div>
-
-                <div className={`p-3.5 sm:p-4 rounded-2xl space-y-1.5 border ${
-                  isGirls ? 'bg-slate-900/70 border-pink-900/30' : 'bg-slate-900/80 border-slate-800'
-                }`}>
-                  <div className="flex items-center gap-2">
-                    <Gem size={16} className={isGirls ? 'text-pink-400 shrink-0' : 'text-cyan-400 shrink-0'} />
-                    <strong className="text-white text-xs sm:text-sm font-black">۲. کریستال‌ها و رده‌بندی:</strong>
-                  </div>
-                  <p className="text-slate-300 text-xs leading-relaxed pr-6">
-                    کریستال‌ها بر اساس دقت در پاسخ، حل چالش‌ها و سرعت عمل تعلق می‌گیرد. برترین‌های کشور و استان مشمول جوایز ۵۰ میلیارد ریالی خواهند شد.
-                  </p>
-                </div>
-
-                <div className={`p-3.5 sm:p-4 rounded-2xl space-y-1.5 border ${
-                  isGirls ? 'bg-slate-900/70 border-pink-900/30' : 'bg-slate-900/80 border-slate-800'
-                }`}>
-                  <div className="flex items-center gap-2">
-                    <Trophy size={16} className="text-amber-400 shrink-0" />
-                    <strong className="text-white text-xs sm:text-sm font-black">۳. جوایز و کدهای تخفیف:</strong>
-                  </div>
-                  <p className="text-slate-300 text-xs leading-relaxed pr-6">
-                    علاوه بر کنسول‌های بازی، تبلت و تلفن هوشمند، بیش از ۱۰۰ هزار کد تخفیف فروشگاهی به کلیه شرکت‌کنندگان اهدا می‌گردد.
-                  </p>
-                </div>
-              </div>
-
-              {/* Action Button - Standard, crisp & responsive */}
-              <div className="pt-1">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setShowGuideModal(false);
-                    setActiveTab('Journey');
-                  }}
-                  className={`w-full py-3.5 px-4 rounded-2xl font-black text-xs sm:text-sm transition-all duration-200 flex items-center justify-center gap-2 shadow-lg cursor-pointer ${
-                    isGirls 
-                      ? 'bg-gradient-to-r from-pink-600 to-rose-600 hover:from-pink-500 hover:to-rose-500 text-white shadow-pink-900/40 hover:shadow-pink-900/60 active:scale-[0.99]' 
-                      : 'bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-500 hover:to-cyan-500 text-white shadow-blue-900/40 hover:shadow-blue-900/60 active:scale-[0.99]'
-                  }`}
-                >
-                  <span>ورود به نقشه مراحل مسابقه</span>
-                  <ChevronLeft size={16} />
-                </button>
-              </div>
-
-            </div>
-          </div>,
-          document.body
-        )}
+        {/* Game Character Guide Modal - Exactly matching Clash of Clans tutorial with speech bubble & no box frame */}
+        <GameCharacterGuideModal
+          isOpen={showGuideModal}
+          onClose={() => setShowGuideModal(false)}
+          onAction={() => {
+            setShowGuideModal(false);
+            setActiveTab('Journey');
+          }}
+          themeMode={themeMode}
+          siteSettings={siteSettings}
+          actionText="ورود به نقشه مراحل"
+        />
 
       </div>
 

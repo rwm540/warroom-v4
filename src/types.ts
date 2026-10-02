@@ -462,6 +462,13 @@ export interface HomePageBlock {
   customData?: Record<string, any>;
 }
 
+export interface GuideStepConfig {
+  id?: string;
+  title: string;
+  text: string;
+  highlight?: string;
+}
+
 export interface SiteSettings {
   siteName?: string;
   siteTagline?: string;
@@ -611,6 +618,10 @@ export interface SiteSettings {
     isActive: boolean;
   }>;
   copyrightText?: string; // متن کپی‌رایت انتهای فوتر
+  // 🧭 تنظیمات راهنمای تعاملی و کاراکترهای بازی
+  guideSteps?: GuideStepConfig[];
+  boysGuideImage?: string;
+  girlsGuideImage?: string;
   effectsConfig?: {
     particleEffect?: boolean;
     neonGlow?: boolean;

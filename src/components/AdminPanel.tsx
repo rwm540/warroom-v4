@@ -37,6 +37,7 @@ import {
   ShieldCheck, 
   Sparkles, 
   Music,
+  Compass,
   LayoutDashboard,
   Activity,
   Star,
@@ -88,6 +89,7 @@ import AdminSoundtrackManager from './AdminSoundtrackManager';
 import AdminDailyChallengeManager from './AdminDailyChallengeManager';
 import PasswordResetsAdmin from './PasswordResetsAdmin';
 import AdminPaymentsPanel from './AdminPaymentsPanel';
+import AdminGuideTutorialManager, { GuideTutorialConfig } from './AdminGuideTutorialManager';
 import AdminChatRoomsPanel from './AdminChatRoomsPanel';
 import DashboardView from './DashboardView';
 import ElementorVisualEditorModal from './ElementorVisualEditorModal';
@@ -194,6 +196,8 @@ interface AdminPanelProps {
   paymentSettings: PaymentSettings;
   setPaymentSettings: (settings: PaymentSettings) => void;
   paymentTransactions: PaymentTransaction[];
+  guideConfig?: GuideTutorialConfig;
+  setGuideConfig?: (config: GuideTutorialConfig) => void;
   onNavigate?: (tab: string) => void;
 }
 
@@ -250,10 +254,12 @@ export default function AdminPanel({
   paymentSettings,
   setPaymentSettings,
   paymentTransactions,
+  guideConfig,
+  setGuideConfig,
   onNavigate
 }: AdminPanelProps) {
   const [activeAdminTab, setActiveAdminTab] = useState<
-    'overview' | 'submissions' | 'users' | 'missions' | 'trainings' | 'medals' | 'tickets' | 'news' | 'site_editor' | 'notifications' | 'chat_control' | 'soundtracks' | 'portals' | 'vitrins' | 'password_resets' | 'stage_builder' | 'prizes' | 'payments' | 'daily_challenges'
+    'overview' | 'submissions' | 'users' | 'missions' | 'trainings' | 'medals' | 'tickets' | 'news' | 'site_editor' | 'notifications' | 'chat_control' | 'soundtracks' | 'portals' | 'vitrins' | 'password_resets' | 'stage_builder' | 'prizes' | 'payments' | 'daily_challenges' | 'guide_tutorial'
   >('submissions');
 
   // 🛡️ وضعیت بک‌اند امن (برای مدیریت امن رمز کاربران)
@@ -309,6 +315,63 @@ export default function AdminPanel({
       tag: prize.tag
     });
     setShowPrizeModal(true);
+  };
+
+  const handlePrizeImageFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      triggerAlert('لطفاً یک فایل تصویری معتبر (JPG, PNG, WebP) انتخاب کنید.');
+      e.target.value = '';
+      return;
+    }
+
+    if (file.size > 10 * 1024 * 1024) {
+      triggerAlert('حجم تصویر نباید بیشتر از ۱۰ مگابایت باشد.');
+      e.target.value = '';
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      const result = reader.result as string;
+      // بهینه‌سازی و فشرده‌سازی تصویر در اندازه استاندارد برای ذخیره سریع در دیتابیس
+      const img = new window.Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        const maxDim = 800;
+        let width = img.width;
+        let height = img.height;
+        if (width > maxDim || height > maxDim) {
+          if (width > height) {
+            height = Math.round((height * maxDim) / width);
+            width = maxDim;
+          } else {
+            width = Math.round((width * maxDim) / height);
+            height = maxDim;
+          }
+        }
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        if (ctx) {
+          ctx.drawImage(img, 0, 0, width, height);
+          const compressed = canvas.toDataURL('image/webp', 0.85);
+          setPrizeForm(prev => ({ ...prev, imageUrl: compressed }));
+          triggerAlert('تصویر جایزه با موفقیت از دستگاه شما بارگذاری شد.');
+        } else {
+          setPrizeForm(prev => ({ ...prev, imageUrl: result }));
+          triggerAlert('تصویر جایزه با موفقیت بارگذاری شد.');
+        }
+      };
+      img.onerror = () => {
+        setPrizeForm(prev => ({ ...prev, imageUrl: result }));
+      };
+      img.src = result;
+    };
+    reader.readAsDataURL(file);
+    e.target.value = '';
   };
 
   const handleSavePrize = (e: React.FormEvent) => {
@@ -2110,6 +2173,19 @@ export default function AdminPanel({
           <span>ویترین آثار ({vitrinPosts.length})</span>
         </button>
 
+        <button
+          onClick={() => setActiveAdminTab('guide_tutorial')}
+          className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl whitespace-nowrap shrink-0 transition border relative ${
+            activeAdminTab === 'guide_tutorial'
+              ? 'bg-gradient-to-r from-amber-500 via-yellow-400 to-orange-500 text-slate-950 border-amber-400 font-black shadow-[0_0_20px_rgba(245,158,11,0.5)]'
+              : 'bg-[#080d21] text-amber-300 border-amber-500/40 hover:border-amber-400 hover:text-white'
+          }`}
+          id="btn-tab-guide-tutorial"
+        >
+          <Compass size={15} className="text-amber-400" />
+          <span>مدیریت راهنما و تور تعاملی</span>
+        </button>
+
       </div>
 
       <button
@@ -3441,34 +3517,97 @@ export default function AdminPanel({
                     </div>
                   </div>
 
-                  <div className="space-y-1.5">
-                    <label className="block text-xs font-bold text-slate-300">آدرس تصویر (URL):</label>
-                    <input
-                      type="text"
-                      placeholder="https://..."
-                      value={prizeForm.imageUrl}
-                      onChange={(e) => setPrizeForm({ ...prizeForm, imageUrl: e.target.value })}
-                      className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white font-mono"
-                    />
-                    <div className="flex flex-wrap gap-1.5 pt-1">
-                      <span className="text-[10px] text-slate-400 self-center">تصاویر پیشنهادی سریع:</span>
-                      {[
-                        { label: 'کنسول گیمینگ', url: 'https://images.unsplash.com/photo-1606813907291-d86efa9b94db?w=600&auto=format&fit=crop&q=80' },
-                        { label: 'تبلت هوشمند', url: 'https://images.unsplash.com/photo-1544244015-0df4b3ffc6b0?w=600&auto=format&fit=crop&q=80' },
-                        { label: 'دوربین عکاسی', url: 'https://images.unsplash.com/photo-1516035069371-29a1b244cc32?w=600&auto=format&fit=crop&q=80' },
-                        { label: 'ساعت هوشمند', url: 'https://images.unsplash.com/photo-1508685096489-7aacd43bd3b1?w=600&auto=format&fit=crop&q=80' },
-                        { label: 'هدفون گیمینگ', url: 'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=600&auto=format&fit=crop&q=80' },
-                        { label: 'بسته هدیه نفیس', url: 'https://images.unsplash.com/photo-1513151233558-d860c5398176?w=600&auto=format&fit=crop&q=80' },
-                      ].map((preset, idx) => (
+                  {/* بخش انتخاب و آپلود مستقیم تصویر جایزه از دستگاه */}
+                  <div className="space-y-2 pt-1 border-t border-slate-800">
+                    <div className="flex items-center justify-between">
+                      <label className="block text-xs font-black text-amber-300 flex items-center gap-1.5">
+                        <Image size={15} className="text-amber-400" />
+                        <span>تصویر جایزه (آپلود مستقیم از دستگاه):</span>
+                      </label>
+                      {prizeForm.imageUrl && (
                         <button
-                          key={idx}
                           type="button"
-                          onClick={() => setPrizeForm({ ...prizeForm, imageUrl: preset.url })}
-                          className="text-[10px] px-2 py-0.5 rounded-lg bg-slate-800 hover:bg-amber-500/20 text-slate-300 hover:text-amber-300 border border-slate-700 transition"
+                          onClick={() => setPrizeForm({ ...prizeForm, imageUrl: '' })}
+                          className="text-[10px] text-red-400 hover:text-red-300 transition flex items-center gap-1 cursor-pointer"
                         >
-                          {preset.label}
+                          <Trash2 size={12} />
+                          <span>حذف عکس</span>
                         </button>
-                      ))}
+                      )}
+                    </div>
+
+                    {/* جعبه آپلود مستقیم فایل یا پیش‌نمایش عکس جاری */}
+                    {prizeForm.imageUrl ? (
+                      <div className="relative rounded-2xl overflow-hidden border border-amber-500/40 bg-slate-950 p-2.5 flex items-center gap-3.5 shadow-lg group">
+                        <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-xl overflow-hidden bg-slate-900 border border-slate-700 shrink-0 relative">
+                          <img 
+                            src={prizeForm.imageUrl} 
+                            alt="پیش‌نمایش جایزه" 
+                            className="w-full h-full object-cover"
+                          />
+                        </div>
+                        <div className="flex-1 space-y-2 text-right">
+                          <div className="text-[11px] font-bold text-slate-200">
+                            عکس بارگذاری شده است
+                          </div>
+                          <div className="flex flex-wrap gap-2">
+                            <label className="px-3 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-[11px] transition shadow flex items-center gap-1.5 cursor-pointer active:scale-95">
+                              <Upload size={13} />
+                              <span>تغییر و آپلود عکس جدید</span>
+                              <input
+                                type="file"
+                                accept="image/*"
+                                onChange={handlePrizeImageFile}
+                                className="hidden"
+                              />
+                            </label>
+                          </div>
+                        </div>
+                      </div>
+                    ) : (
+                      <label className="border-2 border-dashed border-amber-500/40 hover:border-amber-400/80 bg-amber-950/20 hover:bg-amber-950/40 rounded-2xl p-4 sm:p-5 flex flex-col items-center justify-center gap-2 text-center transition-all cursor-pointer group shadow-inner">
+                        <div className="w-12 h-12 rounded-2xl bg-amber-500/20 border border-amber-400/50 flex items-center justify-center text-amber-300 group-hover:scale-110 transition-transform">
+                          <Upload size={22} className="animate-bounce" />
+                        </div>
+                        <div>
+                          <div className="text-xs font-black text-white group-hover:text-amber-300 transition-colors">
+                            برای انتخاب و آپلود تصویر جایزه کلیک کنید
+                          </div>
+                          <div className="text-[10px] text-slate-400 mt-0.5">
+                            پشتیبانی از فایل‌های JPG، PNG و WebP (حداکثر ۱۰ مگابایت)
+                          </div>
+                        </div>
+                        <input
+                          type="file"
+                          accept="image/*"
+                          onChange={handlePrizeImageFile}
+                          className="hidden"
+                        />
+                      </label>
+                    )}
+
+                    {/* تصاویر آماده و پیشنهادی سریع */}
+                    <div className="pt-1">
+                      <div className="text-[10px] text-slate-400 mb-1.5">یا انتخاب سریع از تصاویر نمونه:</div>
+                      <div className="flex flex-wrap gap-1.5">
+                        {[
+                          { label: 'کنسول گیمینگ', url: 'https://images.unsplash.com/photo-1606813907291-d86efa9b94db?w=600&auto=format&fit=crop&q=80' },
+                          { label: 'تبلت هوشمند', url: 'https://images.unsplash.com/photo-1544244015-0df4b3ffc6b0?w=600&auto=format&fit=crop&q=80' },
+                          { label: 'دوربین عکاسی', url: 'https://images.unsplash.com/photo-1516035069371-29a1b244cc32?w=600&auto=format&fit=crop&q=80' },
+                          { label: 'ساعت هوشمند', url: 'https://images.unsplash.com/photo-1508685096489-7aacd43bd3b1?w=600&auto=format&fit=crop&q=80' },
+                          { label: 'هدفون گیمینگ', url: 'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=600&auto=format&fit=crop&q=80' },
+                          { label: 'بسته هدیه نفیس', url: 'https://images.unsplash.com/photo-1513151233558-d860c5398176?w=600&auto=format&fit=crop&q=80' },
+                        ].map((preset, idx) => (
+                          <button
+                            key={idx}
+                            type="button"
+                            onClick={() => setPrizeForm({ ...prizeForm, imageUrl: preset.url })}
+                            className="text-[10px] px-2.5 py-1 rounded-lg bg-slate-900 hover:bg-amber-500/20 text-slate-300 hover:text-amber-300 border border-slate-800 hover:border-amber-500/40 transition cursor-pointer"
+                          >
+                            {preset.label}
+                          </button>
+                        ))}
+                      </div>
                     </div>
                   </div>
 

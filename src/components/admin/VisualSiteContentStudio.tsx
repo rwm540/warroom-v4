@@ -64,6 +64,25 @@ const ENAMAD_PRESETS = [
   { title: 'مجوز بنیاد ملی بازی‌های رایانه‌ای', subtitle: 'نظام رده‌بندی سنی ESRA', link: 'https://ircg.ir' },
 ];
 
+// Default guide steps for game tutorial modal
+const DEFAULT_GUIDE_STEPS = [
+  {
+    title: 'خوش آمدی فرمانده!',
+    text: 'به سامانه بزرگ ماجراجویی و ارزیابی استراتژیک «اتاق جنگ» خوش آمدی! پرونده هفت‌خوان آماده آغاز است.',
+    highlight: 'پرونده ویژه هفت‌خوان'
+  },
+  {
+    title: 'نقشه عملیاتی و چالش‌ها',
+    text: 'مسابقه شامل ۷ مرحله داستانی است. با ورود به هر مرحله، پاسخ به معماها و حل چالش‌های فکری، کریستال‌های امتیاز آزاد می‌شوند.',
+    highlight: '۷ مرحله کارآگاهی'
+  },
+  {
+    title: 'جوایز ۵۰ میلیارد ریالی',
+    text: 'علاوه بر کنسول‌های بازی و تبلت برای برترین‌های کشوری، بیش از ۱۰۰ هزار جایزه و کد تخفیف برای تمام شرکت‌کنندگان در نظر گرفته شده است.',
+    highlight: 'جوایز و امتیازات'
+  }
+];
+
 export const VisualSiteContentStudio: React.FC<VisualSiteContentStudioProps> = ({
   siteSettings,
   prizes = [],
@@ -181,6 +200,9 @@ export const VisualSiteContentStudio: React.FC<VisualSiteContentStudioProps> = (
     enamadLinkUrl: siteSettings.enamadLinkUrl || '',
     customFooterBadges: siteSettings.customFooterBadges || [],
     copyrightText: siteSettings.copyrightText || '',
+    guideSteps: siteSettings.guideSteps && siteSettings.guideSteps.length > 0 ? siteSettings.guideSteps : DEFAULT_GUIDE_STEPS,
+    boysGuideImage: siteSettings.boysGuideImage || '',
+    girlsGuideImage: siteSettings.girlsGuideImage || '',
     showCountdownTimer: siteSettings.showCountdownTimer !== undefined ? siteSettings.showCountdownTimer : true,
     countdownTitle: siteSettings.countdownTitle || 'مهلت ثبت‌نام و آغاز رویداد بزرگ اتاق جنگ',
     heroCountdown: siteSettings.heroCountdown || '۰۲:۱۴:۳۹:۱۵',
@@ -199,7 +221,7 @@ export const VisualSiteContentStudio: React.FC<VisualSiteContentStudioProps> = (
   const [dragOverSectionIndex, setDragOverSectionIndex] = useState<number | null>(null);
 
   // Sidebar Tab state
-  const [sidebarTab, setSidebarTab] = useState<'prizes' | 'messengers' | 'about' | 'banners' | 'footer' | 'sections' | 'style' | 'video'>('prizes');
+  const [sidebarTab, setSidebarTab] = useState<'prizes' | 'messengers' | 'about' | 'banners' | 'footer' | 'sections' | 'style' | 'video' | 'guide'>('prizes');
   const [previewDevice, setPreviewDevice] = useState<'desktop' | 'tablet' | 'mobile'>('desktop');
   const [isSavedRecently, setIsSavedRecently] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -553,8 +575,8 @@ export const VisualSiteContentStudio: React.FC<VisualSiteContentStudioProps> = (
         {/* ========================================================================= */}
         <div className="lg:col-span-5 xl:col-span-4 space-y-3 bg-[#080d21] border border-cyan-500/30 rounded-3xl p-3.5 sm:p-4 shadow-2xl">
           
-          {/* Sidebar Nav Tabs (8 Comprehensive Sections) */}
-          <div className="grid grid-cols-4 sm:grid-cols-4 gap-1.5 pb-2 border-b border-slate-800/80 text-center">
+          {/* Sidebar Nav Tabs (9 Comprehensive Sections) */}
+          <div className="grid grid-cols-3 sm:grid-cols-3 gap-1.5 pb-2 border-b border-slate-800/80 text-center">
             {/* 1. ویترین جوایز */}
             <button
               type="button"
@@ -568,6 +590,21 @@ export const VisualSiteContentStudio: React.FC<VisualSiteContentStudioProps> = (
             >
               <Trophy size={16} className="text-amber-400" />
               <span>ویترین جوایز</span>
+            </button>
+
+            {/* 2. مدیریت راهنمای بازی */}
+            <button
+              type="button"
+              onClick={() => setSidebarTab('guide')}
+              className={`flex flex-col items-center justify-center gap-1 p-2 rounded-xl text-[10px] font-black transition cursor-pointer ${
+                sidebarTab === 'guide'
+                  ? 'bg-orange-500/20 text-orange-300 border border-orange-400/60 shadow-[0_0_12px_rgba(249,115,22,0.3)] scale-[1.02]'
+                  : 'text-slate-400 hover:text-white bg-slate-950/60 border border-slate-800/60 hover:border-slate-700'
+              }`}
+              title="مدیریت متون دیالوگ‌ها و عکس‌های کاراکتر راهنما"
+            >
+              <HelpCircle size={16} className="text-orange-400" />
+              <span>مدیریت راهنما</span>
             </button>
 
             {/* 2. کانال‌های بله و ایتا */}
@@ -1974,6 +2011,169 @@ export const VisualSiteContentStudio: React.FC<VisualSiteContentStudioProps> = (
                   </button>
                 </div>
               )}
+            </div>
+          )}
+
+          {/* ========================================================================= */}
+          {/* TAB: GUIDE MANAGEMENT (مدیریت متون دیالوگ‌ها و عکس‌های کاراکتر راهنما)        */}
+          {/* ========================================================================= */}
+          {sidebarTab === 'guide' && (
+            <div className="space-y-4 max-h-[75vh] overflow-y-auto pr-1 no-scrollbar pt-1">
+              <div className="p-2.5 rounded-xl bg-orange-950/40 border border-orange-500/30 text-[11px] text-orange-200 leading-relaxed flex items-center gap-2">
+                <HelpCircle size={18} className="text-orange-400 shrink-0" />
+                <span>🧭 در این بخش می‌توانید <strong>متون دیالوگ‌های گام به گام راهنما</strong> و <strong>تصاویر کاراکترهای راهنمای دختر و پسر</strong> را ویرایش، اضافه یا حذف کنید.</span>
+              </div>
+
+              {/* Guide Characters Images */}
+              <div className="p-3.5 rounded-2xl bg-slate-950 border border-orange-500/30 space-y-3 shadow-lg">
+                <span className="text-xs font-black text-orange-300 block">تصاویر کاراکترهای راهنمای بازی:</span>
+                
+                <div className="grid grid-cols-2 gap-2">
+                  {/* Boy character */}
+                  <div className="p-2.5 rounded-xl bg-slate-900 border border-slate-800 space-y-2">
+                    <span className="text-[11px] font-bold text-cyan-300 block">کاراکتر پسر:</span>
+                    <div className="w-16 h-16 rounded-full overflow-hidden border-2 border-cyan-500 mx-auto bg-slate-950">
+                      <img src={form.boysGuideImage || form.boysBannerImage || '/src/assets/images/guide_commander_boy_1790940066682.jpg'} alt="پسر" className="w-full h-full object-cover" />
+                    </div>
+                    <label className="w-full py-1 bg-cyan-600 hover:bg-cyan-500 text-slate-950 text-[10px] font-black rounded-lg flex items-center justify-center gap-1 cursor-pointer transition">
+                      <Upload size={11} />
+                      <span>آپلود عکس پسر</span>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        onChange={(e) => handleImageUpload('boysGuideImage', e)}
+                      />
+                    </label>
+                  </div>
+
+                  {/* Girl character */}
+                  <div className="p-2.5 rounded-xl bg-slate-900 border border-slate-800 space-y-2">
+                    <span className="text-[11px] font-bold text-fuchsia-300 block">کاراکتر دختر:</span>
+                    <div className="w-16 h-16 rounded-full overflow-hidden border-2 border-fuchsia-500 mx-auto bg-slate-950">
+                      <img src={form.girlsGuideImage || form.girlsBannerImage || '/src/assets/images/guide_commander_girl_1790940078146.jpg'} alt="دختر" className="w-full h-full object-cover" />
+                    </div>
+                    <label className="w-full py-1 bg-fuchsia-600 hover:bg-fuchsia-500 text-white text-[10px] font-black rounded-lg flex items-center justify-center gap-1 cursor-pointer transition">
+                      <Upload size={11} />
+                      <span>آپلود عکس دختر</span>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        onChange={(e) => handleImageUpload('girlsGuideImage', e)}
+                      />
+                    </label>
+                  </div>
+                </div>
+              </div>
+
+              {/* Dynamic Guide Steps */}
+              <div className="p-3.5 rounded-2xl bg-slate-950 border border-slate-800 space-y-3 shadow-lg">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-black text-amber-300">گام‌های دیالوگ راهنما:</span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const newSteps = [...(form.guideSteps || DEFAULT_GUIDE_STEPS)];
+                      newSteps.push({
+                        title: `گام جدید #${newSteps.length + 1}`,
+                        text: 'متن جدید توضیحات راهنمای بازی...',
+                        highlight: 'نکته کلیدی'
+                      });
+                      setForm(prev => ({ ...prev, guideSteps: newSteps }));
+                      if (triggerAlert) triggerAlert('گام جدید به دیالوگ‌های راهنما اضافه شد.');
+                    }}
+                    className="px-2.5 py-1 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 text-[10px] font-black flex items-center gap-1 transition shadow cursor-pointer active:scale-95"
+                  >
+                    <Plus size={12} />
+                    <span>افزودن گام جدید</span>
+                  </button>
+                </div>
+
+                {(form.guideSteps || DEFAULT_GUIDE_STEPS).map((step, idx) => (
+                  <div key={idx} className="p-3 rounded-xl bg-slate-900/90 border border-amber-500/30 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[11px] font-black text-amber-300">گام شماره {idx + 1}</span>
+                      <div className="flex items-center gap-1">
+                        <button
+                          type="button"
+                          disabled={idx === 0}
+                          onClick={() => {
+                            const steps = [...(form.guideSteps || DEFAULT_GUIDE_STEPS)];
+                            const temp = steps[idx];
+                            steps[idx] = steps[idx - 1];
+                            steps[idx - 1] = temp;
+                            setForm(prev => ({ ...prev, guideSteps: steps }));
+                          }}
+                          className="p-1 text-slate-400 hover:text-white disabled:opacity-30 cursor-pointer"
+                          title="انتقال به بالا"
+                        >
+                          <ArrowUp size={12} />
+                        </button>
+                        <button
+                          type="button"
+                          disabled={idx === (form.guideSteps || DEFAULT_GUIDE_STEPS).length - 1}
+                          onClick={() => {
+                            const steps = [...(form.guideSteps || DEFAULT_GUIDE_STEPS)];
+                            const temp = steps[idx];
+                            steps[idx] = steps[idx + 1];
+                            steps[idx + 1] = temp;
+                            setForm(prev => ({ ...prev, guideSteps: steps }));
+                          }}
+                          className="p-1 text-slate-400 hover:text-white disabled:opacity-30 cursor-pointer"
+                          title="انتقال به پایین"
+                        >
+                          <ArrowDown size={12} />
+                        </button>
+                        {(form.guideSteps || DEFAULT_GUIDE_STEPS).length > 1 && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const steps = (form.guideSteps || DEFAULT_GUIDE_STEPS).filter((_, i) => i !== idx);
+                              setForm(prev => ({ ...prev, guideSteps: steps }));
+                              if (triggerAlert) triggerAlert(`گام شماره ${idx + 1} حذف شد.`);
+                            }}
+                            className="p-1 text-rose-400 hover:text-rose-300 cursor-pointer"
+                            title="حذف این گام"
+                          >
+                            <Trash2 size={12} />
+                          </button>
+                        )}
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="text-[10px] text-slate-400 block mb-0.5">عنوان دیالوگ:</label>
+                      <input
+                        type="text"
+                        value={step.title}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          const steps = [...(form.guideSteps || DEFAULT_GUIDE_STEPS)];
+                          steps[idx] = { ...steps[idx], title: val };
+                          setForm(prev => ({ ...prev, guideSteps: steps }));
+                        }}
+                        className="w-full bg-slate-950 border border-slate-800 rounded-lg px-2.5 py-1 text-xs text-white"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="text-[10px] text-slate-400 block mb-0.5">متن توضیحات:</label>
+                      <textarea
+                        rows={2}
+                        value={step.text}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          const steps = [...(form.guideSteps || DEFAULT_GUIDE_STEPS)];
+                          steps[idx] = { ...steps[idx], text: val };
+                          setForm(prev => ({ ...prev, guideSteps: steps }));
+                        }}
+                        className="w-full bg-slate-950 border border-slate-800 rounded-lg px-2.5 py-1 text-xs text-white leading-relaxed"
+                      />
+                    </div>
+                  </div>
+                ))}
+              </div>
             </div>
           )}
 

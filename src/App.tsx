@@ -1175,17 +1175,17 @@ export default function App() {
     }
   }, [currentUser, paymentSettings, paymentTransactions, activeTab]);
 
-  // Guard: Live Kick Out if Blocked or Deactivated
+  // Guard: Live Kick Out ONLY if explicitly Blocked
   useEffect(() => {
     if (currentUser && currentUser.role !== 'admin') {
       const dbUser = users.find(u => u.id === currentUser.id);
       if (dbUser) {
-        if (dbUser.is_blocked || dbUser.is_active === false) {
+        if (dbUser.is_blocked) {
           setCurrentUser(null);
           localStorage.removeItem('warroom_current_user_id');
           localStorage.removeItem('warroom_current_user_data');
           setShowAuthScreen(true);
-          triggerAlert('حساب کاربری شما توسط مدیریت مسدود یا غیرفعال شد.');
+          triggerAlert('حساب کاربری شما توسط مدیریت مسدود شد.');
         }
       }
     }
@@ -1452,7 +1452,7 @@ export default function App() {
               />
             </Suspense>
           </motion.div>
-        ) : (currentUser && currentUser.role !== 'admin' && !isAdminMode && (currentUser.is_blocked || currentUser.is_active === false || (paymentSettings?.enabled && paymentSettings.amount > 0 && !paymentTransactions.some(tx => (tx.user_id === currentUser.id || tx.national_code === currentUser.national_code) && tx.status === 'paid')))) ? (
+        ) : (currentUser && currentUser.role !== 'admin' && !isAdminMode && (currentUser.is_blocked || (paymentSettings?.enabled && paymentSettings.amount > 0 && !paymentTransactions.some(tx => (tx.user_id === currentUser.id || tx.national_code === currentUser.national_code) && tx.status === 'paid')))) ? (
           /* MANDATORY ACCESS BARRIER OVERLAY (100% SECURE & NO NAV) */
           <motion.div
             key="access_barrier"
@@ -1659,6 +1659,7 @@ export default function App() {
                       <JourneyView 
                         currentUser={currentUser}
                         stages={stages}
+                        siteSettings={siteSettings}
                         dailyChallengeConfig={activeDailyChallenge}
                         showMapBackground={activeTab === 'Journey'}
                         groups={groups}

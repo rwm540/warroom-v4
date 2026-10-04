@@ -24,7 +24,8 @@ import {
   ShieldCheck,
   ShieldAlert,
   Send,
-  X
+  X,
+  Clock
 } from 'lucide-react';
 import { User, Group, RoleType, Gender, EducationLevel, PaymentSettings, PaymentTransaction } from '../types';
 import { 
@@ -179,6 +180,19 @@ export default function AuthView({
     } catch (e) {}
     return null;
   });
+
+  // 🚀 ورود خودکار به پنل کاربری یا پنل ادمین در صورت وجود نشست ذخیره‌شده (بدون نیاز به کلیک مجدد)
+  useEffect(() => {
+    if (activeSessionUser) {
+      if (activeSessionUser.is_blocked) {
+        localStorage.removeItem('warroom_current_user_id');
+        localStorage.removeItem('warroom_current_user_data');
+        setActiveSessionUser(null);
+        return;
+      }
+      onLoginSuccess(activeSessionUser);
+    }
+  }, [activeSessionUser, onLoginSuccess]);
 
   // Auto-detect registered user profile gender upon entering National ID or Personal Code
   useEffect(() => {
@@ -726,53 +740,12 @@ export default function AuthView({
         </div>
 
         {/* Active Session Fast Direct Entry Banner */}
-        {activeSessionUser && (
-          <div className={`mb-4 p-3.5 rounded-2xl border flex flex-col gap-2.5 shadow-xl animate-fade-in ${
-            activeSessionUser.gender === 'دختر'
-              ? 'bg-pink-950/70 border-pink-500/50 shadow-pink-950/40'
-              : 'bg-cyan-950/70 border-cyan-500/50 shadow-cyan-950/40'
-          }`}>
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <CheckCircle2 size={16} className={activeSessionUser.gender === 'دختر' ? 'text-pink-400' : 'text-cyan-400'} />
-                <span className="text-xs font-black text-white">نشست فعال شما ذخیره است</span>
-              </div>
-              <span className="text-[10px] font-mono text-slate-300">
-                {activeSessionUser.personal_code}
-              </span>
-            </div>
-
-            <p className="text-[11px] text-slate-300 leading-relaxed text-right">
-              رزمنده گرامی <strong className="text-white">{activeSessionUser.first_name} {activeSessionUser.last_name}</strong>، شما قبلاً وارد سامانه شده‌اید. نیازی به ورود یا ثبت‌نام مجدد نیست.
-            </p>
-
-            <div className="flex items-center gap-2 pt-1">
-              <button
-                type="button"
-                onClick={() => onLoginSuccess(activeSessionUser)}
-                className={`flex-1 py-2.5 px-3 rounded-xl text-xs font-black transition flex items-center justify-center gap-2 shadow-lg cursor-pointer ${
-                  activeSessionUser.gender === 'دختر'
-                    ? 'bg-gradient-to-r from-pink-500 to-rose-600 text-white shadow-pink-900/50 hover:brightness-110'
-                    : 'bg-gradient-to-r from-cyan-400 to-blue-600 text-slate-950 shadow-cyan-900/50 hover:brightness-110'
-                }`}
-              >
-                <ArrowLeft size={16} />
-                <span>ورود مستقیم به پنل کاربری ({activeSessionUser.first_name})</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => {
-                  localStorage.removeItem('warroom_current_user_id');
-                  localStorage.removeItem('warroom_current_user_data');
-                  setActiveSessionUser(null);
-                  triggerAlert('نشست قبلی پاک شد. اکنون می‌توانید ثبت‌نام یا ورود جدید انجام دهید.');
-                }}
-                className="py-2.5 px-3 rounded-xl bg-slate-900 hover:bg-slate-800 text-slate-400 hover:text-rose-400 border border-slate-800 text-[11px] font-bold transition whitespace-nowrap"
-              >
-                خروج و تعویض
-              </button>
-            </div>
+        {activeSessionUser && !activeSessionUser.is_blocked && (
+          <div className="mb-4 p-4 rounded-2xl bg-cyan-950/80 border border-cyan-500/50 shadow-xl flex items-center justify-center gap-3 animate-pulse">
+            <Clock size={18} className="text-cyan-400 animate-spin" />
+            <span className="text-xs font-black text-cyan-200">
+              نشست معتبر شما ذخیره است؛ در حال ورود خودکار به {activeSessionUser.role === 'admin' ? 'پنل مدیریت' : 'پنل کاربری'}...
+            </span>
           </div>
         )}
 

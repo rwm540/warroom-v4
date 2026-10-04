@@ -18,7 +18,6 @@ import AboutSection from './home/AboutSection';
 import StatsStrip from './home/StatsStrip';
 import FaqAccordion from './home/FaqAccordion';
 import Footer from './home/Footer';
-import CountdownTimerCard from './home/CountdownTimerCard';
 import GameCharacterGuideModal from './common/GameCharacterGuideModal';
 import { Shield, Sparkles } from 'lucide-react';
 
@@ -244,39 +243,12 @@ export default function HomeView({
               }
 
               if (secKey === 'timer') {
-                if (siteSettings?.showCountdownTimer === false) return null;
-                return (
-                  <section key="sec-timer" aria-label="شمارش معکوس مسابقات و رویداد" className="transform-gpu border-0">
-                    <CountdownTimerCard 
-                      themeMode={themeMode}
-                      countdownTitle={siteSettings?.countdownTitle}
-                      countdownString={siteSettings?.heroCountdown}
-                      targetDate={siteSettings?.countdownTargetDate}
-                      countdownStyle={siteSettings?.countdownStyle}
-                      removeBorder={true}
-                    />
-                  </section>
-                );
+                return null;
               }
 
               if (secKey === 'footer') {
                 return (
                   <React.Fragment key="sec-footer-wrapper">
-                    {/* Render countdown timer above footer if position is bottom and timer is not in custom order */}
-                    {siteSettings?.showCountdownTimer !== false && 
-                     siteSettings?.countdownPosition === 'bottom' && 
-                     !(siteSettings?.homeSectionsOrder || []).includes('timer') && (
-                      <section key="sec-timer-bottom" aria-label="شمارش معکوس رویداد" className="transform-gpu pt-2 border-0">
-                        <CountdownTimerCard 
-                          themeMode={themeMode}
-                          countdownTitle={siteSettings?.countdownTitle}
-                          countdownString={siteSettings?.heroCountdown}
-                          targetDate={siteSettings?.countdownTargetDate}
-                          countdownStyle={siteSettings?.countdownStyle}
-                          removeBorder={true}
-                        />
-                      </section>
-                    )}
                     <section key="sec-footer" aria-label="فوتر و اطلاعات تماس" className="transform-gpu pt-2">
                       <Footer 
                         themeMode={themeMode}

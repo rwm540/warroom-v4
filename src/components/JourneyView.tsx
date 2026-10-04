@@ -41,12 +41,13 @@ import {
   MapPin,
   Copy,
   ShieldCheck,
+  ShieldAlert,
   Phone,
   School,
   Bookmark
 } from 'lucide-react';
-import { User, Mission, MissionSubmission, Group, Medal, UserMedal, JourneyStage, DailyChallengeConfig } from '../types';
-import { formatToPersianDigits } from '../utils/jalali';
+import { User, Mission, MissionSubmission, Group, Medal, UserMedal, JourneyStage, DailyChallengeConfig, SiteSettings } from '../types';
+import { formatToPersianDigits, normalizeToEnglishDigits } from '../utils/jalali';
 import { getSavedPostIds } from '../data/vitrinData';
 import { getStageBadge } from '../data/stageBadges';
 import { initialJourneyStages } from '../data/initialStages';
@@ -54,6 +55,7 @@ import SavedVitrinReelsModal from './SavedVitrinReelsModal';
 import StageQuizModal from './StageQuizModal';
 import DailyChallengeModal from './DailyChallengeModal';
 import GameCharacterGuideModal from './common/GameCharacterGuideModal';
+import CountdownTimerCard from './home/CountdownTimerCard';
 import { getAvatarsByGender, getDefaultAvatar } from '../data/avatars';
 
 // Project commander character avatars
@@ -84,6 +86,7 @@ interface JourneyViewProps {
   onStageCompleted?: (stageId: string, earnedPoints: number) => void;
   onAwardDailyPoints?: (points: number) => void;
   dailyChallengeConfig?: DailyChallengeConfig | null;
+  siteSettings?: SiteSettings;
 }
 
 export default function JourneyView({
@@ -105,8 +108,42 @@ export default function JourneyView({
   showMapBackground = true,
   onStageCompleted,
   onAwardDailyPoints,
-  dailyChallengeConfig
+  dailyChallengeConfig,
+  siteSettings
 }: JourneyViewProps) {
+  // ⏰ وضعیت شمارش معکوس مسابقات و قفل مراحل بازی
+  const isTimerDisabled = siteSettings?.showCountdownTimer === false;
+
+  const checkInitialExpired = (): boolean => {
+    if (isTimerDisabled) return true;
+    if (siteSettings?.countdownTargetDate) {
+      const diff = new Date(siteSettings.countdownTargetDate).getTime() - Date.now();
+      return diff <= 0;
+    }
+    if (siteSettings?.heroCountdown) {
+      const clean = normalizeToEnglishDigits(siteSettings.heroCountdown).trim();
+      const parts = clean.split(/[:\-\s]/).map(p => parseInt(p, 10));
+      if (parts.length >= 3 && parts.every(p => !isNaN(p))) {
+        let total = 0;
+        if (parts.length === 4) {
+          total = parts[0] * 86400 + parts[1] * 3600 + parts[2] * 60 + parts[3];
+        } else {
+          total = parts[0] * 3600 + parts[1] * 60 + parts[2];
+        }
+        return total <= 0;
+      }
+    }
+    return false;
+  };
+
+  const [isTimerExpired, setIsTimerExpired] = useState<boolean>(checkInitialExpired);
+
+  useEffect(() => {
+    setIsTimerExpired(checkInitialExpired());
+  }, [siteSettings?.countdownTargetDate, siteSettings?.heroCountdown, siteSettings?.showCountdownTimer]);
+
+  const isGameLockedByTimer = !isTimerExpired && !isTimerDisabled;
+
   const [selectedStage, setSelectedStage] = useState<JourneyStage | null>(null);
   const [activeTabSub, setActiveTabSub] = useState<'journey' | 'journal' | 'prayer'>('journey');
   const [widgetNote, setWidgetNote] = useState('');
@@ -373,6 +410,10 @@ export default function JourneyView({
   };
 
   const handleStageClick = (stage: JourneyStage) => {
+    if (isGameLockedByTimer) {
+      triggerAlert('⚠️ عملیات هنوز آغاز نشده است! لطفاً تا پایان زمان‌سنج و بازگشایی رسمی مراحل منتظر بمانید.');
+      return;
+    }
     setSelectedStage(stage);
   };
 
@@ -614,6 +655,69 @@ export default function JourneyView({
         )}
 
         {/* ========================================================================= */}
+        {/* ⏰ OFFICIAL COMPETITION COUNTDOWN TIMER BANNER (ABOVE THE MAP) */}
+        {/* ========================================================================= */}
+        {siteSettings?.showCountdownTimer !== false && (
+          <div className="w-full max-w-md mx-auto my-3">
+            <div className={`p-4 sm:p-5 rounded-3xl border shadow-xl relative overflow-hidden transition-all duration-300 ${
+              isGirls
+                ? 'bg-gradient-to-b from-[#1c0824]/90 via-[#0d0312]/95 to-[#06010a] border-fuchsia-500/40 shadow-[0_0_35px_rgba(217,70,239,0.2)]'
+                : 'bg-gradient-to-b from-[#091838]/90 via-[#050e24]/95 to-[#020712] border-cyan-500/40 shadow-[0_0_35px_rgba(6,182,212,0.2)]'
+            }`}>
+              {/* Header Status Badge */}
+              <div className="flex items-center justify-between pb-3 border-b border-slate-800/80 mb-3">
+                <div className="flex items-center gap-2">
+                  <div className={`w-8 h-8 rounded-xl flex items-center justify-center border ${
+                    isGameLockedByTimer
+                      ? 'bg-amber-500/20 text-amber-300 border-amber-500/40 animate-pulse'
+                      : 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40'
+                  }`}>
+                    {isGameLockedByTimer ? <Lock size={16} /> : <CheckCircle2 size={16} />}
+                  </div>
+                  <div>
+                    <span className="text-xs font-black text-white block">
+                      {isGameLockedByTimer ? 'مراحل در وضعیت آماده‌باش و قفل' : 'عملیات آغاز شد • دسترسی به تمام مراحل باز است'}
+                    </span>
+                    <span className="text-[10px] text-slate-400 block">
+                      {isGameLockedByTimer ? 'زمان‌سنج آغاز رسمی عملیات اتاق جنگ' : 'تمام چالش‌ها و مراحل مسابقه بازگشایی گردید'}
+                    </span>
+                  </div>
+                </div>
+
+                <span className={`text-[10px] font-black px-2.5 py-1 rounded-full border ${
+                  isGameLockedByTimer
+                    ? 'bg-amber-500/15 text-amber-300 border-amber-500/30'
+                    : 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30'
+                }`}>
+                  {isGameLockedByTimer ? '🔒 قفل موقت' : '🔓 بازگشایی شد'}
+                </span>
+              </div>
+
+              {/* Countdown Timer Display */}
+              <CountdownTimerCard
+                themeMode={isGirls ? 'girls' : 'boys'}
+                countdownTitle={siteSettings?.countdownTitle || 'زمان باقیمانده تا آغاز عملیات و بازگشایی مراحل:'}
+                countdownString={siteSettings?.heroCountdown}
+                targetDate={siteSettings?.countdownTargetDate}
+                countdownStyle={siteSettings?.countdownStyle || 'tactical'}
+                removeBorder={true}
+                onExpire={(expired) => setIsTimerExpired(expired)}
+              />
+
+              {/* Locked Warning Note */}
+              {isGameLockedByTimer && (
+                <div className="mt-3 p-2.5 rounded-2xl bg-amber-950/40 border border-amber-500/30 text-amber-200/90 text-[11px] leading-relaxed flex items-center gap-2">
+                  <ShieldAlert size={16} className="text-amber-400 shrink-0" />
+                  <span>
+                    ورود به مراحل بازی موقتاً مسدود است؛ به محض پایان زمان‌سنج، تمامی مراحل به صورت همزمان بازگشایی خواهند شد.
+                  </span>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* ========================================================================= */}
         {/* 3. MAIN INTERACTIVE SERPENTINE JOURNEY MAP (Fixed Background, Smooth Scroll) */}
         {/* ========================================================================= */}
         <div className={`relative w-full max-w-md mx-auto my-3 rounded-3xl overflow-hidden border shadow-[0_0_50px_rgba(0,0,0,0.5)] ${
@@ -826,8 +930,13 @@ export default function JourneyView({
                               )}
 
                               {/* Status Badge Image / Icon */}
-                              <div className="w-full h-full rounded-full overflow-hidden flex items-center justify-center">
+                              <div className="w-full h-full rounded-full overflow-hidden flex items-center justify-center relative">
                                 {renderStageIcon(stage.iconName, stage.status, stage.customIconUrl)}
+                                {isGameLockedByTimer && (
+                                  <div className="absolute inset-0 bg-slate-950/75 backdrop-blur-[1px] flex items-center justify-center rounded-full z-10">
+                                    <Lock size={15} className="text-amber-400 drop-shadow" />
+                                  </div>
+                                )}
                               </div>
 
                               {/* Top Number Indicator Pin */}

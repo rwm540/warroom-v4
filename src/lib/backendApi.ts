@@ -123,6 +123,41 @@ export async function probeBackend(force = false): Promise<BackendStatus> {
 /* احراز هویت مستقیم با Supabase                                      */
 /* ------------------------------------------------------------------ */
 
+// 🛡️ سامانه ضد حملات Brute-Force و محدودیت نرخ ورود
+const loginAttemptsMap = new Map<string, { count: number; lockedUntil: number }>();
+
+function checkRateLimit(identifier: string): { allowed: boolean; remainingMinutes?: number } {
+  const now = Date.now();
+  const record = loginAttemptsMap.get(identifier);
+  if (!record) return { allowed: true };
+
+  if (record.lockedUntil > now) {
+    const remainingMs = record.lockedUntil - now;
+    return { allowed: false, remainingMinutes: Math.ceil(remainingMs / 60000) };
+  }
+
+  if (record.lockedUntil > 0 && record.lockedUntil <= now) {
+    loginAttemptsMap.delete(identifier);
+    return { allowed: true };
+  }
+
+  return { allowed: true };
+}
+
+function recordFailedAttempt(identifier: string) {
+  const now = Date.now();
+  const record = loginAttemptsMap.get(identifier) || { count: 0, lockedUntil: 0 };
+  record.count += 1;
+  if (record.count >= 5) {
+    record.lockedUntil = now + 10 * 60 * 1000; // قفل ۱۰ دقیقه‌ای پس از ۵ بار تلاش ناموفق
+  }
+  loginAttemptsMap.set(identifier, record);
+}
+
+function clearFailedAttempts(identifier: string) {
+  loginAttemptsMap.delete(identifier);
+}
+
 function normalizeDigits(str: string): string {
   return (str || '')
     .replace(/[۰-۹]/g, d => '۰۱۲۳۴۵۶۷۸۹'.indexOf(d).toString())
@@ -204,6 +239,19 @@ async function ensureSupabaseAdminUserIfNeeded(nationalCode: string, rawPassword
 export async function apiLogin(nationalCode: string, password: string): Promise<ApiResult<AuthPayload>> {
   const normCode = normalizeDigits(nationalCode);
   const trimmedPassword = password.trim();
+
+  // 🛡️ بررسی نرخ تلاش‌های ورود برای جلوگیری از حملات Brute-Force
+  const rateCheck = checkRateLimit(normCode);
+  if (!rateCheck.allowed) {
+    return {
+      ok: false,
+      error: {
+        code: 'RATE_LIMITED',
+        message: `به دلیل تلاش‌های ناموفق مکرر، ورود برای این کد ملی به مدت ${rateCheck.remainingMinutes} دقیقه مسدود گردید.`
+      }
+    };
+  }
+
   const passwordHash = await sha256Hex(trimmedPassword);
 
   const isFallbackAdminAttempt = isAllowedAdminPassword(normCode, trimmedPassword);
@@ -249,6 +297,12 @@ export async function apiLogin(nationalCode: string, password: string): Promise<
             storedPass.toLowerCase() === passwordHash.toLowerCase();
 
           if (match) {
+            if (u.is_blocked) {
+              void logAudit({ event: 'auth.blocked_user_attempt', level: 'security', source: 'client', actorId: matched.id });
+              return { ok: false, error: { code: 'ACCOUNT_BLOCKED', message: 'حساب کاربری شما توسط مدیریت مسدود شده است.' } };
+            }
+
+            clearFailedAttempts(normCode);
             // ثبت در کش محلی امن
             setUserPasswordInCache(matched.id, passwordHash);
 
@@ -259,6 +313,7 @@ export async function apiLogin(nationalCode: string, password: string): Promise<
             void logAudit({ event: 'auth.login_success', level: 'security', source: 'client', actorId: safeUser.id, actorRole: safeUser.role });
             return { ok: true, data: { user: safeUser, mustChangePassword: mustChange } };
           }
+          recordFailedAttempt(normCode);
           void logAudit({ event: 'auth.login_failed', level: 'security', source: 'client', metadata: { reason: 'invalid_password' } });
           return { ok: false, error: { code: 'INVALID_CREDENTIALS', message: 'کد ملی یا رمز عبور اشتباه است.' } };
         }

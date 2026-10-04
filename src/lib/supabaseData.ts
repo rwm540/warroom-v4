@@ -11,6 +11,7 @@ import { createClient, SupabaseClient } from '@supabase/supabase-js';
 /* اس‌یوپیابیس (Supabase) کلاینت — پلتفرم اتاق جنگ                       */
 /* ------------------------------------------------------------------ */
 const defaultUrl = 'https://dewfcjxlfolwvxqofocc.supabase.co';
+const defaultAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRld2ZjanhsZm9sd3Z4cW9mb2NjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODkzNzA5OTAsImV4cCI6MjEwNDk0Njk5MH0.FeF-fQOxTovo9glRr_qnE6NkSVTKVwuBKP2oDxKQPnY';
 const defaultPublishableKey = 'sb_publishable_lKVXnauR3xtIlsqmKWuVog_HOtRK97j';
 const runtimeEnv = (import.meta as ImportMeta & { env?: Record<string, string | undefined> }).env;
 
@@ -20,10 +21,10 @@ const supabasePublicKey = runtimeEnv?.VITE_SUPABASE_PUBLIC_KEY?.trim();
 const supabaseAnonKey = runtimeEnv?.VITE_SUPABASE_ANON_KEY?.trim();
 
 function pickActiveKey(): string {
-  if (supabasePublishableKey && supabasePublishableKey.length > 15) return supabasePublishableKey;
   if (supabaseAnonKey && supabaseAnonKey.length > 15) return supabaseAnonKey;
+  if (supabasePublishableKey && supabasePublishableKey.length > 15) return supabasePublishableKey;
   if (supabasePublicKey && supabasePublicKey.length > 15) return supabasePublicKey;
-  return defaultPublishableKey;
+  return defaultAnonKey;
 }
 
 const activeKey = pickActiveKey();

@@ -265,6 +265,8 @@ export interface JourneyStage {
   completedMissions: number;
   bgThemeUrl?: string;
   xOffsetPercent: number; // Position on winding map path
+  mapXPercent?: number; // موقعیت افقی درگ اند دراپ (۰ تا ۱۰۰ درصد)
+  mapYPercent?: number; // موقعیت عمودی درگ اند دراپ (۰ تا ۱۰۰ درصد)
   quizQuestions?: StageQuizQuestion[];
 }
 
@@ -646,6 +648,23 @@ export interface SiteSettings {
     isFullWidth?: boolean;
     isActive: boolean;
   }>;
+
+  // 🗺️ ویرایش و شخصی‌سازی تصویر نقشه بازی
+  gameMapCustomBgUrl?: string; // تصویر اختصاصی آپلود شده برای پس‌زمینه نقشه بازی
+  gameMapBgMode?: 'cover' | 'contain' | 'repeat' | 'auto'; // نحوه نمایش تصویر
+  gameMapBgOpacity?: number; // شفافیت تصویر پس‌زمینه (۰ تا ۱۰۰)
+  gameMapShowRoadOverlay?: boolean; // آیا خط جاده مارپیچی روی تصویر نمایش داده شود؟ (پیش‌فرض: true)
+  gameMapRoadOpacity?: number; // شفافیت نوار/خط جاده زرد رنگ (۰ تا ۱۰۰) - ۰ یعنی کاملاً محو و مخفی
+  gameMapRoadWidth?: number; // ضخامت خط جاده (۴ تا ۶۰ پیکسل)
+  gameMapRoadCurvature?: number; // انحنا و شدت پیچ‌های جاده (۰ تا ۱۵۰ پیکسل)
+  gameMapRoadOffsetX?: number; // جابجایی افقی خط جاده (-۱۲۰ تا +۱۲۰ پیکسل)
+  gameMapStagesSpreadX?: number; // دامنه پخش افقی نشانگرهای مراحل (۰ تا ۱۲۰ پیکسل)
+  gameMapRoadColor?: string; // رنگ خط جاده
+  gameMapBlurLevel?: number; // میزان بلور پس‌زمینه (۰ تا ۱۰ پیکسل)
+  gameMapStageCoordinates?: Record<string, { x: number; y: number }>; // مختصات درگ اند دراپ هر مرحله (درصد ۰ تا ۱۰۰)
+  gameMapHeight?: number; // طول و ارتفاع بوم نقشه (۴۰۰ تا ۱۵۰۰ پیکسل)
+  gameMapRoadWidthScale?: number; // مقیاس عرضی جاده
+  gameMapConnectStagesWithRoad?: boolean; // اتصال خودکار خط جاده از روی مراحل درگ شده
 }
 
 

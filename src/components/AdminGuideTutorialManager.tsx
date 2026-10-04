@@ -163,7 +163,7 @@ export default function AdminGuideTutorialManager({
     if (setGuideConfig) {
       setGuideConfig(formConfig);
     }
-    triggerAlert('تمامی تغییرات متن‌ها و دیالوگ‌های راهنما در دیتابیس Supabase ذخیره گردید.');
+    triggerAlert('تمامی تغییرات متن‌ها و دیالوگ‌های راهنما در پایگاه داده ابری ذخیره گردید.');
   };
 
   return (
@@ -179,7 +179,7 @@ export default function AdminGuideTutorialManager({
             <h2 className="text-base sm:text-lg font-black text-white flex items-center gap-2">
               <span>مدیریت متن‌ها و گام‌های راهنمای تعاملی</span>
               <span className="text-[10px] bg-amber-500/20 text-amber-300 border border-amber-500/40 px-2.5 py-0.5 rounded-full font-bold">
-                همگام با Supabase
+                همگام با سرور ابری
               </span>
             </h2>
             <p className="text-xs text-slate-400 mt-1">
@@ -401,7 +401,7 @@ export default function AdminGuideTutorialManager({
           className="px-6 py-3 rounded-2xl bg-gradient-to-r from-emerald-500 via-teal-500 to-emerald-600 hover:brightness-110 text-slate-950 font-black text-xs sm:text-sm shadow-[0_0_20px_rgba(16,185,129,0.3)] flex items-center gap-2 transition active:scale-95 cursor-pointer"
         >
           <Check size={18} />
-          <span>ذخیره و انتشار تغییرات راهنما در دیتابیس Supabase</span>
+          <span>ذخیره و انتشار تغییرات راهنما در پایگاه داده مرکزی</span>
         </button>
       </div>
 

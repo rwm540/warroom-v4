@@ -1,5 +1,5 @@
 import React, { useState, useRef, useCallback } from 'react';
-import { Play } from 'lucide-react';
+import { Play, Heart } from 'lucide-react';
 
 const DEFAULT_TACTICAL_VIDEO = '/videowarroom.mp4';
 
@@ -14,6 +14,7 @@ interface TacticalVideoPlayerProps {
   onPlay?: () => void;
   onPause?: () => void;
   onEnded?: () => void;
+  onDoubleTap?: () => void;
   aspectRatioClass?: string;
 }
 
@@ -28,9 +29,12 @@ export default function TacticalVideoPlayer({
   onPlay,
   onPause,
   onEnded,
+  onDoubleTap,
   aspectRatioClass = 'aspect-video'
 }: TacticalVideoPlayerProps) {
   const videoRef = useRef<HTMLVideoElement | null>(null);
+  const clickTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [doubleTapHeart, setDoubleTapHeart] = useState<boolean>(false);
 
   const [isPlaying, setIsPlaying] = useState<boolean>(false);
   const [hasStarted, setHasStarted] = useState<boolean>(false);
@@ -93,6 +97,30 @@ export default function TacticalVideoPlayer({
     }
   }, [onPlay, onPause]);
 
+  // Handle Single Click (Toggle Play) vs Double Click (Like without pausing/muting)
+  const handleClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+
+    if (clickTimeoutRef.current) {
+      // 💖 Double Click / Tap detected!
+      clearTimeout(clickTimeoutRef.current);
+      clickTimeoutRef.current = null;
+
+      if (onDoubleTap) {
+        onDoubleTap();
+      }
+      setDoubleTapHeart(true);
+      setTimeout(() => setDoubleTapHeart(false), 900);
+      return;
+    }
+
+    // Single Click detected -> wait to see if second click occurs
+    clickTimeoutRef.current = setTimeout(() => {
+      clickTimeoutRef.current = null;
+      togglePlay();
+    }, 260);
+  };
+
   const handleVideoEnded = () => {
     setIsPlaying(false);
     onEnded?.();
@@ -101,7 +129,7 @@ export default function TacticalVideoPlayer({
   return (
     <div
       onContextMenu={(e) => e.preventDefault()}
-      onClick={togglePlay}
+      onClick={handleClick}
       className={`relative w-full ${aspectRatioClass} bg-slate-950 rounded-2xl overflow-hidden group select-none cursor-pointer border border-slate-800 shadow-xl ${className}`}
     >
       {/* HTML5 Video Element with strict security restrictions (NO download, NO controls, NO PiP) */}
@@ -129,6 +157,13 @@ export default function TacticalVideoPlayer({
         onContextMenu={(e) => e.preventDefault()}
         className={`w-full h-full object-cover transition-opacity duration-300 ${videoClassName}`}
       />
+
+      {/* Floating Animated Heart on Double Click / Double Tap */}
+      {doubleTapHeart && (
+        <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-40">
+          <Heart size={84} className="fill-rose-500 text-rose-500 animate-bounce drop-shadow-[0_0_40px_rgba(244,63,94,0.95)]" />
+        </div>
+      )}
 
       {/* Central Big Tactical Play Button (When Video is Paused / Stopped) */}
       {!isPlaying && (

@@ -438,6 +438,11 @@ export default function VitrinView({
                     src={post.videoSourceUrl || 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4'} 
                     poster={post.mediaUrl}
                     autoPlay
+                    onDoubleTap={() => {
+                      toggleLike(post.id, true);
+                      setHeartAnimId(post.id);
+                      setTimeout(() => setHeartAnimId(null), 800);
+                    }}
                     aspectRatioClass="w-full h-full"
                     className="w-full h-full rounded-none border-0"
                   />
@@ -812,6 +817,11 @@ export default function VitrinView({
                 <TacticalVideoPlayer 
                   src={selectedPost.videoSourceUrl || 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4'} 
                   poster={selectedPost.mediaUrl}
+                  onDoubleTap={() => {
+                    toggleLike(selectedPost.id, true);
+                    setHeartAnimId(selectedPost.id);
+                    setTimeout(() => setHeartAnimId(null), 800);
+                  }}
                   aspectRatioClass="w-full h-full"
                   className="w-full h-full rounded-none border-0"
                 />

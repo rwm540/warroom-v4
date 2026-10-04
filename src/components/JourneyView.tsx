@@ -342,9 +342,9 @@ export default function JourneyView({
   // Dynamic calculations for map height & S-curve road path
   const stageCount = activeStages.length;
   const stageGapY = stageCount <= 7 ? 75 : 85;
-  const mapCanvasHeight = stageCount <= 7 
+  const mapCanvasHeight = siteSettings?.gameMapHeight || (stageCount <= 7 
     ? Math.max(480, stageCount * stageGapY + 50)
-    : stageCount * stageGapY + 60;
+    : stageCount * stageGapY + 60);
 
   const checkMapScroll = React.useCallback(() => {
     const el = mapScrollContainerRef.current;
@@ -374,13 +374,49 @@ export default function JourneyView({
     };
   }, [stageCount, checkMapScroll]);
 
+  // 📍 مختصات درگ‌شده اختصاصی مراحل از تنظیمات مدیریت
+  const customStageCoords = siteSettings?.gameMapStageCoordinates || {};
+  const hasCustomCoordinates = Object.keys(customStageCoords).length > 0;
+
   const roadPathD = React.useMemo(() => {
     if (stageCount <= 0) return '';
-    if (stageCount === 1) return `M 200 40 L 200 ${mapCanvasHeight - 40}`;
+    const offsetX = siteSettings?.gameMapRoadOffsetX || 0;
+
+    // ۱. در صورت وجود مختصات درگ اند دراپ، اتصال مستقیم و نرم بین نقاط درگ شده
+    if (hasCustomCoordinates && siteSettings?.gameMapConnectStagesWithRoad !== false) {
+      const sorted = [...activeStages].sort((a, b) => {
+        const ya = customStageCoords[a.id]?.y ?? (a.mapYPercent ?? 50);
+        const yb = customStageCoords[b.id]?.y ?? (b.mapYPercent ?? 50);
+        return ya - yb;
+      });
+
+      const pts = sorted.map(st => {
+        const c = customStageCoords[st.id] || { x: st.mapXPercent ?? 50, y: st.mapYPercent ?? 50 };
+        return {
+          x: (c.x / 100) * 400 + offsetX,
+          y: (c.y / 100) * mapCanvasHeight
+        };
+      });
+
+      if (pts.length === 1) return `M ${pts[0].x} 40 L ${pts[0].x} ${mapCanvasHeight - 40}`;
+
+      let d = `M ${pts[0].x} ${pts[0].y}`;
+      for (let i = 1; i < pts.length; i++) {
+        const p0 = pts[i - 1];
+        const p1 = pts[i];
+        const midY = (p0.y + p1.y) / 2;
+        d += ` C ${p0.x} ${midY}, ${p1.x} ${midY}, ${p1.x} ${p1.y}`;
+      }
+      return d;
+    }
+
+    // ۲. فرمول استاندارد انحنای S-Curve در صورت عدم چیدمان دستی
+    if (stageCount === 1) return `M ${200 + offsetX} 40 L ${200 + offsetX} ${mapCanvasHeight - 40}`;
+    const spreadX = siteSettings?.gameMapStagesSpreadX !== undefined ? siteSettings.gameMapStagesSpreadX : 70;
 
     const points = Array.from({ length: stageCount }, (_, i) => {
       const y = 45 + i * stageGapY;
-      const x = i === 0 ? 200 : i % 2 === 1 ? 120 : 280;
+      const x = (i === 0 ? 200 : i % 2 === 1 ? (200 - spreadX) : (200 + spreadX)) + offsetX;
       return { x, y };
     });
 
@@ -392,7 +428,7 @@ export default function JourneyView({
       d += ` C ${prev.x} ${midY}, ${curr.x} ${midY}, ${curr.x} ${curr.y}`;
     }
     return d;
-  }, [stageCount, stageGapY, mapCanvasHeight]);
+  }, [stageCount, stageGapY, mapCanvasHeight, activeStages, customStageCoords, hasCustomCoordinates, siteSettings?.gameMapRoadOffsetX, siteSettings?.gameMapStagesSpreadX, siteSettings?.gameMapConnectStagesWithRoad]);
 
   // رندر آیکون/بج تصویری مرحله (تصویر سفارشی ادمین یا بج تصویری استاندارد مرحله)
   const renderStageIcon = (iconName: string, status: string, customIconUrl?: string) => {
@@ -655,65 +691,18 @@ export default function JourneyView({
         )}
 
         {/* ========================================================================= */}
-        {/* ⏰ OFFICIAL COMPETITION COUNTDOWN TIMER BANNER (ABOVE THE MAP) */}
+        {/* ⏰ MINIMALIST TACTICAL COUNTDOWN TIMER (فقط دکمه‌های تایمر بدون بردر گنده و بدون توضیحات) */}
         {/* ========================================================================= */}
         {siteSettings?.showCountdownTimer !== false && (
-          <div className="w-full max-w-md mx-auto my-3">
-            <div className={`p-4 sm:p-5 rounded-3xl border shadow-xl relative overflow-hidden transition-all duration-300 ${
-              isGirls
-                ? 'bg-gradient-to-b from-[#1c0824]/90 via-[#0d0312]/95 to-[#06010a] border-fuchsia-500/40 shadow-[0_0_35px_rgba(217,70,239,0.2)]'
-                : 'bg-gradient-to-b from-[#091838]/90 via-[#050e24]/95 to-[#020712] border-cyan-500/40 shadow-[0_0_35px_rgba(6,182,212,0.2)]'
-            }`}>
-              {/* Header Status Badge */}
-              <div className="flex items-center justify-between pb-3 border-b border-slate-800/80 mb-3">
-                <div className="flex items-center gap-2">
-                  <div className={`w-8 h-8 rounded-xl flex items-center justify-center border ${
-                    isGameLockedByTimer
-                      ? 'bg-amber-500/20 text-amber-300 border-amber-500/40 animate-pulse'
-                      : 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40'
-                  }`}>
-                    {isGameLockedByTimer ? <Lock size={16} /> : <CheckCircle2 size={16} />}
-                  </div>
-                  <div>
-                    <span className="text-xs font-black text-white block">
-                      {isGameLockedByTimer ? 'مراحل در وضعیت آماده‌باش و قفل' : 'عملیات آغاز شد • دسترسی به تمام مراحل باز است'}
-                    </span>
-                    <span className="text-[10px] text-slate-400 block">
-                      {isGameLockedByTimer ? 'زمان‌سنج آغاز رسمی عملیات اتاق جنگ' : 'تمام چالش‌ها و مراحل مسابقه بازگشایی گردید'}
-                    </span>
-                  </div>
-                </div>
-
-                <span className={`text-[10px] font-black px-2.5 py-1 rounded-full border ${
-                  isGameLockedByTimer
-                    ? 'bg-amber-500/15 text-amber-300 border-amber-500/30'
-                    : 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30'
-                }`}>
-                  {isGameLockedByTimer ? '🔒 قفل موقت' : '🔓 بازگشایی شد'}
-                </span>
-              </div>
-
-              {/* Countdown Timer Display */}
-              <CountdownTimerCard
-                themeMode={isGirls ? 'girls' : 'boys'}
-                countdownTitle={siteSettings?.countdownTitle || 'زمان باقیمانده تا آغاز عملیات و بازگشایی مراحل:'}
-                countdownString={siteSettings?.heroCountdown}
-                targetDate={siteSettings?.countdownTargetDate}
-                countdownStyle={siteSettings?.countdownStyle || 'tactical'}
-                removeBorder={true}
-                onExpire={(expired) => setIsTimerExpired(expired)}
-              />
-
-              {/* Locked Warning Note */}
-              {isGameLockedByTimer && (
-                <div className="mt-3 p-2.5 rounded-2xl bg-amber-950/40 border border-amber-500/30 text-amber-200/90 text-[11px] leading-relaxed flex items-center gap-2">
-                  <ShieldAlert size={16} className="text-amber-400 shrink-0" />
-                  <span>
-                    ورود به مراحل بازی موقتاً مسدود است؛ به محض پایان زمان‌سنج، تمامی مراحل به صورت همزمان بازگشایی خواهند شد.
-                  </span>
-                </div>
-              )}
-            </div>
+          <div className="w-full max-w-md mx-auto my-1.5 px-2">
+            <CountdownTimerCard
+              themeMode={isGirls ? 'girls' : 'boys'}
+              countdownString={siteSettings?.heroCountdown}
+              targetDate={siteSettings?.countdownTargetDate}
+              countdownStyle="minimal"
+              removeBorder={true}
+              onExpire={(expired) => setIsTimerExpired(expired)}
+            />
           </div>
         )}
 
@@ -724,14 +713,22 @@ export default function JourneyView({
           isGirls ? 'boys-card-surface border-fuchsia-500/50' : 'boys-card-surface border-amber-500/50'
         }`}>
           
-          {/* 1. Static Fixed Tactical Map Background */}
+          {/* 1. Static Fixed Tactical Map Background (یا تصویر اختصاصی آپلودشده در پنل ادمین) */}
           {showMapBackground && (
             <div
-              className="absolute inset-0 bg-cover bg-center pointer-events-none opacity-100 z-0"
-              style={{ backgroundImage: `url(${tacticalMapBg})` }}
+              className="absolute inset-0 bg-center pointer-events-none transition-all duration-300 z-0"
+              style={{
+                backgroundImage: `url(${siteSettings?.gameMapCustomBgUrl || tacticalMapBg})`,
+                backgroundSize: siteSettings?.gameMapBgMode || 'cover',
+                backgroundRepeat: siteSettings?.gameMapBgMode === 'repeat' ? 'repeat' : 'no-repeat',
+                opacity: siteSettings?.gameMapBgOpacity !== undefined ? (siteSettings.gameMapBgOpacity / 100) : 1,
+                filter: siteSettings?.gameMapBlurLevel ? `blur(${siteSettings.gameMapBlurLevel}px)` : undefined,
+              }}
             >
               <div className="absolute inset-0 bg-slate-950/20 backdrop-blur-[1px]" />
-              <div className="absolute inset-0 ring-2 ring-inset ring-amber-400/40 rounded-3xl pointer-events-none" />
+              <div className={`absolute inset-0 ring-2 ring-inset rounded-3xl pointer-events-none ${
+                isGirls ? 'ring-fuchsia-400/40' : 'ring-amber-400/40'
+              }`} />
             </div>
           )}
 
@@ -788,11 +785,14 @@ export default function JourneyView({
               style={{ minHeight: `${mapCanvasHeight}px` }}
             >
               {/* SVG Winding Road Path with Textured Glowing Curves */}
-              {stageCount > 0 && (
+              {stageCount > 0 && siteSettings?.gameMapShowRoadOverlay !== false && (siteSettings?.gameMapRoadOpacity === undefined || siteSettings.gameMapRoadOpacity > 0) && (
                 <svg 
-                  className="absolute inset-0 w-full h-full pointer-events-none" 
+                  className="absolute inset-0 w-full h-full pointer-events-none transition-opacity duration-300" 
                   viewBox={`0 0 400 ${mapCanvasHeight}`} 
                   preserveAspectRatio="none"
+                  style={{
+                    opacity: siteSettings?.gameMapRoadOpacity !== undefined ? (siteSettings.gameMapRoadOpacity / 100) : 0.85
+                  }}
                 >
                   <defs>
                     <linearGradient id="roadGlow" x1="0%" y1="0%" x2="0%" y2="100%">
@@ -818,7 +818,7 @@ export default function JourneyView({
                     d={roadPathD}
                     fill="none"
                     stroke="url(#roadGlow)"
-                    strokeWidth="70"
+                    strokeWidth={siteSettings?.gameMapRoadWidth ? siteSettings.gameMapRoadWidth * 2 : 70}
                     strokeLinecap="round"
                     filter="url(#glowFilter)"
                     opacity="0.35"
@@ -829,7 +829,7 @@ export default function JourneyView({
                     d={roadPathD}
                     fill="none"
                     stroke="#172236"
-                    strokeWidth="50"
+                    strokeWidth={siteSettings?.gameMapRoadWidth ? siteSettings.gameMapRoadWidth * 1.5 : 50}
                     strokeLinecap="round"
                   />
 
@@ -838,45 +838,112 @@ export default function JourneyView({
                     d={roadPathD}
                     fill="none"
                     stroke="url(#roadBorder)"
-                    strokeWidth="52"
+                    strokeWidth={siteSettings?.gameMapRoadWidth ? siteSettings.gameMapRoadWidth * 1.6 : 52}
                     strokeLinecap="round"
                     opacity="0.3"
                   />
 
-                  {/* Center Dashed Highway Line */}
+                  {/* Center Dashed Highway Line (نوار زرد رنگ جاده) */}
                   <path
                     d={roadPathD}
                     fill="none"
-                    stroke="#facc15"
-                    strokeWidth="2"
+                    stroke={siteSettings?.gameMapRoadColor || "#facc15"}
+                    strokeWidth={siteSettings?.gameMapRoadWidth ? Math.max(3, siteSettings.gameMapRoadWidth * 0.15) : 3}
+                    strokeLinecap="round"
                     strokeDasharray="7 9"
-                    opacity="0.85"
+                    opacity="0.95"
                   />
                 </svg>
               )}
 
               {/* Stages Embedded Along the S-Curve Road */}
               {stageCount === 0 ? (
-                <div className="flex flex-col items-center justify-center my-auto py-16 px-6 text-center text-slate-300 space-y-3">
-                  <Compass size={44} className="text-amber-400 animate-pulse" />
-                  <h3 className="font-black text-sm text-white">هیچ مرحله‌ای در نقشه ثبت نشده است</h3>
-                  <p className="text-xs text-slate-400 max-w-xs leading-relaxed">
-                    مدیر سامانه می‌تواند از بخش مدیریت مراحل جدید اضافه کند.
-                  </p>
+                <div className="flex flex-col items-center justify-center my-auto py-12 px-6 text-center z-20 space-y-4">
+                  {/* Animated Crystal & Radar Halo Centerpiece */}
+                  <div className="relative flex items-center justify-center my-3">
+                    {/* Rotating Outer Crystal Glow Ring */}
+                    <motion.div
+                      animate={{ rotate: 360 }}
+                      transition={{ repeat: Infinity, duration: 16, ease: "linear" }}
+                      className="absolute -inset-6 rounded-full bg-gradient-to-tr from-cyan-500/30 via-emerald-400/20 to-amber-500/30 blur-xl opacity-75"
+                    />
+
+                    {/* Outer Crystal Faceted Frame */}
+                    <motion.div
+                      animate={{ rotate: [0, 90, 180, 270, 360] }}
+                      transition={{ repeat: Infinity, duration: 24, ease: "linear" }}
+                      className={`w-32 h-32 sm:w-36 sm:h-36 rounded-3xl border-2 rotate-45 flex items-center justify-center backdrop-blur-md transition-all ${
+                        isGirls 
+                          ? 'border-fuchsia-400/40 bg-fuchsia-950/25 shadow-[0_0_40px_rgba(217,70,239,0.35)]' 
+                          : 'border-cyan-400/40 bg-cyan-950/25 shadow-[0_0_40px_rgba(6,182,212,0.35)]'
+                      }`}
+                    />
+
+                    {/* Secondary Rotating Crystal Border */}
+                    <motion.div
+                      animate={{ rotate: -360 }}
+                      transition={{ repeat: Infinity, duration: 20, ease: "linear" }}
+                      className="absolute w-28 h-28 sm:w-32 sm:h-32 rounded-2xl border border-amber-400/50 -rotate-12 pointer-events-none"
+                    />
+
+                    {/* Central Floating Logo & Crystal Core */}
+                    <motion.div
+                      animate={{ y: [0, -8, 0], scale: [1, 1.03, 1] }}
+                      transition={{ repeat: Infinity, duration: 3.2, ease: "easeInOut" }}
+                      className="absolute w-24 h-24 sm:w-28 sm:h-28 rounded-2xl flex items-center justify-center p-3 z-10"
+                    >
+                      {siteSettings?.customLogoUrl ? (
+                        <img 
+                          src={siteSettings.customLogoUrl} 
+                          alt="War Room Logo" 
+                          className="w-full h-full object-contain filter drop-shadow-[0_0_18px_rgba(6,182,212,0.7)]"
+                        />
+                      ) : (
+                        <div className="w-full h-full rounded-2xl bg-gradient-to-br from-amber-400 to-amber-600 flex items-center justify-center text-slate-950 font-black text-2xl shadow-xl">
+                          اتاق جنگ
+                        </div>
+                      )}
+                    </motion.div>
+
+                    {/* Sparkle Badges */}
+                    <motion.div
+                      animate={{ scale: [0.8, 1.2, 0.8], opacity: [0.4, 1, 0.4] }}
+                      transition={{ repeat: Infinity, duration: 2, ease: "easeInOut" }}
+                      className="absolute -top-2 -right-2 w-6 h-6 rounded-full bg-cyan-400/30 border border-cyan-300 text-cyan-200 flex items-center justify-center shadow-lg"
+                    >
+                      <Sparkles size={12} />
+                    </motion.div>
+                  </div>
+
+                  {/* Tactical Status Badges */}
+                  <div className="space-y-1.5 pt-2">
+                    <h3 className="font-black text-xs sm:text-sm text-white tracking-wide flex items-center justify-center gap-1.5">
+                      <span className="w-2 h-2 rounded-full bg-cyan-400 animate-ping" />
+                      <span>{siteSettings?.siteName || 'ستاد قرارگاه اتاق جنگ'}</span>
+                    </h3>
+                    <p className="text-[11px] text-slate-300/90 font-medium max-w-xs leading-relaxed bg-slate-950/60 border border-slate-800/80 px-3 py-1 rounded-xl backdrop-blur-sm">
+                      مراحل عملیاتی در حال طراحی و بارگذاری توسط فرماندهی می‌باشد
+                    </p>
+                  </div>
                 </div>
               ) : (
-                <div className="relative w-full h-full flex flex-col justify-between items-center py-2 z-10">
+                <div className="relative w-full h-full min-h-[inherit] flex flex-col justify-between items-center py-2 z-10">
                   {activeStages.map((stage, idx) => {
                     const isCompleted = stage.status === 'completed';
                     const isInProgress = stage.status === 'in_progress';
                     const isLocked = stage.status === 'locked';
 
-                    // Balanced horizontal offsets matching the S-curves
-                    const xOffset = idx === 0 
-                      ? 'translate-x-0' 
+                    // 📍 بررسی موقعیت درگ‌شده اختصاصی این مرحله
+                    const customPos = customStageCoords[stage.id] || (stage.mapXPercent !== undefined && stage.mapYPercent !== undefined ? { x: stage.mapXPercent, y: stage.mapYPercent } : null);
+
+                    // Dynamic horizontal offset fallback if no custom drag coords
+                    const spreadX = siteSettings?.gameMapStagesSpreadX !== undefined ? siteSettings.gameMapStagesSpreadX : 70;
+                    const roadOffsetX = siteSettings?.gameMapRoadOffsetX || 0;
+                    const stageOffsetPx = idx === 0 
+                      ? roadOffsetX 
                       : idx % 2 === 1 
-                      ? '-translate-x-16 sm:-translate-x-20' 
-                      : 'translate-x-14 sm:translate-x-18';
+                      ? (-spreadX + roadOffsetX) 
+                      : (spreadX + roadOffsetX);
 
                     return (
                       <React.Fragment key={stage.id}>
@@ -895,7 +962,16 @@ export default function JourneyView({
                           }}
                           whileHover={{ scale: 1.12, zIndex: 40 }}
                           whileTap={{ scale: 0.94 }}
-                          className={`relative flex items-center justify-center ${xOffset} my-1`}
+                          style={customPos ? {
+                            position: 'absolute',
+                            left: `${customPos.x}%`,
+                            top: `${customPos.y}%`,
+                            transform: 'translate(-50%, -50%)',
+                            zIndex: 30
+                          } : { 
+                            transform: `translateX(${stageOffsetPx}px)` 
+                          }}
+                          className={`relative flex items-center justify-center my-1 transition-transform ${customPos ? '' : 'self-center'}`}
                         >
                           {/* Stage Interactive Node Button */}
                           <div 

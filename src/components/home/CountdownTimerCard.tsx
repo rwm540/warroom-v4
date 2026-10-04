@@ -7,7 +7,7 @@ export interface CountdownTimerCardProps {
   countdownTitle?: string;
   targetDate?: string;
   countdownString?: string;
-  countdownStyle?: 'tactical' | 'compact' | 'neon';
+  countdownStyle?: 'tactical' | 'compact' | 'neon' | 'minimal';
   className?: string;
   removeBorder?: boolean;
   onExpire?: (isExpired: boolean) => void;
@@ -109,6 +109,33 @@ export const CountdownTimerCard: React.FC<CountdownTimerCardProps> = ({
 
   const time = getTimeBreakdown(totalSecondsLeft);
   const pad = (n: number) => n.toString().padStart(2, '0');
+
+  // =========================================================================
+  // STYLE 0: MINIMAL BUTTONS ONLY (فقط دکمه‌ها و بافت عددی بدون بردر و متن اضافه)
+  // =========================================================================
+  if (countdownStyle === 'minimal') {
+    return (
+      <div className={`w-full flex items-center justify-center p-0.5 bg-transparent ${className}`} dir="rtl">
+        <div className="grid grid-cols-4 gap-2 sm:gap-2.5 w-full max-w-sm mx-auto dir-ltr">
+          {[
+            { label: 'روز', val: time.days, color: isGirls ? 'bg-fuchsia-950/80 text-fuchsia-300 border-fuchsia-500/35 shadow-[0_0_15px_rgba(217,70,239,0.2)]' : 'bg-[#0a1630]/90 text-cyan-300 border-cyan-500/35 shadow-[0_0_15px_rgba(6,182,212,0.2)]' },
+            { label: 'ساعت', val: time.hours, color: isGirls ? 'bg-fuchsia-950/80 text-fuchsia-300 border-fuchsia-500/35 shadow-[0_0_15px_rgba(217,70,239,0.2)]' : 'bg-[#0a1630]/90 text-cyan-300 border-cyan-500/35 shadow-[0_0_15px_rgba(6,182,212,0.2)]' },
+            { label: 'دقیقه', val: time.minutes, color: isGirls ? 'bg-purple-950/80 text-purple-300 border-purple-500/35 shadow-[0_0_15px_rgba(168,85,247,0.2)]' : 'bg-[#071d3a]/90 text-blue-300 border-blue-500/35 shadow-[0_0_15px_rgba(59,130,246,0.2)]' },
+            { label: 'ثانیه', val: time.seconds, color: isGirls ? 'bg-pink-950/90 text-pink-200 border-pink-500/50 animate-pulse shadow-[0_0_20px_rgba(244,63,94,0.35)]' : 'bg-[#1e1503]/90 text-amber-300 border-amber-500/50 animate-pulse shadow-[0_0_20px_rgba(245,158,11,0.35)]' },
+          ].map((item, idx) => (
+            <div key={idx} className="flex flex-col items-center">
+              <div className={`w-full py-1.5 sm:py-2 rounded-2xl flex items-center justify-center border backdrop-blur-md transition-transform hover:scale-105 ${item.color}`}>
+                <span className="text-base sm:text-lg md:text-xl font-black font-mono tracking-wider">
+                  {formatToPersianDigits(pad(item.val))}
+                </span>
+              </div>
+              <span className="text-[9px] sm:text-[10px] font-bold text-slate-300 mt-1">{item.label}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
 
   // =========================================================================
   // STYLE 2: COMPACT SLIM STRIP (نوار فشرده مینیمال - کاملاً بدون پس‌زمینه و بردر)

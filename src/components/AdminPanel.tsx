@@ -87,6 +87,7 @@ import { PasswordResetRequest } from '../types';
 import { showInternalToast, confirmInternal } from '../lib/appDialog';
 import AdminSoundtrackManager from './AdminSoundtrackManager';
 import AdminDailyChallengeManager from './AdminDailyChallengeManager';
+import { AdminGameMapManager } from './admin/AdminGameMapManager';
 import PasswordResetsAdmin from './PasswordResetsAdmin';
 import AdminPaymentsPanel from './AdminPaymentsPanel';
 import AdminGuideTutorialManager, { GuideTutorialConfig } from './AdminGuideTutorialManager';
@@ -4306,6 +4307,8 @@ export default function AdminPanel({
           setSettings={setPaymentSettings}
           transactions={paymentTransactions}
           setTransactions={setPaymentTransactions}
+          users={users}
+          setUsers={setUsers}
           triggerAlert={triggerAlert}
         />
       )}
@@ -6036,7 +6039,16 @@ export default function AdminPanel({
             />
           </div>
 
-          {/* Section 2: Stages Management List */}
+          {/* Section 2: Game Map Image Editor & Custom Background */}
+          <AdminGameMapManager
+            siteSettings={siteSettings}
+            setSiteSettings={setSiteSettings}
+            stages={stages}
+            setStages={setStages}
+            triggerAlert={triggerAlert}
+          />
+
+          {/* Section 3: Stages Management List */}
           <div className="bg-[#080d21] border border-slate-800 rounded-3xl p-5 sm:p-6 space-y-4 shadow-xl">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-800/80 pb-3">
               <div>

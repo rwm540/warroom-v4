@@ -278,6 +278,19 @@ export const VisualSiteContentStudio: React.FC<VisualSiteContentStudioProps> = (
     }
   };
 
+  // Handle delete section from simulator preview & page order
+  const handleDeleteSection = (index: number) => {
+    const targetKey = currentSectionsOrder[index];
+    const newOrder = currentSectionsOrder.filter((_, i) => i !== index);
+    setForm(prev => ({
+      ...prev,
+      homeSectionsOrder: newOrder
+    }));
+    if (triggerAlert) {
+      triggerAlert(`بخش «${SECTION_METAS[targetKey]?.name || targetKey}» از صفحه حذف شد.`);
+    }
+  };
+
   // Helper to clear a field
   const handleClearField = (field: keyof SiteSettings) => {
     setForm(prev => ({ ...prev, [field]: '' }));
@@ -3359,6 +3372,16 @@ export const VisualSiteContentStudio: React.FC<VisualSiteContentStudioProps> = (
                         >
                           <ArrowDown size={11} />
                           <span>به پایین</span>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteSection(index)}
+                          className="px-2 py-1 rounded-lg border text-[10px] font-bold transition flex items-center gap-1 bg-rose-950/80 hover:bg-rose-900 text-rose-300 border-rose-500/60 cursor-pointer active:scale-95"
+                          title="حذف این بخش از صفحه اصلی"
+                        >
+                          <Trash2 size={11} />
+                          <span>حذف</span>
                         </button>
                       </div>
                     </div>

@@ -781,8 +781,8 @@ export default function JourneyView({
             }`}
           >
             <div 
-              className="relative w-full mx-auto flex flex-col justify-between items-center"
-              style={{ minHeight: `${mapCanvasHeight}px` }}
+              className="relative w-full mx-auto"
+              style={{ height: `${mapCanvasHeight}px`, minHeight: `${mapCanvasHeight}px` }}
             >
               {/* SVG Winding Road Path with Textured Glowing Curves */}
               {stageCount > 0 && siteSettings?.gameMapShowRoadOverlay !== false && (siteSettings?.gameMapRoadOpacity === undefined || siteSettings.gameMapRoadOpacity > 0) && (
@@ -927,51 +927,37 @@ export default function JourneyView({
                   </div>
                 </div>
               ) : (
-                <div className="relative w-full h-full min-h-[inherit] flex flex-col justify-between items-center py-2 z-10">
+                <div className="absolute inset-0 z-10 pointer-events-none">
                   {activeStages.map((stage, idx) => {
                     const isCompleted = stage.status === 'completed';
                     const isInProgress = stage.status === 'in_progress';
                     const isLocked = stage.status === 'locked';
 
-                    // 📍 بررسی موقعیت درگ‌شده اختصاصی این مرحله
-                    const customPos = customStageCoords[stage.id] || (stage.mapXPercent !== undefined && stage.mapYPercent !== undefined ? { x: stage.mapXPercent, y: stage.mapYPercent } : null);
+                    // 📍 مختصات درگ‌شده یا پیش‌فرض درصدی مرحله
+                    const count = activeStages.length || 4;
+                    const defaultY = count === 1 ? 50 : Math.round(12 + (idx / (count - 1)) * 76);
+                    const defaultX = idx === 0 ? 50 : idx % 2 === 1 ? 30 : 70;
 
-                    // Dynamic horizontal offset fallback if no custom drag coords
-                    const spreadX = siteSettings?.gameMapStagesSpreadX !== undefined ? siteSettings.gameMapStagesSpreadX : 70;
-                    const roadOffsetX = siteSettings?.gameMapRoadOffsetX || 0;
-                    const stageOffsetPx = idx === 0 
-                      ? roadOffsetX 
-                      : idx % 2 === 1 
-                      ? (-spreadX + roadOffsetX) 
-                      : (spreadX + roadOffsetX);
+                    const coord = customStageCoords[stage.id] || 
+                                  (stage.mapXPercent !== undefined && stage.mapYPercent !== undefined ? { x: stage.mapXPercent, y: stage.mapYPercent } : { x: defaultX, y: defaultY });
 
                     return (
                       <React.Fragment key={stage.id}>
                         <motion.div
                           ref={isInProgress ? activeStageRef : undefined}
-                          initial={{ scale: 0.7, opacity: 0, y: 20 }}
-                          animate={{ 
-                            scale: 1, 
-                            opacity: 1, 
-                            y: isInProgress ? [0, -6, 0] : [0, -3, 0] 
-                          }}
-                          transition={{ 
-                            scale: { delay: idx * 0.04, duration: 0.35 },
-                            opacity: { delay: idx * 0.04, duration: 0.35 },
-                            y: { repeat: Infinity, duration: isInProgress ? 2 : 3.5, ease: "easeInOut", delay: idx * 0.15 }
-                          }}
+                          initial={{ scale: 0.7, opacity: 0 }}
+                          animate={{ scale: 1, opacity: 1 }}
+                          transition={{ delay: idx * 0.04, duration: 0.35 }}
                           whileHover={{ scale: 1.12, zIndex: 40 }}
                           whileTap={{ scale: 0.94 }}
-                          style={customPos ? {
+                          style={{
                             position: 'absolute',
-                            left: `${customPos.x}%`,
-                            top: `${customPos.y}%`,
+                            left: `${coord.x}%`,
+                            top: `${coord.y}%`,
                             transform: 'translate(-50%, -50%)',
                             zIndex: 30
-                          } : { 
-                            transform: `translateX(${stageOffsetPx}px)` 
                           }}
-                          className={`relative flex items-center justify-center my-1 transition-transform ${customPos ? '' : 'self-center'}`}
+                          className="absolute pointer-events-auto transition-transform"
                         >
                           {/* Stage Interactive Node Button */}
                           <div 

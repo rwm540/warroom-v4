@@ -45,8 +45,8 @@ export default function RadarLoading({
 
     const updateRadar = (now: number) => {
       const elapsed = (now - start) / 1000;
-      // 360 degrees rotation every 2.8 seconds (clockwise)
-      const deg = (elapsed * (360 / 2.8)) % 360;
+      // 360 degrees rotation every 2.0 seconds (clockwise) to match CSS sweeper speed
+      const deg = (elapsed * (360 / 2.0)) % 360;
       setCurrentAngle(deg);
       animationFrameId = requestAnimationFrame(updateRadar);
     };
@@ -122,6 +122,22 @@ export default function RadarLoading({
           className="overflow-visible drop-shadow-[0_0_24px_rgba(16,185,129,0.35)]"
         >
           <defs>
+            {/* Smooth continuous keyframe animation to prevent resets and jumps */}
+            <style>{`
+              @keyframes radar-sweep-spin {
+                from {
+                  transform: rotate(0deg);
+                }
+                to {
+                  transform: rotate(360deg);
+                }
+              }
+              .radar-sweeper-group {
+                transform-origin: ${cx}px ${cy}px;
+                animation: radar-sweep-spin 2s linear infinite;
+              }
+            `}</style>
+
             {/* Radar Sweep Gradient Cone */}
             <radialGradient id="radarSweepGradient" cx="50%" cy="50%" r="50%">
               <stop offset="0%" stopColor="#34d399" stopOpacity="0.8" />
@@ -264,7 +280,7 @@ export default function RadarLoading({
           })}
 
           {/* 6. Sweeping Radar Beam */}
-          <g transform={`rotate(${currentAngle}, ${cx}, ${cy})`}>
+          <g className="radar-sweeper-group">
             {/* Sweep Pie Wedge Arc */}
             <path
               d={`M ${cx} ${cy} L ${cx + scopeRadius * Math.cos((-45 * Math.PI) / 180)} ${

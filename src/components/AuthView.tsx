@@ -452,6 +452,11 @@ export default function AuthView({
       return;
     }
 
+    if (user.is_blocked) {
+      setLoginError('حساب کاربری شما مسدود (بلاک) شده است و امکان ورود ندارید.');
+      return;
+    }
+
     if (syntheticAdmin) {
       setUsers(prev => {
         const exists = prev.some(u => u.id === syntheticAdmin.id);

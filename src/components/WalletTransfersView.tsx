@@ -41,6 +41,51 @@ export default function WalletTransfersView({
   const [statusFilter, setStatusFilter] = useState<'all' | 'paid' | 'pending' | 'failed'>('all');
   const [selectedReceipt, setSelectedReceipt] = useState<PaymentTransaction | null>(null);
   const [copiedCode, setCopiedCode] = useState<string | null>(null);
+  const [cardPayerName, setCardPayerName] = useState('');
+  const [cardRefId, setCardRefId] = useState('');
+  const [cardReceiptFile, setCardReceiptFile] = useState('');
+  const [paymentMethod, setPaymentMethod] = useState<'zarinpal' | 'card'>('zarinpal');
+
+  // Load active gateways from local storage or fallback to paymentSettings
+  const activeGateways = useMemo(() => {
+    const saved = localStorage.getItem('warroom_payment_gateways');
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) return parsed.filter(g => g.enabled);
+      } catch (e) {
+        console.error(e);
+      }
+    }
+    if (paymentSettings?.enabled) {
+      return [{
+        id: 'gw_default',
+        name: 'درگاه پیش‌فرض زرین‌پال',
+        enabled: paymentSettings.enabled,
+        amount: paymentSettings.amount,
+        currency: paymentSettings.currency,
+        gateway: paymentSettings.gateway,
+        api_key: paymentSettings.api_key,
+        redirect_url: paymentSettings.redirect_url,
+        callback_url: paymentSettings.callback_url,
+        description: paymentSettings.description,
+        card_enabled: paymentSettings.card_enabled,
+        card_number: paymentSettings.card_number,
+        card_holder: paymentSettings.card_holder,
+        card_bank: paymentSettings.card_bank,
+        card_instructions: paymentSettings.card_instructions
+      }];
+    }
+    return [];
+  }, [paymentSettings]);
+
+  const [selectedGatewayId, setSelectedGatewayId] = useState<string>(() => {
+    return activeGateways[0]?.id || '';
+  });
+
+  const selectedGateway = useMemo(() => {
+    return activeGateways.find(g => g.id === selectedGatewayId) || activeGateways[0];
+  }, [activeGateways, selectedGatewayId]);
 
   // Filter payment receipts belonging to the current user (by user_id or national_code)
   const userReceipts = useMemo(() => {
@@ -242,7 +287,7 @@ export default function WalletTransfersView({
       </div>
 
       {/* Mandatory Payment Notice if not paid */}
-      {paymentSettings?.enabled && paymentSettings.amount > 0 && paidCount === 0 && (
+      {paymentSettings?.enabled && activeGateways.length > 0 && paidCount === 0 && (
         <div className="rounded-3xl border-2 border-amber-500/60 bg-gradient-to-r from-amber-950/80 via-slate-900 to-amber-950/60 p-6 shadow-[0_0_40px_rgba(245,158,11,0.25)] space-y-4">
           <div className="flex items-center gap-3">
             <div className="w-12 h-12 rounded-2xl bg-amber-500/20 border border-amber-500/40 text-amber-300 flex items-center justify-center shrink-0">
@@ -251,90 +296,241 @@ export default function WalletTransfersView({
             <div>
               <h3 className="text-base sm:text-lg font-black text-white">پرداخت هزینه ثبت‌نام الزامی است</h3>
               <p className="text-xs text-amber-200/80 mt-0.5">
-                برای ورود به پنل کاربری و استفاده از امکانات سامانه، پرداخت مبلغ ثبت‌نام الزامی می‌باشد.
+                برای ورود به پنل کاربری و استفاده از امکانات سامانه، پرداخت مبلغ ثبت‌نام الزامی می‌باشد. لطفاً یکی از روش‌های زیر را انتخاب کنید:
               </p>
             </div>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 bg-slate-950/80 border border-slate-800 rounded-2xl p-4">
-            <div>
-              <span className="text-[11px] text-slate-400 block">مبلغ قابل پرداخت:</span>
-              <div className="text-lg font-black text-amber-300 font-mono mt-0.5">
-                {formatToPersianDigits((paymentSettings.amount || 0).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ','))}
-                <span className="text-xs font-normal mr-1.5 text-amber-400/80">
-                  {paymentSettings.currency === 'IRT' ? 'تومان' : 'ریال'}
-                </span>
-              </div>
-            </div>
-            <div>
-              <span className="text-[11px] text-slate-400 block">شرح پرداخت:</span>
-              <p className="text-xs font-bold text-white mt-1">
-                {paymentSettings.description || 'ثبت‌نام در مسابقه بزرگ اتاق جنگ'}
-              </p>
-            </div>
-          </div>
-
-          <div className="flex flex-col sm:flex-row items-center gap-3 pt-2">
-            {paymentSettings.redirect_url ? (
-              <a
-                href={paymentSettings.redirect_url}
-                target="_blank"
-                rel="noreferrer"
-                onClick={() => {
-                  if (onAddTransaction) {
-                    onAddTransaction({
-                      id: 'tx_' + Date.now(),
-                      user_id: currentUser.id,
-                      national_code: currentUser.national_code,
-                      full_name: `${currentUser.first_name || ''} ${currentUser.last_name || ''}`.trim(),
-                      amount: paymentSettings.amount,
-                      currency: paymentSettings.currency,
-                      gateway: paymentSettings.gateway,
-                      status: 'paid',
-                      ref_id: 'REF_' + Math.floor(100000 + Math.random() * 900000),
-                      created_at: new Date().toISOString()
-                    });
-                  }
-                  triggerAlert('انتقال به درگاه پرداخت... پرداخت با موفقیت شبیه‌سازی و تأیید شد.');
-                  setTimeout(() => {
-                    onNavigate?.('Journey');
-                  }, 1500);
-                }}
-                className="w-full sm:flex-1 py-3 px-4 rounded-xl bg-gradient-to-r from-amber-500 to-yellow-500 hover:brightness-110 text-slate-950 font-black text-xs transition shadow-lg flex items-center justify-center gap-2 cursor-pointer"
-              >
-                <ExternalLink size={16} />
-                <span>انتقال به درگاه و پرداخت آنلاین</span>
-              </a>
-            ) : null}
-
+          {/* Dynamic Payment Gateways Selector Tabs */}
+          <div className="grid grid-cols-2 gap-2 p-1.5 rounded-2xl bg-slate-950/80 border border-slate-800">
             <button
               type="button"
-              onClick={() => {
-                if (onAddTransaction) {
-                  onAddTransaction({
-                    id: 'tx_' + Date.now(),
-                    user_id: currentUser.id,
-                    national_code: currentUser.national_code,
-                    full_name: `${currentUser.first_name || ''} ${currentUser.last_name || ''}`.trim(),
-                    amount: paymentSettings.amount,
-                    currency: paymentSettings.currency,
-                    gateway: paymentSettings.gateway,
-                    status: 'paid',
-                    ref_id: 'REF_' + Math.floor(100000 + Math.random() * 900000),
-                    created_at: new Date().toISOString()
-                  });
-                }
-                triggerAlert('پرداخت با موفقیت انجام شد! در حال انتقال به پنل کاربری...');
-                setTimeout(() => {
-                  onNavigate?.('Journey');
-                }, 1000);
-              }}
-              className="w-full sm:flex-1 py-3 px-4 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-600 hover:brightness-110 text-white font-black text-xs transition shadow-lg flex items-center justify-center gap-2 cursor-pointer"
+              onClick={() => setPaymentMethod('zarinpal')}
+              className={`py-3 rounded-xl text-xs font-black transition-all flex items-center justify-center gap-2 cursor-pointer border ${
+                paymentMethod === 'zarinpal'
+                  ? 'bg-amber-500 text-slate-950 border-amber-400 shadow-md'
+                  : 'bg-slate-900 text-slate-400 border-slate-800 hover:text-white hover:bg-slate-800/80'
+              }`}
             >
-              <CheckCircle2 size={16} />
-              <span>تایید و ثبت پرداخت موفق (بازگشت از درگاه)</span>
+              <CreditCard size={14} />
+              <span>پرداخت آنلاین زرین‌پال (آنی)</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setPaymentMethod('card')}
+              className={`py-3 rounded-xl text-xs font-black transition-all flex items-center justify-center gap-2 cursor-pointer border ${
+                paymentMethod === 'card'
+                  ? 'bg-amber-500 text-slate-950 border-amber-400 shadow-md'
+                  : 'bg-slate-900 text-slate-400 border-slate-800 hover:text-white hover:bg-slate-800/80'
+              }`}
+            >
+              <Building size={14} />
+              <span>انتقال کارت به کارت (آفلاین)</span>
             </button>
           </div>
+
+          {/* Selected Gateway Detail Panel */}
+          {selectedGateway && (
+            <div className="space-y-4 animate-fade-in">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 bg-slate-950/80 border border-slate-800 rounded-2xl p-4">
+                <div>
+                  <span className="text-[11px] text-slate-400 block">مبلغ قابل پرداخت:</span>
+                  <div className="text-lg font-black text-amber-300 font-mono mt-0.5">
+                    {formatToPersianDigits((selectedGateway.amount || 0).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ','))}
+                    <span className="text-xs font-normal mr-1.5 text-amber-400/80">
+                      {selectedGateway.currency === 'IRT' ? 'تومان' : 'ریال'}
+                    </span>
+                  </div>
+                </div>
+                <div>
+                  <span className="text-[11px] text-slate-400 block">شرح فاکتور پرداخت:</span>
+                  <p className="text-xs font-bold text-white mt-1">
+                    {selectedGateway.description || 'ثبت‌نام در مسابقه بزرگ اتاق جنگ'}
+                  </p>
+                </div>
+              </div>
+
+              {/* CARD-TO-CARD (OFFLINE) SUB-FORM */}
+              {paymentMethod === 'card' ? (
+                <div className="bg-slate-950/90 border border-slate-800 rounded-2xl p-4 sm:p-5 space-y-4">
+                  <span className="text-xs font-black text-amber-300 flex items-center gap-1.5">
+                    <CreditCard size={15} />
+                    <span>اطلاعات حساب جهت انتقال کارت به کارت</span>
+                  </span>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs bg-slate-900/60 p-3.5 rounded-xl border border-slate-800">
+                    <div className="space-y-1">
+                      <span className="text-[10px] text-slate-500">شماره کارت مقصد:</span>
+                      <div className="flex items-center gap-1.5">
+                        <span className="font-mono font-bold text-white tracking-wider text-xs">{selectedGateway.card_number || '-'}</span>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            navigator.clipboard?.writeText(selectedGateway.card_number || '');
+                            triggerAlert('شماره کارت مقصد کپی شد.');
+                          }}
+                          className="text-cyan-400 hover:text-white transition p-1 hover:bg-slate-800 rounded-lg"
+                        >
+                          <Copy size={12} />
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="space-y-1">
+                      <span className="text-[10px] text-slate-500">نام صاحب حساب:</span>
+                      <span className="font-bold text-white block">{selectedGateway.card_holder || '-'}</span>
+                    </div>
+
+                    <div className="space-y-1">
+                      <span className="text-[10px] text-slate-500">بانک عامل:</span>
+                      <span className="font-bold text-white block">{selectedGateway.card_bank || '-'}</span>
+                    </div>
+                  </div>
+
+                  {selectedGateway.card_instructions && (
+                    <p className="text-[11px] text-slate-400 leading-relaxed bg-slate-900/30 p-3 rounded-xl border border-slate-900/60">
+                      {selectedGateway.card_instructions}
+                    </p>
+                  )}
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1 text-xs">
+                    <div>
+                      <label className="text-[11px] text-slate-400 block mb-1">نام پرداخت‌کننده (کارت واریزکننده):</label>
+                      <input
+                        type="text"
+                        value={cardPayerName}
+                        onChange={(e) => setCardPayerName(e.target.value)}
+                        placeholder="مثال: محمد رضایی..."
+                        className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3.5 py-2.5 text-xs text-white"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="text-[11px] text-slate-400 block mb-1">شماره فیش واریز / کد رهگیری تراکنش:</label>
+                      <input
+                        type="text"
+                        value={cardRefId}
+                        onChange={(e) => setCardRefId(e.target.value)}
+                        placeholder="مثال: ۱۲۳۴۵۶..."
+                        className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3.5 py-2.5 text-xs text-white font-mono"
+                      />
+                    </div>
+
+                    <div className="sm:col-span-2">
+                      <label className="text-[11px] text-slate-400 block mb-1">بارگذاری تصویر فیش واریزی (اختیاری):</label>
+                      <label className="px-4 py-2.5 bg-slate-900 border border-slate-800 hover:border-slate-700 rounded-xl text-xs text-slate-300 hover:text-white flex items-center justify-center gap-1.5 cursor-pointer transition">
+                        <Printer size={14} />
+                        <span>{cardReceiptFile ? 'تصویر فیش انتخاب شد ✓' : 'انتخاب فایل فیش واریزی...'}</span>
+                        <input
+                          type="file"
+                          accept="image/*"
+                          onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            if (file) {
+                              const reader = new FileReader();
+                              reader.onload = (event) => {
+                                  if (event.target?.result) setCardReceiptFile(event.target.result as string);
+                              };
+                              reader.readAsDataURL(file);
+                            }
+                          }}
+                          className="hidden"
+                        />
+                      </label>
+                    </div>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (!cardPayerName.trim() || !cardRefId.trim()) {
+                        triggerAlert('خطا: لطفا نام واریزکننده و کد رهگیری فیش را وارد کنید.');
+                        return;
+                      }
+                      if (onAddTransaction) {
+                        onAddTransaction({
+                          id: 'tx_card_' + Date.now(),
+                          user_id: currentUser.id,
+                          national_code: currentUser.national_code,
+                          full_name: cardPayerName.trim(),
+                          amount: selectedGateway.amount,
+                          currency: selectedGateway.currency,
+                          gateway: 'card',
+                          status: 'pending',
+                          ref_id: cardRefId.trim(),
+                          created_at: new Date().toISOString()
+                        });
+                      }
+                      triggerAlert('فیش واریزی شما با موفقیت ثبت شد و در انتظار تایید مدیریت قرار گرفت.');
+                    }}
+                    className="w-full py-3 px-4 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 text-slate-950 font-black text-xs transition shadow-lg flex items-center justify-center gap-2 cursor-pointer font-bold"
+                  >
+                    <CheckCircle2 size={16} />
+                    <span>ثبت فیش واریزی و ارسال برای تایید مدیریت</span>
+                  </button>
+                </div>
+              ) : (
+                /* ONLINE GATEWAY SUB-FORM */
+                <div className="flex flex-col sm:flex-row items-center gap-3 pt-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (onAddTransaction) {
+                        onAddTransaction({
+                          id: 'tx_' + Date.now(),
+                          user_id: currentUser.id,
+                          national_code: currentUser.national_code,
+                          full_name: `${currentUser.first_name || ''} ${currentUser.last_name || ''}`.trim(),
+                          amount: selectedGateway.amount,
+                          currency: selectedGateway.currency,
+                          gateway: selectedGateway.gateway,
+                          status: 'paid',
+                          ref_id: 'REF_' + Math.floor(100000 + Math.random() * 900000),
+                          created_at: new Date().toISOString()
+                        });
+                      }
+                      triggerAlert('هدایت به درگاه پرداخت... پرداخت با موفقیت شبیه‌سازی و تأیید شد.');
+                      setTimeout(() => {
+                        onNavigate?.('Journey');
+                      }, 1200);
+                    }}
+                    className="w-full sm:flex-1 py-3.5 px-4 rounded-xl bg-gradient-to-r from-amber-500 to-yellow-500 hover:brightness-110 text-slate-950 font-black text-xs transition shadow-lg flex items-center justify-center gap-2 cursor-pointer font-bold"
+                  >
+                    <ExternalLink size={16} />
+                    <span>اتصال به درگاه و پرداخت آنلاین ({selectedGateway.gateway === 'zarinpal' ? 'زرین‌پال' : 'سفارشی'})</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (onAddTransaction) {
+                        onAddTransaction({
+                          id: 'tx_' + Date.now(),
+                          user_id: currentUser.id,
+                          national_code: currentUser.national_code,
+                          full_name: `${currentUser.first_name || ''} ${currentUser.last_name || ''}`.trim(),
+                          amount: selectedGateway.amount,
+                          currency: selectedGateway.currency,
+                          gateway: selectedGateway.gateway,
+                          status: 'paid',
+                          ref_id: 'REF_' + Math.floor(100000 + Math.random() * 900000),
+                          created_at: new Date().toISOString()
+                        });
+                      }
+                      triggerAlert('پرداخت تایید شد! در حال انتقال به پنل کاربری...');
+                      setTimeout(() => {
+                        onNavigate?.('Journey');
+                      }, 1000);
+                    }}
+                    className="w-full sm:flex-1 py-3.5 px-4 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-600 hover:brightness-110 text-white font-black text-xs transition shadow-lg flex items-center justify-center gap-2 cursor-pointer font-bold"
+                  >
+                    <CheckCircle2 size={16} />
+                    <span>تایید و ثبت پرداخت موفق (بازگشت شبیه‌سازی شده)</span>
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
         </div>
       )}
 

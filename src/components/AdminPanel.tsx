@@ -196,6 +196,7 @@ interface AdminPanelProps {
   paymentSettings: PaymentSettings;
   setPaymentSettings: (settings: PaymentSettings) => void;
   paymentTransactions: PaymentTransaction[];
+  setPaymentTransactions?: React.Dispatch<React.SetStateAction<PaymentTransaction[]>>;
   guideConfig?: GuideTutorialConfig;
   setGuideConfig?: (config: GuideTutorialConfig) => void;
   onNavigate?: (tab: string) => void;
@@ -254,6 +255,7 @@ export default function AdminPanel({
   paymentSettings,
   setPaymentSettings,
   paymentTransactions,
+  setPaymentTransactions,
   guideConfig,
   setGuideConfig,
   onNavigate
@@ -943,6 +945,8 @@ export default function AdminPanel({
     address: string;
     points: number;
     level: number;
+    is_active: boolean;
+    is_blocked: boolean;
   }>({
     first_name: '',
     last_name: '',
@@ -961,7 +965,9 @@ export default function AdminPanel({
     postal_code: '',
     address: '',
     points: 100,
-    level: 1
+    level: 1,
+    is_active: true,
+    is_blocked: false
   });
 
   const handleOpenAddUser = () => {
@@ -985,7 +991,9 @@ export default function AdminPanel({
       postal_code: '',
       address: '',
       points: 100,
-      level: 1
+      level: 1,
+      is_active: true,
+      is_blocked: false
     });
     setShowUserModal(true);
   };
@@ -1010,7 +1018,9 @@ export default function AdminPanel({
       postal_code: user.postal_code || '',
       address: user.address || '',
       points: user.points || 0,
-      level: user.level || 1
+      level: user.level || 1,
+      is_active: user.is_active !== undefined ? user.is_active : true,
+      is_blocked: user.is_blocked !== undefined ? user.is_blocked : false
     });
     setShowUserModal(true);
   };
@@ -1128,7 +1138,9 @@ export default function AdminPanel({
         postal_code: userForm.postal_code.trim(),
         address: userForm.address.trim(),
         points: Number(userForm.points) || 0,
-        level: Number(userForm.level) || 1
+        level: Number(userForm.level) || 1,
+        is_active: userForm.is_active,
+        is_blocked: userForm.is_blocked
       } : u);
       if (localEditedHash) {
         setOneTimeCredential({
@@ -1170,6 +1182,18 @@ export default function AdminPanel({
 
     setUsers(updatedList);
     setShowUserModal(false);
+  };
+
+  const handleToggleBlockUser = (user: User) => {
+    const nextBlocked = !user.is_blocked;
+    setUsers(prev => prev.map(u => u.id === user.id ? { ...u, is_blocked: nextBlocked } : u));
+    triggerAlert(`حساب کاربری «${user.first_name} ${user.last_name}» ${nextBlocked ? 'مسدود (بلاک)' : 'رفع مسدودیت'} شد.`);
+  };
+
+  const handleToggleActiveUser = (user: User) => {
+    const nextActive = user.is_active === false ? true : false;
+    setUsers(prev => prev.map(u => u.id === user.id ? { ...u, is_active: nextActive } : u));
+    triggerAlert(`پنل کاربری «${user.first_name} ${user.last_name}» ${nextActive ? 'فعال' : 'غیرفعال'} شد.`);
   };
 
   const handleDeleteUser = (user: User) => {
@@ -2605,10 +2629,36 @@ export default function AdminPanel({
                     </div>
 
                     {/* User Actions */}
-                    <div className="flex items-center gap-2 pt-2 md:pt-0 border-t md:border-t-0 border-slate-800 shrink-0">
+                    <div className="flex flex-wrap items-center gap-2 pt-2 md:pt-0 border-t md:border-t-0 border-slate-800 shrink-0">
+                      {/* Active/Inactive Toggle Button */}
+                      <button
+                        onClick={() => handleToggleActiveUser(u)}
+                        className={`px-2.5 py-1.5 rounded-lg text-[10px] font-bold transition cursor-pointer border ${
+                          u.is_active === false
+                            ? 'bg-amber-950/30 hover:bg-amber-900/50 border-amber-500/40 text-amber-300'
+                            : 'bg-emerald-950/40 hover:bg-emerald-900/60 border-emerald-500/30 text-emerald-400'
+                        }`}
+                        title={u.is_active === false ? 'فعال‌سازی دسترسی ورود کاربر' : 'غیرفعال‌سازی دسترسی ورود'}
+                      >
+                        {u.is_active === false ? 'فعال‌سازی پنل' : 'غیرفعال‌سازی پنل'}
+                      </button>
+
+                      {/* Block/Unblock Toggle Button */}
+                      <button
+                        onClick={() => handleToggleBlockUser(u)}
+                        className={`px-2.5 py-1.5 rounded-lg text-[10px] font-bold transition cursor-pointer border ${
+                          u.is_blocked
+                            ? 'bg-rose-950/60 hover:bg-rose-900 border-rose-500/50 text-rose-300'
+                            : 'bg-slate-900 hover:bg-slate-800 border-slate-800 text-slate-400 hover:text-rose-400'
+                        }`}
+                        title={u.is_blocked ? 'آزادکردن حساب رزمنده' : 'مسدود کردن کامل حساب رزمنده'}
+                      >
+                        {u.is_blocked ? 'رفع مسدودیت' : 'مسدود سازی کاربر'}
+                      </button>
+
                       <button
                         onClick={() => setViewingUserDetail(u)}
-                        className="px-3 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 border border-cyan-500/40 text-cyan-300 hover:text-white text-xs font-bold transition flex items-center gap-1.5 cursor-pointer"
+                        className="px-3 py-1.5 rounded-xl bg-slate-900 hover:bg-slate-800 border border-cyan-500/40 text-cyan-300 hover:text-white text-xs font-bold transition flex items-center gap-1.5 cursor-pointer"
                         title="مشاهده تمام اطلاعات رزمنده"
                       >
                         <Eye size={14} />
@@ -2617,7 +2667,7 @@ export default function AdminPanel({
 
                       <button
                         onClick={() => handleOpenEditUser(u)}
-                        className="p-2 rounded-xl bg-slate-900 hover:bg-slate-800 border border-amber-500/40 text-amber-300 hover:text-white transition cursor-pointer"
+                        className="p-1.5 rounded-xl bg-slate-900 hover:bg-slate-800 border border-amber-500/40 text-amber-300 hover:text-white transition cursor-pointer"
                         title="ویرایش کاربر"
                       >
                         <Edit3 size={15} />
@@ -2625,7 +2675,7 @@ export default function AdminPanel({
 
                       <button
                         onClick={() => handleDeleteUser(u)}
-                        className="p-2 rounded-xl bg-slate-900 hover:bg-rose-950 border border-slate-800 hover:border-rose-500/50 text-slate-400 hover:text-rose-400 transition cursor-pointer"
+                        className="p-1.5 rounded-xl bg-slate-900 hover:bg-rose-950 border border-slate-800 hover:border-rose-500/50 text-slate-400 hover:text-rose-400 transition cursor-pointer"
                         title="حذف کاربر"
                       >
                         <Trash2 size={15} />
@@ -3074,6 +3124,38 @@ export default function AdminPanel({
                       onChange={(e) => setUserForm({ ...userForm, address: e.target.value })}
                       className="w-full bg-slate-950 border border-slate-800 focus:border-amber-500 rounded-xl px-3.5 py-2 text-xs text-white"
                     />
+                  </div>
+
+                  {/* Account Access Controls */}
+                  <div className="p-4 bg-slate-900/60 border border-slate-800 rounded-2xl space-y-3.5">
+                    <span className="text-[11px] font-extrabold text-amber-300 block mb-1">🛡️ کنترل‌های دسترسی و وضعیت حساب کاربری:</span>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <label className="flex items-center gap-3 text-xs text-slate-200 cursor-pointer select-none">
+                        <input
+                          type="checkbox"
+                          checked={userForm.is_active}
+                          onChange={(e) => setUserForm({ ...userForm, is_active: e.target.checked })}
+                          className="rounded bg-slate-950 border-slate-800 text-amber-500 focus:ring-amber-500 w-4 h-4"
+                        />
+                        <div>
+                          <span className="font-bold">اجازه ورود به پنل کاربری</span>
+                          <p className="text-[10px] text-slate-400 mt-0.5">در صورت غیرفعال شدن، امکان لاگین از کاربر گرفته می‌شود.</p>
+                        </div>
+                      </label>
+
+                      <label className="flex items-center gap-3 text-xs text-rose-200 cursor-pointer select-none">
+                        <input
+                          type="checkbox"
+                          checked={userForm.is_blocked}
+                          onChange={(e) => setUserForm({ ...userForm, is_blocked: e.target.checked })}
+                          className="rounded bg-slate-950 border-slate-800 text-rose-500 focus:ring-rose-500 w-4 h-4"
+                        />
+                        <div>
+                          <span className="font-bold text-rose-300">مسدود کردن (بلاک) حساب کاربری</span>
+                          <p className="text-[10px] text-rose-400/80 mt-0.5">کاربر بلافاصله از سیستم خارج شده و دیگر اجازه ورود نخواهد داشت.</p>
+                        </div>
+                      </label>
+                    </div>
                   </div>
 
                   <div className="pt-3 flex items-center justify-end gap-3">
@@ -4223,6 +4305,7 @@ export default function AdminPanel({
           settings={paymentSettings}
           setSettings={setPaymentSettings}
           transactions={paymentTransactions}
+          setTransactions={setPaymentTransactions}
           triggerAlert={triggerAlert}
         />
       )}

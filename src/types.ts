@@ -9,7 +9,7 @@ export type TicketStatus = 'open' | 'in_progress' | 'answered' | 'closed';
 export type TicketPriority = 'normal' | 'important' | 'urgent';
 export type TargetRole = 'all' | 'user' | 'leader';
 
-export type PaymentGateway = 'zarinpal' | 'custom';
+export type PaymentGateway = 'zarinpal' | 'custom' | 'card';
 export type PaymentTransactionStatus = 'pending' | 'paid' | 'failed' | 'cancelled';
 
 export interface PaymentSettings {
@@ -23,6 +23,11 @@ export interface PaymentSettings {
   callback_url: string;
   description: string;
   updated_at: string;
+  card_enabled?: boolean;
+  card_number?: string;
+  card_holder?: string;
+  card_bank?: string;
+  card_instructions?: string;
 }
 
 export interface PaymentTransaction {
@@ -71,6 +76,8 @@ export interface User {
   mustChangePassword?: boolean;
   nationalCode?: string;
   personalCode?: string;
+  is_active?: boolean;
+  is_blocked?: boolean;
 }
 
 export interface Group {

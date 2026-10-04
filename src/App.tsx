@@ -535,14 +535,19 @@ export default function App() {
     settingKey: 'payment_settings',
     initial: () => ({
       id: 'payment_settings',
-      enabled: false,
-      amount: 0,
-      currency: 'IRR',
+      enabled: true,
+      amount: 3500000,
+      currency: 'IRT',
       gateway: 'zarinpal',
-      api_key: '',
-      redirect_url: '',
-      callback_url: '',
-      description: 'هزینه ثبت‌نام مسابقه اتاق جنگ',
+      api_key: 'zarinpal_merchant_36_characters_code',
+      redirect_url: 'https://zarinpal.com/pg/StartPay/',
+      callback_url: 'https://warroom-game.ir/payment/callback',
+      description: 'هزینه ثبت‌نام و شرکت در ماراتن بزرگ اتاق جنگ',
+      card_enabled: true,
+      card_number: '۶۰۳۷۹۹۷۵۱۲۳۴۵۶۷۸',
+      card_holder: 'ستاد برگزاری مسابقه بزرگ اتاق جنگ',
+      card_bank: 'بانک ملی ایران',
+      card_instructions: 'لطفاً پس از انتقال وجه به شماره کارت فوق، کادرهای مربوط به نام و کد پیگیری را پر کرده و دکمه ارسال را کلیک کنید تا رسید شما برای تایید مدیریت ارسال شود و دسترسی پنل شما بازگردد.',
       updated_at: new Date().toISOString()
     })
   });
@@ -882,6 +887,59 @@ export default function App() {
   const [alertNotification, setAlertNotification] = useState<string | null>(null);
 
   useEffect(() => {
+    // Force enable payments by default and clear any stale disabled states in localStorage
+    try {
+      const saved = localStorage.getItem('warroom_payment_settings');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (parsed && (!parsed.enabled || parsed.amount === 0)) {
+          parsed.enabled = true;
+          parsed.amount = 3500000;
+          parsed.currency = 'IRT';
+          parsed.gateway = 'zarinpal';
+          parsed.card_enabled = true;
+          parsed.card_number = '۶۰۳۷۹۹۷۵۱۲۳۴۵۶۷۸';
+          parsed.card_holder = 'ستاد برگزاری مسابقه بزرگ اتاق جنگ';
+          parsed.card_bank = 'بانک ملی ایران';
+          parsed.card_instructions = 'لطفاً پس از انتقال وجه به شماره کارت فوق، کادرهای مربوط به نام و کد پیگیری را پر کرده و دکمه ارسال را کلیک کنید تا رسید شما برای تایید مدیریت ارسال شود و دسترسی پنل شما بازگردد.';
+          localStorage.setItem('warroom_payment_settings', JSON.stringify(parsed));
+          setPaymentSettings(parsed as PaymentSettings);
+        }
+      } else {
+        const defaultSettings = {
+          id: 'payment_settings',
+          enabled: true,
+          amount: 3500000,
+          currency: 'IRT' as const,
+          gateway: 'zarinpal' as const,
+          api_key: 'zarinpal_merchant_36_characters_code',
+          redirect_url: 'https://zarinpal.com/pg/StartPay/',
+          callback_url: 'https://warroom-game.ir/payment/callback',
+          description: 'هزینه ثبت‌نام و شرکت در ماراتن بزرگ اتاق جنگ',
+          card_enabled: true,
+          card_number: '۶۰۳۷۹۹۷۵۱۲۳۴۵۶۷۸',
+          card_holder: 'ستاد برگزاری مسابقه بزرگ اتاق جنگ',
+          card_bank: 'بانک ملی ایران',
+          card_instructions: 'لطفاً پس از انتقال وجه به شماره کارت فوق، کادرهای مربوط به نام و کد پیگیری را پر کرده و دکمه ارسال را کلیک کنید تا رسید شما برای تایید مدیریت ارسال شود و دسترسی پنل شما بازگردد.',
+          updated_at: new Date().toISOString()
+        };
+        localStorage.setItem('warroom_payment_settings', JSON.stringify(defaultSettings));
+        setPaymentSettings(defaultSettings as PaymentSettings);
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  }, []);
+
+  // 🛡️ اگر کاربر توسط ادمین مسدود (بلاک) شد، بلافاصله لغو نشست و هدایت مستقیم به صفحه ورود / ثبت نام انجام می‌شود
+  useEffect(() => {
+    if (currentUser && currentUser.is_blocked) {
+      handleLogout();
+      triggerAlert('حساب کاربری شما توسط مدیریت مسدود شده است.');
+    }
+  }, [currentUser?.is_blocked]);
+
+  useEffect(() => {
     const openSquad = () => setShowSquadModal(true);
     const openNotifications = () => setShowNotificationCenter(true);
     const openChat = () => {
@@ -1116,6 +1174,22 @@ export default function App() {
       }
     }
   }, [currentUser, paymentSettings, paymentTransactions, activeTab]);
+
+  // Guard: Live Kick Out if Blocked or Deactivated
+  useEffect(() => {
+    if (currentUser && currentUser.role !== 'admin') {
+      const dbUser = users.find(u => u.id === currentUser.id);
+      if (dbUser) {
+        if (dbUser.is_blocked || dbUser.is_active === false) {
+          setCurrentUser(null);
+          localStorage.removeItem('warroom_current_user_id');
+          localStorage.removeItem('warroom_current_user_data');
+          setShowAuthScreen(true);
+          triggerAlert('حساب کاربری شما توسط مدیریت مسدود یا غیرفعال شد.');
+        }
+      }
+    }
+  }, [users, currentUser]);
 
   const handleSelectWarRoom = (game?: GamePortal) => {
     setIsGamePortalMandatory(false);
@@ -1378,6 +1452,91 @@ export default function App() {
               />
             </Suspense>
           </motion.div>
+        ) : (currentUser && currentUser.role !== 'admin' && !isAdminMode && (currentUser.is_blocked || currentUser.is_active === false || (paymentSettings?.enabled && paymentSettings.amount > 0 && !paymentTransactions.some(tx => (tx.user_id === currentUser.id || tx.national_code === currentUser.national_code) && tx.status === 'paid')))) ? (
+          /* MANDATORY ACCESS BARRIER OVERLAY (100% SECURE & NO NAV) */
+          <motion.div
+            key="access_barrier"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="min-h-screen bg-[#060a17] text-slate-100 flex flex-col justify-center items-center p-4 sm:p-6 dir-rtl relative z-50 overflow-y-auto"
+          >
+            {/* Dark grid background pattern */}
+            <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(6,182,212,0.15),transparent_60%)] pointer-events-none" />
+            <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.02)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.02)_1px,transparent_1px)] bg-[size:32px_32px] pointer-events-none" />
+
+            <div className="w-full max-w-4xl space-y-6 relative z-10 py-8">
+              {/* Header block */}
+              <div className="text-center space-y-2">
+                <div className="inline-flex h-16 w-16 items-center justify-center rounded-2xl border border-red-500/40 bg-gradient-to-br from-red-500/20 to-rose-600/10 text-red-400 shadow-[0_0_20px_rgba(239,68,68,0.25)] mb-2">
+                  <ShieldAlert size={32} className="animate-pulse" />
+                </div>
+                <h1 className="text-2xl sm:text-3xl font-black text-white tracking-tight">سد امنیتی و دسترسی مسابقه بزرگ اتاق جنگ</h1>
+                <p className="text-xs text-slate-400">ستاد فرماندهی و ارزیابی مسابقات اتاق جنگ</p>
+              </div>
+
+              {/* Blocked Account Card */}
+              {currentUser.is_blocked && (
+                <div className="max-w-md mx-auto rounded-3xl border-2 border-red-500/40 bg-red-950/20 p-6 text-center space-y-4 shadow-xl">
+                  <h2 className="text-lg font-black text-red-400">حساب کاربری مسدود شده است</h2>
+                  <p className="text-xs leading-relaxed text-slate-300">
+                    رزمنده گرامی، حساب کاربری شما به دلیل نقض قوانین، فعالیت‌های مشکوک یا دستور ستاد داوری به‌طور کامل مسدود (بلاک) گردیده است. امکان ورود و دسترسی به هیچ‌یک از بخش‌های پنل کاربری برای شما وجود ندارد.
+                  </p>
+                  <button
+                    onClick={handleLogout}
+                    className="w-full py-3 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-700 text-slate-200 text-xs font-bold transition cursor-pointer"
+                  >
+                    خروج از حساب کاربری
+                  </button>
+                </div>
+              )}
+
+              {/* Inactive/Deactivated Account Card */}
+              {!currentUser.is_blocked && currentUser.is_active === false && (
+                <div className="max-w-md mx-auto rounded-3xl border-2 border-amber-500/40 bg-amber-950/20 p-6 text-center space-y-4 shadow-xl">
+                  <h2 className="text-lg font-black text-amber-400">دسترسی به پنل موقتاً غیرفعال است</h2>
+                  <p className="text-xs leading-relaxed text-slate-300">
+                    رزمنده گرامی، پنل کاربری شما در حال حاضر توسط مدیریت غیرفعال شده است. پس از تایید نهایی ستاد فرماندهی یا رفع نواقص پرونده، دسترسی شما برقرار خواهد شد. جهت کسب اطلاعات بیشتر با پشتیبانی تماس بگیرید.
+                  </p>
+                  <button
+                    onClick={handleLogout}
+                    className="w-full py-3 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-700 text-slate-200 text-xs font-bold transition cursor-pointer"
+                  >
+                    خروج از حساب کاربری
+                  </button>
+                </div>
+              )}
+
+              {/* Unpaid Account Card with nested WalletTransfersView (without navigation tabs) */}
+              {!currentUser.is_blocked && currentUser.is_active !== false && (paymentSettings?.enabled && paymentSettings.amount > 0 && !paymentTransactions.some(tx => (tx.user_id === currentUser.id || tx.national_code === currentUser.national_code) && tx.status === 'paid')) && (
+                <div className="space-y-4">
+                  <div className="bg-slate-950/80 border border-slate-800 rounded-3xl p-5 shadow-2xl space-y-5">
+                    <div className="flex items-center justify-between border-b border-slate-900 pb-3">
+                      <div>
+                        <h2 className="text-base sm:text-lg font-black text-white">تکمیل هزینه ثبت‌نام الزامی است</h2>
+                        <p className="text-[11px] text-slate-400 mt-0.5">جهت فعال‌سازی کامل پنل کاربری و استفاده از امکانات بازی، پرداخت الزامی است.</p>
+                      </div>
+                      <button
+                        onClick={handleLogout}
+                        className="px-3.5 py-1.5 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-800 text-slate-400 hover:text-white text-xs font-bold transition cursor-pointer"
+                      >
+                        خروج از حساب
+                      </button>
+                    </div>
+
+                    <WalletTransfersView
+                      currentUser={currentUser}
+                      paymentTransactions={paymentTransactions}
+                      paymentSettings={paymentSettings}
+                      triggerAlert={triggerAlert}
+                      onNavigate={(tab) => handleTabChange(tab)}
+                      onAddTransaction={(tx) => setPaymentTransactions(prev => [tx, ...prev])}
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
+          </motion.div>
         ) : (
           /* Main Platform View for other logged-in tabs */
           <motion.div
@@ -1490,6 +1649,7 @@ export default function App() {
                       paymentSettings={paymentSettings}
                       setPaymentSettings={setPaymentSettings}
                       paymentTransactions={paymentTransactions}
+                      setPaymentTransactions={setPaymentTransactions}
                       onNavigate={(tab) => handleTabChange(tab)}
                     />
                   </AdminErrorBoundary>

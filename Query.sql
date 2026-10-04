@@ -866,10 +866,10 @@ insert into public.warroom_kv (id, value) values (
 )
 on conflict (id) do update set value = excluded.value, updated_at = now();
 
--- 💳 تنظیمات پیش‌فرض درگاه پرداخت بانکی (زرین‌پال / دستی) در warroom_kv
+-- 💳 تنظیمات پیش‌فرض درگاه پرداخت بانکی (زرین‌پال / کارت به کارت) در warroom_kv
 insert into public.warroom_kv (id, value) values (
   'payment_settings',
-  $${"id":"payment_settings","enabled":false,"amount":0,"currency":"IRR","gateway":"zarinpal","api_key":"","redirect_url":"","callback_url":"","description":"هزینه ثبت‌نام مسابقه اتاق جنگ","updated_at":"2026-09-25T12:00:00.000Z"}$$::jsonb
+  $${"id":"payment_settings","enabled":true,"amount":3500000,"currency":"IRT","gateway":"zarinpal","api_key":"zarinpal_merchant_36_characters_code","redirect_url":"https://zarinpal.com/pg/StartPay/","callback_url":"https://warroom-game.ir/payment/callback","description":"هزینه ثبت‌نام و شرکت در ماراتن بزرگ اتاق جنگ","card_enabled":true,"card_number":"۶۰۳۷۹۹۷۵۱۲۳۴۵۶۷۸","card_holder":"ستاد برگزاری مسابقه بزرگ اتاق جنگ","card_bank":"بانک ملی ایران","card_instructions":"لطفاً پس از انتقال وجه به شماره کارت فوق، کادرهای مربوط به نام و کد پیگیری را پر کرده و دکمه ارسال را کلیک کنید تا رسید شما برای تایید مدیریت ارسال شود و دسترسی پنل شما بازگردد.","updated_at":"2026-10-02T12:00:00.000Z"}$$::jsonb
 )
 on conflict (id) do update set value = excluded.value, updated_at = now();
 

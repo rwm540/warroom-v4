@@ -25,10 +25,10 @@ export const EnamadBadge: React.FC<EnamadBadgeProps> = ({
     return null;
   }
 
-  // Render purely and strictly the exact official HTML snippet from the tag
+  // Render purely the exact official HTML tag with zero background and zero border
   return (
     <div
-      className={`enamad-official-tag inline-flex items-center justify-center p-2 rounded-2xl bg-white border border-slate-300 hover:border-amber-400 shadow-md hover:shadow-xl transition-all duration-300 hover:scale-105 active:scale-95 cursor-pointer min-w-[70px] min-h-[70px] [&>a]:inline-block [&>a]:cursor-pointer [&>a>img]:max-h-20 [&>a>img]:w-auto [&>a>img]:object-contain ${className}`}
+      className={`enamad-official-tag inline-flex items-center justify-center [&>a]:inline-block [&>a]:cursor-pointer [&>a>img]:max-h-24 [&>a>img]:w-auto [&>a>img]:object-contain ${className}`}
       dangerouslySetInnerHTML={{ __html: sanitized }}
     />
   );

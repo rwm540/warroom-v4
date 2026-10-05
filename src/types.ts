@@ -618,6 +618,8 @@ export interface SiteSettings {
   enamadSubtitle?: string; // زیرنویس اینماد
   enamadIconUrl?: string; // تصویر یا آیکون آپلودشده نماد اینماد
   enamadLinkUrl?: string; // لینک هدایت هنگام کلیک روی نماد اینماد
+  enamadEnabled?: boolean; // وضعیت فعال یا غیرفعال بودن نمایش نماد رسمی اینماد
+  enamadHtmlCode?: string; // کد رسمی HTML اینماد (شامل تگ a و img رسمی)
   customFooterBadges?: Array<{
     id: string;
     title: string;

@@ -88,6 +88,7 @@ import { showInternalToast, confirmInternal } from '../lib/appDialog';
 import AdminSoundtrackManager from './AdminSoundtrackManager';
 import AdminDailyChallengeManager from './AdminDailyChallengeManager';
 import { AdminGameMapManager } from './admin/AdminGameMapManager';
+import { AdminEnamadManager } from './admin/AdminEnamadManager';
 import PasswordResetsAdmin from './PasswordResetsAdmin';
 import AdminPaymentsPanel from './AdminPaymentsPanel';
 import AdminGuideTutorialManager, { GuideTutorialConfig } from './AdminGuideTutorialManager';
@@ -262,7 +263,7 @@ export default function AdminPanel({
   onNavigate
 }: AdminPanelProps) {
   const [activeAdminTab, setActiveAdminTab] = useState<
-    'overview' | 'submissions' | 'users' | 'missions' | 'trainings' | 'medals' | 'tickets' | 'news' | 'site_editor' | 'notifications' | 'chat_control' | 'soundtracks' | 'portals' | 'vitrins' | 'password_resets' | 'stage_builder' | 'prizes' | 'payments' | 'daily_challenges' | 'guide_tutorial'
+    'overview' | 'submissions' | 'users' | 'missions' | 'trainings' | 'medals' | 'tickets' | 'news' | 'site_editor' | 'enamad' | 'notifications' | 'chat_control' | 'soundtracks' | 'portals' | 'vitrins' | 'password_resets' | 'stage_builder' | 'prizes' | 'payments' | 'daily_challenges' | 'guide_tutorial'
   >('submissions');
 
   // 🛡️ وضعیت بک‌اند امن (برای مدیریت امن رمز کاربران)
@@ -2164,6 +2165,20 @@ export default function AdminPanel({
         >
           <FileText size={15} />
           <span>مدیریت محتوای سایت و صفحات</span>
+        </button>
+
+        <button
+          onClick={() => setActiveAdminTab('enamad')}
+          className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl whitespace-nowrap shrink-0 transition border ${
+            activeAdminTab === 'enamad' 
+              ? 'bg-gradient-to-r from-amber-500 to-yellow-500 text-slate-950 border-amber-400 font-black shadow-[0_0_20px_rgba(245,158,11,0.5)]' 
+              : 'bg-[#080d21] text-amber-300 border-amber-500/40 hover:border-amber-400 hover:text-white'
+          }`}
+          id="btn-tab-enamad"
+        >
+          <ShieldCheck size={15} className="text-amber-400" />
+          <span>نماد اعتماد الکترونیکی (اینماد)</span>
+          <span className={`w-2 h-2 rounded-full ${siteSettings?.enamadEnabled !== false ? 'bg-emerald-400' : 'bg-slate-500'}`} />
         </button>
 
         <button
@@ -4684,6 +4699,19 @@ export default function AdminPanel({
             if (updated.boysBannerImage !== undefined) setBoysBannerImage(updated.boysBannerImage);
             if (updated.heroButtonText !== undefined) setGeneralBtnText(updated.heroButtonText);
             if (updated.aboutText !== undefined) setGeneralAboutText(updated.aboutText);
+          }}
+          triggerAlert={triggerAlert}
+        />
+      )}
+
+      {/* 8. OFFICIAL ENAMAD VERIFICATION SETTINGS TAB */}
+      {activeAdminTab === 'enamad' && (
+        <AdminEnamadManager
+          siteSettings={siteSettings}
+          onUpdateSiteSettings={(updated) => {
+            if (setSiteSettings) {
+              setSiteSettings(updated);
+            }
           }}
           triggerAlert={triggerAlert}
         />

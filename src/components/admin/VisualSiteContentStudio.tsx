@@ -17,6 +17,8 @@ import SocialMessengersWidgets from '../home/SocialMessengersWidgets';
 import AboutSection from '../home/AboutSection';
 import Footer from '../home/Footer';
 import CountdownTimerCard from '../home/CountdownTimerCard';
+import { EnamadBadge } from '../common/EnamadBadge';
+import { OFFICIAL_ENAMAD_HTML, sanitizeEnamadHtml } from '../../utils/enamadSanitizer';
 
 interface VisualSiteContentStudioProps {
   siteSettings: SiteSettings;
@@ -198,6 +200,8 @@ export const VisualSiteContentStudio: React.FC<VisualSiteContentStudioProps> = (
     enamadSubtitle: siteSettings.enamadSubtitle !== undefined ? siteSettings.enamadSubtitle : 'وزارت صنعت، معدن و تجارت',
     enamadIconUrl: siteSettings.enamadIconUrl || '',
     enamadLinkUrl: siteSettings.enamadLinkUrl || '',
+    enamadEnabled: siteSettings.enamadEnabled !== undefined ? siteSettings.enamadEnabled : true,
+    enamadHtmlCode: siteSettings.enamadHtmlCode || OFFICIAL_ENAMAD_HTML,
     customFooterBadges: siteSettings.customFooterBadges || [],
     copyrightText: siteSettings.copyrightText || '',
     guideSteps: siteSettings.guideSteps && siteSettings.guideSteps.length > 0 ? siteSettings.guideSteps : DEFAULT_GUIDE_STEPS,
@@ -863,107 +867,88 @@ export const VisualSiteContentStudio: React.FC<VisualSiteContentStudioProps> = (
 
               </div>
 
-              {/* 🌟 2. ENAMAD / TRUST SEAL ICON & REDIRECT LINK (اینماد و نماد اعتماد) */}
-              <div className="p-3.5 rounded-2xl bg-slate-950 border border-amber-500/40 space-y-3 shadow-lg">
+              {/* 🌟 2. ENAMAD / OFFICIAL TRUST SEAL (اینماد و نماد اعتماد الکترونیکی رسمی) */}
+              <div className="p-3.5 rounded-2xl bg-slate-950 border border-amber-500/40 space-y-3.5 shadow-lg">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <div className="w-6 h-6 rounded-lg bg-amber-950 text-amber-400 flex items-center justify-center border border-amber-500/40">
                       <CheckCircle2 size={14} />
                     </div>
-                    <span className="text-xs font-black text-amber-300">آیکون و لینک نماد اعتماد (اینماد):</span>
+                    <span className="text-xs font-black text-amber-300">نماد اعتماد الکترونیکی (اینماد رسمی):</span>
                   </div>
-                  {form.enamadTitle && (
+                  <span className={`text-[10px] font-bold px-2.5 py-0.5 rounded-full border ${
+                    form.enamadEnabled !== false 
+                      ? 'bg-emerald-950 text-emerald-300 border-emerald-500/40' 
+                      : 'bg-slate-900 text-slate-400 border-slate-700'
+                  }`}>
+                    {form.enamadEnabled !== false ? 'فعال در سایت' : 'غیرفعال'}
+                  </span>
+                </div>
+
+                {/* Enabled / Disabled Toggle */}
+                <div className="flex items-center justify-between p-2 rounded-xl bg-slate-900/80 border border-slate-800">
+                  <span className="text-[11px] font-bold text-white">وضعیت نمایش نماد در فوتر:</span>
+                  <div className="flex items-center gap-1 bg-slate-950 p-1 rounded-xl border border-slate-800">
                     <button
                       type="button"
-                      onClick={() => handleClearField('enamadTitle')}
-                      className="text-slate-400 hover:text-rose-400 p-1 rounded transition"
-                      title="مخفی‌سازی اینماد"
+                      onClick={() => setForm(prev => ({ ...prev, enamadEnabled: true }))}
+                      className={`px-3 py-1 rounded-lg text-[10px] font-black transition cursor-pointer ${
+                        form.enamadEnabled !== false ? 'bg-emerald-500 text-slate-950 shadow' : 'text-slate-400 hover:text-white'
+                      }`}
                     >
-                      <Trash2 size={13} />
+                      فعال
                     </button>
+                    <button
+                      type="button"
+                      onClick={() => setForm(prev => ({ ...prev, enamadEnabled: false }))}
+                      className={`px-3 py-1 rounded-lg text-[10px] font-black transition cursor-pointer ${
+                        form.enamadEnabled === false ? 'bg-rose-500 text-white shadow' : 'text-slate-400 hover:text-white'
+                      }`}
+                    >
+                      غیرفعال
+                    </button>
+                  </div>
+                </div>
+
+                {/* Official eNAMAD HTML Code Area */}
+                <div className="space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <label className="text-[11px] font-bold text-slate-300 block">کد HTML رسمی اینماد:</label>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setForm(prev => ({ ...prev, enamadHtmlCode: OFFICIAL_ENAMAD_HTML, enamadEnabled: true }));
+                        if (triggerAlert) triggerAlert('کد رسمی اینماد بازنشانی شد.');
+                      }}
+                      className="text-[10px] text-amber-400 hover:underline flex items-center gap-1"
+                    >
+                      <RotateCcw size={10} />
+                      <span>بازنشانی به کد رسمی</span>
+                    </button>
+                  </div>
+                  <textarea
+                    rows={3}
+                    dir="ltr"
+                    value={form.enamadHtmlCode || OFFICIAL_ENAMAD_HTML}
+                    onChange={(e) => setForm(prev => ({ ...prev, enamadHtmlCode: e.target.value }))}
+                    className="w-full bg-[#030610] border border-slate-800 focus:border-amber-400 rounded-xl p-2.5 text-[11px] text-amber-200/90 font-mono leading-relaxed outline-none shadow-inner"
+                    placeholder="کد رسمی HTML اینماد..."
+                  />
+                </div>
+
+                {/* Live Preview Inside Footer Tab */}
+                <div className="p-3 rounded-xl bg-[#030610] border border-slate-800 flex flex-col items-center justify-center gap-2 text-center">
+                  <span className="text-[10px] text-slate-400">پیش‌نمایش زنده لوگوی اینماد:</span>
+                  {form.enamadEnabled !== false ? (
+                    <EnamadBadge 
+                      htmlCode={form.enamadHtmlCode} 
+                      enabled={true} 
+                      previewMode={true} 
+                    />
+                  ) : (
+                    <span className="text-[11px] text-slate-500 font-bold">لوگو در حالت غیرفعال است.</span>
                   )}
                 </div>
-
-                {/* Enamad Icon Preview & Direct Upload */}
-                <div className="flex items-center gap-3 p-2 rounded-xl bg-slate-900/80 border border-slate-800">
-                  <div className="w-12 h-12 rounded-xl bg-amber-950/80 border border-amber-500/40 flex items-center justify-center shrink-0 overflow-hidden shadow">
-                    {form.enamadIconUrl ? (
-                      <img src={form.enamadIconUrl} alt="اینماد" className="w-full h-full object-contain p-1" />
-                    ) : (
-                      <CheckCircle2 size={24} className="text-amber-400" />
-                    )}
-                  </div>
-                  <div className="flex-1 space-y-1">
-                    <div className="flex items-center justify-between">
-                      <span className="text-[11px] font-bold text-white">آیکون فعلی اینماد</span>
-                      {form.enamadIconUrl && (
-                        <button
-                          type="button"
-                          onClick={() => setForm(prev => ({ ...prev, enamadIconUrl: '' }))}
-                          className="text-[10px] text-rose-400 hover:underline"
-                        >
-                          حذف عکس
-                        </button>
-                      )}
-                    </div>
-                    <label className="w-full py-1.5 px-2 bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-500 hover:to-orange-500 text-white font-black text-[11px] rounded-lg flex items-center justify-center gap-1.5 cursor-pointer shadow active:scale-95 transition">
-                      <Upload size={12} />
-                      <span>آپلود آیکون اینماد (عکس)</span>
-                      <input
-                        type="file"
-                        accept="image/*"
-                        className="hidden"
-                        onChange={(e) => handleImageUpload('enamadIconUrl', e)}
-                      />
-                    </label>
-                  </div>
-                </div>
-
-                {/* Enamad Title & Subtitle */}
-                <div className="space-y-1.5">
-                  <label className="text-[11px] font-bold text-slate-300 block">عنوان اینماد یا مجوز:</label>
-                  <input
-                    type="text"
-                    value={form.enamadTitle || ''}
-                    onChange={(e) => setForm(prev => ({ ...prev, enamadTitle: e.target.value }))}
-                    placeholder="نماد اعتماد الکترونیکی"
-                    className="w-full bg-slate-900 border border-slate-800 rounded-xl px-2.5 py-1.5 text-xs text-white outline-none focus:border-amber-400"
-                  />
-                  <input
-                    type="text"
-                    value={form.enamadSubtitle || ''}
-                    onChange={(e) => setForm(prev => ({ ...prev, enamadSubtitle: e.target.value }))}
-                    placeholder="وزارت صنعت، معدن و تجارت"
-                    className="w-full bg-slate-900 border border-slate-800 rounded-xl px-2.5 py-1.5 text-xs text-slate-300 outline-none focus:border-amber-400"
-                  />
-                </div>
-
-                {/* 🔗 Enamad Redirect Link Input */}
-                <div className="space-y-1.5 p-2.5 rounded-xl bg-amber-950/20 border border-amber-500/30">
-                  <div className="flex items-center justify-between">
-                    <label className="text-[11px] font-black text-amber-300 flex items-center gap-1">
-                      <LinkIcon size={12} />
-                      <span>لینک هدایت هنگام کلیک روی اینماد:</span>
-                    </label>
-                    {form.enamadLinkUrl && (
-                      <span className="text-[9px] bg-emerald-950 text-emerald-300 px-1.5 py-0.5 rounded border border-emerald-500/40">
-                        لینک فعال
-                      </span>
-                    )}
-                  </div>
-                  <input
-                    type="text"
-                    value={form.enamadLinkUrl || ''}
-                    onChange={(e) => setForm(prev => ({ ...prev, enamadLinkUrl: e.target.value }))}
-                    placeholder="https://trustseal.enamad.ir/?id=... یا لینک پروفایل اینماد"
-                    className="w-full bg-slate-900 border border-slate-800 rounded-xl px-2.5 py-1.5 text-xs text-white font-mono dir-ltr outline-none focus:border-amber-400"
-                  />
-                  <p className="text-[10px] text-slate-400 leading-tight">
-                    کاربر با کلیک روی نماد اینماد در فوتر، به این آدرس هدایت خواهد شد.
-                  </p>
-                </div>
-
-                {/* Quick Presets for Enamad */}
                 <div className="pt-1">
                   <span className="text-[10px] text-slate-400 block mb-1">انتخاب سریع مجوزها:</span>
                   <div className="flex flex-wrap gap-1">

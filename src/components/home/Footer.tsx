@@ -11,6 +11,7 @@ import {
   Headphones, 
   CheckCircle2 
 } from 'lucide-react';
+import { EnamadBadge } from '../common/EnamadBadge';
 
 interface FooterProps {
   onNavigate: (tab: string) => void;
@@ -221,54 +222,12 @@ export default function Footer({ onNavigate, onOpenAbout, themeMode = 'boys', si
             )
           )}
 
-          {/* Enamad Badge */}
-          {(siteSettings?.enamadTitle !== '' || siteSettings?.enamadIconUrl) && (
-            siteSettings?.enamadLinkUrl ? (
-              <a 
-                href={siteSettings.enamadLinkUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                onClick={() => triggerAlert?.('هدایت به پروفایل رسمی اینماد...')}
-                className="px-4 py-2 rounded-2xl bg-[#080d21]/90 border border-amber-500/30 hover:border-amber-400 flex items-center gap-2.5 text-right shadow-lg transition-all hover:scale-105 active:scale-95 group cursor-pointer no-underline"
-                title={`کلیک برای ورود به ${siteSettings?.enamadTitle || 'نماد اعتماد الکترونیکی'}`}
-              >
-                <div className="w-8 h-8 rounded-xl bg-amber-950/80 border border-amber-500/30 group-hover:border-amber-400 text-amber-400 flex items-center justify-center shrink-0 overflow-hidden">
-                  {siteSettings?.enamadIconUrl ? (
-                    <img src={siteSettings.enamadIconUrl} alt={siteSettings?.enamadTitle || 'اینماد'} className="w-full h-full object-contain" />
-                  ) : (
-                    <CheckCircle2 size={18} />
-                  )}
-                </div>
-                <div>
-                  <div className="text-[11px] font-black text-white group-hover:text-amber-300 transition-colors flex items-center gap-1">
-                    <span>{siteSettings?.enamadTitle || 'نماد اعتماد الکترونیکی'}</span>
-                  </div>
-                  <div className="text-[9px] text-amber-400 font-bold">
-                    {siteSettings?.enamadSubtitle || 'وزارت صنعت، معدن و تجارت'}
-                  </div>
-                </div>
-              </a>
-            ) : (
-              <div 
-                className="px-4 py-2 rounded-2xl bg-[#080d21]/90 border border-amber-500/30 flex items-center gap-2.5 text-right shadow-lg transition-all"
-              >
-                <div className="w-8 h-8 rounded-xl bg-amber-950/80 border border-amber-500/30 text-amber-400 flex items-center justify-center shrink-0 overflow-hidden">
-                  {siteSettings?.enamadIconUrl ? (
-                    <img src={siteSettings.enamadIconUrl} alt="اینماد" className="w-full h-full object-contain" />
-                  ) : (
-                    <CheckCircle2 size={18} />
-                  )}
-                </div>
-                <div>
-                  <div className="text-[11px] font-black text-white">
-                    {siteSettings?.enamadTitle || 'نماد اعتماد الکترونیکی'}
-                  </div>
-                  <div className="text-[9px] text-amber-400 font-bold">
-                    {siteSettings?.enamadSubtitle || 'وزارت صنعت، معدن و تجارت'}
-                  </div>
-                </div>
-              </div>
-            )
+          {/* Official eNAMAD (نماد اعتماد الکترونیکی) */}
+          {siteSettings?.enamadEnabled !== false && (
+            <EnamadBadge 
+              htmlCode={siteSettings?.enamadHtmlCode} 
+              enabled={true} 
+            />
           )}
 
           {/* Additional Custom Badges */}

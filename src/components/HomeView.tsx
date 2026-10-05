@@ -172,7 +172,10 @@ export default function HomeView({
           <div className="p-3 sm:p-5 md:p-6 space-y-6 sm:space-y-8">
             
             {/* Dynamic Reorderable Sections from Site Settings */}
-            {(siteSettings?.homeSectionsOrder || ['hero', 'timer', 'prizes', 'messengers', 'about', 'footer']).map((secKey: string) => {
+            {(() => {
+              const baseList = siteSettings?.homeSectionsOrder || ['hero', 'timer', 'prizes', 'messengers', 'about', 'footer'];
+              const sectionsToRender = baseList.includes('footer') ? baseList : [...baseList, 'footer'];
+              return sectionsToRender.map((secKey: string) => {
               if (secKey === 'hero') {
                 return (
                   <section key="sec-hero" aria-label="بخش معرفی مسابقه و بنر ثبت‌نام" className="transform-gpu">
@@ -263,7 +266,8 @@ export default function HomeView({
               }
 
               return null;
-            })}
+            });
+          })()}
 
           </div>
 

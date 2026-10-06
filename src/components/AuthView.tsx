@@ -296,8 +296,8 @@ export default function AuthView({
 
     const personalCode = generatePersonalCode();
     const avatarUrl = isGirls
-      ? 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=200&q=80'
-      : 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=200&q=80';
+      ? '/images/avatar/woman/woman_1.jpeg'
+      : '/images/avatar/male/male_1.jpeg';
 
     setIsSubmitting(true);
 
@@ -347,35 +347,19 @@ export default function AuthView({
       province: 'تهران',
       city: 'تهران'
     });
-    const leaderUser: User = { ...serverUser, group_id: group.id, is_group_member: false, squad_rank: 'commander' };
+    const leaderUser: User = { 
+      ...serverUser, 
+      group_id: group.id, 
+      is_group_member: false, 
+      squad_rank: 'commander',
+      is_active: true,
+      is_blocked: false 
+    };
     setGroups(prev => [...prev.filter(item => item.id !== group.id), group]);
     setUsers(prev => [...prev.filter(u => u.id !== leaderUser.id), leaderUser]);
     lockTheme();
 
-    const paymentRequired = Boolean(paymentSettings?.enabled && paymentSettings.amount > 0);
-    if (paymentRequired) {
-      const transaction: PaymentTransaction = {
-        id: `txn_${serverUser.id}_${Date.now()}`,
-        user_id: leaderUser.id,
-        national_code: nationalCode,
-        full_name: `${firstName} ${lastName}`,
-        amount: paymentSettings!.amount,
-        currency: paymentSettings!.currency,
-        gateway: paymentSettings!.gateway,
-        status: 'pending',
-        payment_url: paymentSettings!.redirect_url || undefined,
-        created_at: new Date().toISOString()
-      };
-      addPaymentTransaction?.(transaction);
-      if (paymentSettings!.redirect_url) {
-        const separator = paymentSettings!.redirect_url.includes('?') ? '&' : '?';
-        window.location.assign(`${paymentSettings!.redirect_url}${separator}transaction_id=${encodeURIComponent(transaction.id)}&amount=${transaction.amount}`);
-        return;
-      }
-      setRegisterError('هزینه ثبت‌نام تعیین شده اما آدرس درگاه پرداخت تنظیم نشده است.');
-      return;
-    }
-    triggerAlert(`گروه «${group.name}» ساخته شد. ظرفیت گروه ${MAX_GROUP_MEMBERS} نفر است. نام کاربری: ${group.shared_username} | رمز: ${group.shared_password}`);
+    triggerAlert(`ثبت‌نام با موفقیت انجام شد! گروه «${group.name}» ساخته شد. خوش آمدید ${firstName} ${lastName}`);
     onLoginSuccess(leaderUser, { mustChangePassword: res.data.mustChangePassword, isNewRegistration: true });
   };
 

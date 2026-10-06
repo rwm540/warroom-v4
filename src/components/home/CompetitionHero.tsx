@@ -59,7 +59,7 @@ export default function CompetitionHero({
       {/* Futuristic Teaser & Poster Showcase Area */}
       <div className="relative h-44 md:h-56 w-full rounded-2xl overflow-hidden border border-cyan-500/40 group shadow-inner">
         <img 
-          src={siteSettings?.heroImage || "https://images.unsplash.com/photo-1516321318423-f06f85e504b3?auto=format&fit=crop&w=1200&q=80"} 
+          src={siteSettings?.heroImage || "/images/banners/boys_registration_banner.webp"} 
           alt="پوستر و تیزر رسمی رویداد اتاق جنگ" 
           className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
           referrerPolicy="no-referrer"
@@ -156,7 +156,7 @@ export default function CompetitionHero({
             {/* Video Simulated Frame */}
             <div className="relative aspect-video w-full rounded-2xl overflow-hidden bg-black border border-cyan-500/30 flex items-center justify-center">
               <img 
-                src="https://images.unsplash.com/photo-1516321318423-f06f85e504b3?auto=format&fit=crop&w=1200&q=80" 
+                src="/images/banners/boys_registration_banner.webp" 
                 alt="تیزر" 
                 className="w-full h-full object-cover opacity-60"
               />
@@ -204,7 +204,7 @@ export default function CompetitionHero({
 
             <div className="relative rounded-2xl overflow-hidden border border-cyan-500/30">
               <img 
-                src={siteSettings?.heroImage || "https://images.unsplash.com/photo-1516321318423-f06f85e504b3?auto=format&fit=crop&w=1200&q=80"} 
+                src={siteSettings?.heroImage || "/images/banners/boys_registration_banner.webp"} 
                 alt="پوستر رسمی" 
                 className="w-full h-auto object-cover"
               />

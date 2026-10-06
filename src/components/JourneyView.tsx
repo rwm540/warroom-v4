@@ -187,7 +187,7 @@ export default function JourneyView({
   const [showProfileDrawer, setShowProfileDrawer] = useState(initialOpenProfile);
   const [copiedCode, setCopiedCode] = useState(false);
   const [profileSubTab, setProfileSubTab] = useState<'dossier' | 'medals' | 'avatar' | 'saved'>('dossier');
-  const [selectedAvatarUrl, setSelectedAvatarUrl] = useState(currentUser?.avatar_url || 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=300&q=80');
+  const [selectedAvatarUrl, setSelectedAvatarUrl] = useState(currentUser?.avatar_url || '/images/avatar/male/male_1.jpeg');
 
   const isGirls = currentUser?.gender === 'دختر' || localStorage.getItem('hisstory_theme_mode') === 'girls';
 
@@ -246,7 +246,18 @@ export default function JourneyView({
     }
   };
 
-  const PREDEFINED_AVATARS = getAvatarsByGender(currentUser?.gender, isGirls ? 'girls' : 'boys');
+  const [predefinedAvatars, setPredefinedAvatars] = useState(() => 
+    getAvatarsByGender(currentUser?.gender, isGirls ? 'girls' : 'boys')
+  );
+
+  useEffect(() => {
+    const updateAvList = () => {
+      setPredefinedAvatars(getAvatarsByGender(currentUser?.gender, isGirls ? 'girls' : 'boys'));
+    };
+    updateAvList();
+    window.addEventListener('warroom_custom_avatars_changed', updateAvList);
+    return () => window.removeEventListener('warroom_custom_avatars_changed', updateAvList);
+  }, [currentUser?.gender, isGirls]);
 
   const userGroup = groups.find(g => g.id === currentUser?.group_id);
   const earnedUserMedals = userMedals.filter(um => um.personal_code === currentUser?.personal_code);
@@ -858,73 +869,19 @@ export default function JourneyView({
 
               {/* Stages Embedded Along the S-Curve Road */}
               {stageCount === 0 ? (
-                <div className="flex flex-col items-center justify-center my-auto py-12 px-6 text-center z-20 space-y-4">
-                  {/* Animated Crystal & Radar Halo Centerpiece */}
-                  <div className="relative flex items-center justify-center my-3">
-                    {/* Rotating Outer Crystal Glow Ring */}
-                    <motion.div
-                      animate={{ rotate: 360 }}
-                      transition={{ repeat: Infinity, duration: 16, ease: "linear" }}
-                      className="absolute -inset-6 rounded-full bg-gradient-to-tr from-cyan-500/30 via-emerald-400/20 to-amber-500/30 blur-xl opacity-75"
+                <div className="flex flex-col items-center justify-center my-auto py-12 px-6 text-center z-20">
+                  {/* Clean Central Floating Logo Icon Only - No background frames or borders */}
+                  <motion.div
+                    animate={{ y: [0, -6, 0], scale: [1, 1.03, 1] }}
+                    transition={{ repeat: Infinity, duration: 3, ease: "easeInOut" }}
+                    className="w-28 h-28 sm:w-36 sm:h-36 flex items-center justify-center p-2 z-10"
+                  >
+                    <img 
+                      src={siteSettings?.customLogoUrl || '/images/logos/warroom_logo.webp'} 
+                      alt="War Room Logo" 
+                      className="w-full h-full object-contain filter drop-shadow-[0_10px_20px_rgba(0,0,0,0.6)]"
                     />
-
-                    {/* Outer Crystal Faceted Frame */}
-                    <motion.div
-                      animate={{ rotate: [0, 90, 180, 270, 360] }}
-                      transition={{ repeat: Infinity, duration: 24, ease: "linear" }}
-                      className={`w-32 h-32 sm:w-36 sm:h-36 rounded-3xl border-2 rotate-45 flex items-center justify-center backdrop-blur-md transition-all ${
-                        isGirls 
-                          ? 'border-fuchsia-400/40 bg-fuchsia-950/25 shadow-[0_0_40px_rgba(217,70,239,0.35)]' 
-                          : 'border-cyan-400/40 bg-cyan-950/25 shadow-[0_0_40px_rgba(6,182,212,0.35)]'
-                      }`}
-                    />
-
-                    {/* Secondary Rotating Crystal Border */}
-                    <motion.div
-                      animate={{ rotate: -360 }}
-                      transition={{ repeat: Infinity, duration: 20, ease: "linear" }}
-                      className="absolute w-28 h-28 sm:w-32 sm:h-32 rounded-2xl border border-amber-400/50 -rotate-12 pointer-events-none"
-                    />
-
-                    {/* Central Floating Logo & Crystal Core */}
-                    <motion.div
-                      animate={{ y: [0, -8, 0], scale: [1, 1.03, 1] }}
-                      transition={{ repeat: Infinity, duration: 3.2, ease: "easeInOut" }}
-                      className="absolute w-24 h-24 sm:w-28 sm:h-28 rounded-2xl flex items-center justify-center p-3 z-10"
-                    >
-                      {siteSettings?.customLogoUrl ? (
-                        <img 
-                          src={siteSettings.customLogoUrl} 
-                          alt="War Room Logo" 
-                          className="w-full h-full object-contain filter drop-shadow-[0_0_18px_rgba(6,182,212,0.7)]"
-                        />
-                      ) : (
-                        <div className="w-full h-full rounded-2xl bg-gradient-to-br from-amber-400 to-amber-600 flex items-center justify-center text-slate-950 font-black text-2xl shadow-xl">
-                          اتاق جنگ
-                        </div>
-                      )}
-                    </motion.div>
-
-                    {/* Sparkle Badges */}
-                    <motion.div
-                      animate={{ scale: [0.8, 1.2, 0.8], opacity: [0.4, 1, 0.4] }}
-                      transition={{ repeat: Infinity, duration: 2, ease: "easeInOut" }}
-                      className="absolute -top-2 -right-2 w-6 h-6 rounded-full bg-cyan-400/30 border border-cyan-300 text-cyan-200 flex items-center justify-center shadow-lg"
-                    >
-                      <Sparkles size={12} />
-                    </motion.div>
-                  </div>
-
-                  {/* Tactical Status Badges */}
-                  <div className="space-y-1.5 pt-2">
-                    <h3 className="font-black text-xs sm:text-sm text-white tracking-wide flex items-center justify-center gap-1.5">
-                      <span className="w-2 h-2 rounded-full bg-cyan-400 animate-ping" />
-                      <span>{siteSettings?.siteName || 'ستاد قرارگاه اتاق جنگ'}</span>
-                    </h3>
-                    <p className="text-[11px] text-slate-300/90 font-medium max-w-xs leading-relaxed bg-slate-950/60 border border-slate-800/80 px-3 py-1 rounded-xl backdrop-blur-sm">
-                      مراحل عملیاتی در حال طراحی و بارگذاری توسط فرماندهی می‌باشد
-                    </p>
-                  </div>
+                  </motion.div>
                 </div>
               ) : (
                 <div className="absolute inset-0 z-10 pointer-events-none">
@@ -1353,7 +1310,7 @@ export default function JourneyView({
                   </div>
 
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
-                    {PREDEFINED_AVATARS.map(avatar => {
+                    {predefinedAvatars.map(avatar => {
                       const isSelected = (selectedAvatarUrl || currentUser?.avatar_url) === avatar.url;
                       return (
                         <div

@@ -1,5 +1,5 @@
-import React, { useState, useRef, useCallback } from 'react';
-import { Play, Heart } from 'lucide-react';
+import React, { useState, useRef, useCallback, useEffect } from 'react';
+import { Play, Pause, Heart, Volume2, VolumeX } from 'lucide-react';
 
 const DEFAULT_TACTICAL_VIDEO = '/videowarroom.mp4';
 
@@ -34,14 +34,16 @@ export default function TacticalVideoPlayer({
 }: TacticalVideoPlayerProps) {
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const clickTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const [doubleTapHeart, setDoubleTapHeart] = useState<boolean>(false);
+  const playPromiseRef = useRef<Promise<void> | null>(null);
 
+  const [doubleTapHeart, setDoubleTapHeart] = useState<boolean>(false);
   const [isPlaying, setIsPlaying] = useState<boolean>(false);
+  const [isMuted, setIsMuted] = useState<boolean>(initialMuted);
   const [hasStarted, setHasStarted] = useState<boolean>(false);
   const [currentSrc, setCurrentSrc] = useState<string>(src?.trim() || DEFAULT_TACTICAL_VIDEO);
 
   // Update src if prop changes
-  React.useEffect(() => {
+  useEffect(() => {
     setCurrentSrc(src?.trim() || DEFAULT_TACTICAL_VIDEO);
   }, [src]);
 
@@ -56,11 +58,19 @@ export default function TacticalVideoPlayer({
 
   // Force first frame decoding on metadata load so the screen is never black
   const handleLoadedMetadata = () => {
-    if (videoRef.current && videoRef.current.currentTime === 0) {
-      try {
-        videoRef.current.currentTime = 0.001;
-      } catch {
-        // Safe ignore
+    if (videoRef.current) {
+      // Ensure volume is fully unmuted unless explicitly set
+      if (!initialMuted) {
+        videoRef.current.muted = false;
+        videoRef.current.volume = 1.0;
+        setIsMuted(false);
+      }
+      if (videoRef.current.currentTime === 0) {
+        try {
+          videoRef.current.currentTime = 0.001;
+        } catch {
+          // Safe ignore
+        }
       }
     }
   };
@@ -72,37 +82,93 @@ export default function TacticalVideoPlayer({
     }
   };
 
+  // Safe Play that never mutes the audio on AbortError or fast clicks
+  const safePlay = useCallback(async () => {
+    const video = videoRef.current;
+    if (!video) return;
+
+    try {
+      // Ensure unmuted with full volume on user intent
+      if (!isMuted) {
+        video.muted = false;
+        video.volume = 1.0;
+      }
+      playPromiseRef.current = video.play();
+      await playPromiseRef.current;
+      setIsPlaying(true);
+      setHasStarted(true);
+      onPlay?.();
+    } catch (err: any) {
+      // If browser blocked unmuted autoplay due to policy, fallback to muted autoplay but keep audio ready on click
+      if (err?.name === 'NotAllowedError') {
+        console.warn('Browser requires interaction for unmuted playback; starting muted...');
+        video.muted = true;
+        setIsMuted(true);
+        try {
+          playPromiseRef.current = video.play();
+          await playPromiseRef.current;
+          setIsPlaying(true);
+          setHasStarted(true);
+          onPlay?.();
+        } catch {
+          // Ignore
+        }
+      } else if (err?.name === 'AbortError') {
+        // Fast click/pause interruption - DO NOT mute the video!
+      }
+    } finally {
+      playPromiseRef.current = null;
+    }
+  }, [isMuted, onPlay]);
+
+  // Safe Pause
+  const safePause = useCallback(async () => {
+    const video = videoRef.current;
+    if (!video) return;
+
+    if (playPromiseRef.current) {
+      try {
+        await playPromiseRef.current;
+      } catch {
+        // Ignore
+      }
+    }
+    video.pause();
+    setIsPlaying(false);
+    onPause?.();
+  }, [onPause]);
+
   const togglePlay = useCallback(() => {
     const video = videoRef.current;
     if (!video) return;
 
     if (video.paused) {
-      video.play().then(() => {
-        setIsPlaying(true);
-        setHasStarted(true);
-        onPlay?.();
-      }).catch((err) => {
-        console.warn('Video playback requires interaction or muted autoplay:', err);
-        video.muted = true;
-        video.play().then(() => {
-          setIsPlaying(true);
-          setHasStarted(true);
-          onPlay?.();
-        }).catch(() => {});
-      });
+      safePlay();
     } else {
-      video.pause();
-      setIsPlaying(false);
-      onPause?.();
+      safePause();
     }
-  }, [onPlay, onPause]);
+  }, [safePlay, safePause]);
+
+  // Explicit audio mute/unmute toggle that never gets overridden
+  const toggleMute = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation();
+    const video = videoRef.current;
+    if (!video) return;
+
+    const nextMuted = !video.muted;
+    video.muted = nextMuted;
+    if (!nextMuted) {
+      video.volume = 1.0;
+    }
+    setIsMuted(nextMuted);
+  }, []);
 
   // Handle Single Click (Toggle Play) vs Double Click (Like without pausing/muting)
   const handleClick = (e: React.MouseEvent) => {
     e.stopPropagation();
 
+    // If double tap occurs within 280ms
     if (clickTimeoutRef.current) {
-      // 💖 Double Click / Tap detected!
       clearTimeout(clickTimeoutRef.current);
       clickTimeoutRef.current = null;
 
@@ -117,8 +183,15 @@ export default function TacticalVideoPlayer({
     // Single Click detected -> wait to see if second click occurs
     clickTimeoutRef.current = setTimeout(() => {
       clickTimeoutRef.current = null;
+      // On user click, also make sure video is unmuted if it was temporarily muted by browser autoplay policy
+      const video = videoRef.current;
+      if (video && video.muted && !initialMuted) {
+        video.muted = false;
+        video.volume = 1.0;
+        setIsMuted(false);
+      }
       togglePlay();
-    }, 260);
+    }, 240);
   };
 
   const handleVideoEnded = () => {
@@ -164,6 +237,26 @@ export default function TacticalVideoPlayer({
           <Heart size={84} className="fill-rose-500 text-rose-500 animate-bounce drop-shadow-[0_0_40px_rgba(244,63,94,0.95)]" />
         </div>
       )}
+
+      {/* Audio Mute/Unmute Quick Floating Button */}
+      <button
+        type="button"
+        onClick={toggleMute}
+        className="absolute bottom-3 left-3 z-30 p-2 rounded-xl bg-black/60 hover:bg-black/85 text-white border border-white/20 backdrop-blur-md transition shadow-lg flex items-center gap-1 cursor-pointer"
+        title={isMuted ? 'فعال‌سازی صدای ویدیو (کلیک کنید)' : 'بی‌صدا کردن ویدیو'}
+      >
+        {isMuted ? (
+          <>
+            <VolumeX size={16} className="text-rose-400" />
+            <span className="text-[10px] font-bold text-rose-300">صدا قطع</span>
+          </>
+        ) : (
+          <>
+            <Volume2 size={16} className="text-cyan-400" />
+            <span className="text-[10px] font-bold text-cyan-300">صدا وصل</span>
+          </>
+        )}
+      </button>
 
       {/* Central Big Tactical Play Button (When Video is Paused / Stopped) */}
       {!isPlaying && (

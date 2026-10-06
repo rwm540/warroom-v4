@@ -36,6 +36,20 @@ const PRESET_COLORS = [
   { name: 'سفید درخشان', hex: '#ffffff', class: 'bg-white' },
   { name: 'بنفش ارغوانی', hex: '#a855f7', class: 'bg-purple-500' },
   { name: 'قرمز شعله‌ای', hex: '#ef4444', class: 'bg-red-500' },
+  { name: 'سرخابی نئونی', hex: '#f43f5e', class: 'bg-rose-500' },
+  { name: 'آبی کبالت سلطنتی', hex: '#2563eb', class: 'bg-blue-600' },
+];
+
+// Preset background color options for whole site
+const BG_COLOR_PRESETS = [
+  { name: 'مشکی تیره آبنوسی (پیش‌فرض تاکتیکال)', hex: '#030610', class: 'bg-[#030610]' },
+  { name: 'بنفش ارغوانی دخترانه', hex: '#160424', class: 'bg-[#160424]' },
+  { name: 'صورتی تیره سایبری دخترانه', hex: '#260822', class: 'bg-[#260822]' },
+  { name: 'سرمه‌ای کبالت پسرانه', hex: '#050c24', class: 'bg-[#050c24]' },
+  { name: 'مشکی مطلق اولد (OLED Pure)', hex: '#000000', class: 'bg-black' },
+  { name: 'زغالی گرافیت مدرن', hex: '#0c101d', class: 'bg-[#0c101d]' },
+  { name: 'فیروزه‌ای تیره اقیانوسی', hex: '#041822', class: 'bg-[#041822]' },
+  { name: 'یاقوتی تیره آتشین', hex: '#20050a', class: 'bg-[#20050a]' },
 ];
 
 // Available fonts
@@ -103,6 +117,9 @@ export const VisualSiteContentStudio: React.FC<VisualSiteContentStudioProps> = (
     titleColor: siteSettings.titleColor || '#ffffff',
     siteTextColor: siteSettings.siteTextColor || '#cbd5e1',
     accentColor: siteSettings.accentColor || '#06b6d4',
+    siteThemeMode: siteSettings.siteThemeMode || 'boys',
+    siteCustomBgColor: siteSettings.siteCustomBgColor || '#030610',
+    siteBgPattern: siteSettings.siteBgPattern || 'grid',
     iconAnimatedText: siteSettings.iconAnimatedText !== undefined 
       ? siteSettings.iconAnimatedText 
       : 'به بزرگترین رویداد رقابتی و استراتژیک اتاق جنگ خوش آمدید!',
@@ -116,7 +133,7 @@ export const VisualSiteContentStudio: React.FC<VisualSiteContentStudioProps> = (
     adVideoTitle: siteSettings.adVideoTitle || 'تیزر حماسی معرفی مسابقات و جوایز قرارگاه',
     adVideoSubtitle: siteSettings.adVideoSubtitle || 'مشاهده مأموریت‌ها و جوایز میلیونی برای جوخه‌های برتر',
     adVideoBadge: siteSettings.adVideoBadge || 'ویژه و تبلیغاتی',
-    homeSectionsOrder: siteSettings.homeSectionsOrder || ['hero', 'timer', 'prizes', 'messengers', 'about', 'footer'],
+    homeSectionsOrder: siteSettings.homeSectionsOrder || ['hero', 'prizes', 'messengers', 'about', 'footer'],
     // 🏆 ویترین جایزه‌ها
     prizesSectionTitle: siteSettings.prizesSectionTitle !== undefined ? siteSettings.prizesSectionTitle : 'ویترین جایزه‌ها',
     prizesSectionSubtitle: siteSettings.prizesSectionSubtitle !== undefined ? siteSettings.prizesSectionSubtitle : 'کریستال جمع کن و جوایز ویژه سامانه را بازگشایی کن',
@@ -207,7 +224,7 @@ export const VisualSiteContentStudio: React.FC<VisualSiteContentStudioProps> = (
     guideSteps: siteSettings.guideSteps && siteSettings.guideSteps.length > 0 ? siteSettings.guideSteps : DEFAULT_GUIDE_STEPS,
     boysGuideImage: siteSettings.boysGuideImage || '',
     girlsGuideImage: siteSettings.girlsGuideImage || '',
-    showCountdownTimer: siteSettings.showCountdownTimer !== undefined ? siteSettings.showCountdownTimer : true,
+    showCountdownTimer: siteSettings.showCountdownTimer !== undefined ? siteSettings.showCountdownTimer : false,
     countdownTitle: siteSettings.countdownTitle || 'مهلت ثبت‌نام و آغاز رویداد بزرگ اتاق جنگ',
     heroCountdown: siteSettings.heroCountdown || '۰۲:۱۴:۳۹:۱۵',
     countdownTargetDate: siteSettings.countdownTargetDate || '',
@@ -233,19 +250,17 @@ export const VisualSiteContentStudio: React.FC<VisualSiteContentStudioProps> = (
   // Section Metas for Reordering
   const SECTION_METAS: { [key: string]: { name: string; desc: string; icon: any } } = {
     hero: { name: 'بخش ۱: بنرهای ثبت‌نام، لوگو و تیزر', desc: 'لوگو، متن انیمیشنی، بنر دختران و پسران و پلیر تیزر', icon: Swords },
-    timer: { name: 'بخش ۲: شمارش معکوس مسابقات (تایمر)', desc: 'کارت زمان‌سنج زنده رویداد با قابلیت جابه‌جایی در کل صفحه', icon: Clock },
-    prizes: { name: 'بخش ۳: ویترین جایزه‌ها و هدایا', desc: 'کارت‌های جوایز، عنوان و کریستال‌های مورد نیاز', icon: Trophy },
-    messengers: { name: 'بخش ۴: کانال‌های بله و ایتا و راهنما', desc: 'لینک‌های بله و ایتا و دکمه‌های مراحل و راهنما', icon: MessageCircle },
-    about: { name: 'بخش ۵: درباره ما و اهداف پروژه', desc: 'باکس معرفی و رسالت سامانه اتاق جنگ', icon: Info },
-    footer: { name: 'بخش ۶: دبیرخانه، تلفن، درگاه و اینماد', desc: 'شماره تلفن، آیکون‌های درگاه و اینماد با لینک هدایت', icon: Phone },
+    prizes: { name: 'بخش ۲: ویترین جایزه‌ها و هدایا', desc: 'کارت‌های جوایز، عنوان و کریستال‌های مورد نیاز', icon: Trophy },
+    messengers: { name: 'بخش ۳: کانال‌های بله و ایتا و راهنما', desc: 'لینک‌های بله و ایتا و دکمه‌های مراحل و راهنما', icon: MessageCircle },
+    about: { name: 'بخش ۴: درباره ما و اهداف پروژه', desc: 'باکس معرفی و رسالت سامانه اتاق جنگ', icon: Info },
+    footer: { name: 'بخش ۵: دبیرخانه، تلفن، درگاه و اینماد', desc: 'شماره تلفن، آیکون‌های درگاه و اینماد با لینک هدایت', icon: Phone },
   };
 
   const currentSectionsOrder = (() => {
-    const list = form.homeSectionsOrder || ['hero', 'timer', 'prizes', 'messengers', 'about', 'footer'];
-    if (list.includes('timer')) return list;
-    if (form.countdownPosition === 'top') return ['timer', ...list];
-    if (form.countdownPosition === 'bottom') return [...list.filter(s => s !== 'footer'), 'timer', 'footer'];
-    return ['hero', 'timer', ...list.filter(s => s !== 'hero')];
+    const list = form.homeSectionsOrder && form.homeSectionsOrder.length > 0 
+      ? form.homeSectionsOrder 
+      : ['hero', 'prizes', 'messengers', 'about', 'footer'];
+    return list.filter(s => s !== 'timer');
   })();
 
   // Handle reorder sections
@@ -288,6 +303,7 @@ export const VisualSiteContentStudio: React.FC<VisualSiteContentStudioProps> = (
     const newOrder = currentSectionsOrder.filter((_, i) => i !== index);
     setForm(prev => ({
       ...prev,
+      showCountdownTimer: targetKey === 'timer' ? false : prev.showCountdownTimer,
       homeSectionsOrder: newOrder
     }));
     if (triggerAlert) {
@@ -436,11 +452,14 @@ export const VisualSiteContentStudio: React.FC<VisualSiteContentStudioProps> = (
 
   // Render actual component based on section key
   const renderActualSection = (secKey: string) => {
+    const isGirls = form.siteThemeMode === 'girls';
+    const dynamicTheme = isGirls ? 'girls' : 'boys';
+
     switch (secKey) {
       case 'hero':
         return (
           <AdventureHeroSection 
-            themeMode="boys"
+            themeMode={dynamicTheme}
             currentUser={null}
             siteSettings={form}
             onOpenRegister={() => {}}
@@ -448,23 +467,10 @@ export const VisualSiteContentStudio: React.FC<VisualSiteContentStudioProps> = (
             onGoToDashboard={() => {}}
           />
         );
-      case 'timer':
-        return form.showCountdownTimer !== false ? (
-          <div className="w-full max-w-xl mx-auto my-3 px-2">
-            <CountdownTimerCard 
-              themeMode="boys"
-              countdownTitle={form.countdownTitle}
-              countdownString={form.heroCountdown}
-              targetDate={form.countdownTargetDate}
-              countdownStyle={form.countdownStyle}
-              removeBorder={form.removeTimerBorder !== false}
-            />
-          </div>
-        ) : null;
       case 'prizes':
         return (
           <PrizesAwardsBanner 
-            themeMode="boys"
+            themeMode={dynamicTheme}
             prizes={prizes}
             siteSettings={form}
             onExplorePrizes={() => {}}
@@ -473,7 +479,7 @@ export const VisualSiteContentStudio: React.FC<VisualSiteContentStudioProps> = (
       case 'messengers':
         return (
           <SocialMessengersWidgets 
-            themeMode="boys"
+            themeMode={dynamicTheme}
             siteSettings={form}
             onOpenStages={() => {}}
             onOpenGuide={() => {}}
@@ -490,7 +496,7 @@ export const VisualSiteContentStudio: React.FC<VisualSiteContentStudioProps> = (
       case 'footer':
         return (
           <Footer 
-            themeMode="boys"
+            themeMode={dynamicTheme}
             siteSettings={form}
             onNavigate={() => {}}
             onOpenAbout={() => {}}
@@ -654,7 +660,7 @@ export const VisualSiteContentStudio: React.FC<VisualSiteContentStudioProps> = (
               <span>سامانه و درباره</span>
             </button>
 
-            {/* 4. بنرها و تایمر */}
+            {/* 4. بنرها و ثبت‌نام */}
             <button
               type="button"
               onClick={() => setSidebarTab('banners')}
@@ -663,10 +669,10 @@ export const VisualSiteContentStudio: React.FC<VisualSiteContentStudioProps> = (
                   ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-400/60 shadow-[0_0_12px_rgba(6,182,212,0.3)] scale-[1.02]'
                   : 'text-slate-400 hover:text-white bg-slate-950/60 border border-slate-800/60 hover:border-slate-700'
               }`}
-              title="بنرهای ثبت‌نام، لوگو، متن تایپی و تایمر معکوس"
+              title="بنرهای ثبت‌نام دختران و پسران، لوگو و چینش"
             >
               <Layout size={16} className="text-cyan-400" />
-              <span>بنرها و تایمر</span>
+              <span>بنرها و ثبت‌نام</span>
             </button>
 
             {/* 5. فوتر و نمادها */}
@@ -1346,528 +1352,238 @@ export const VisualSiteContentStudio: React.FC<VisualSiteContentStudioProps> = (
                     </div>
                   </label>
 
-                  {/* Toggle 4: Remove Timer Border (حذف بردر کادر تایمر) */}
-                  <label className="flex items-start gap-2.5 p-2.5 rounded-xl bg-slate-950/80 border-0 cursor-pointer hover:bg-slate-850 transition">
-                    <input
-                      type="checkbox"
-                      checked={form.removeTimerBorder !== false}
-                      onChange={(e) => {
-                        setForm(prev => ({ ...prev, removeTimerBorder: e.target.checked }));
-                        if (triggerAlert) {
-                          triggerAlert(e.target.checked 
-                            ? 'بردر کادر تایمر کاملاً برداشته شد.' 
-                            : 'بردر کادر تایمر فعال شد.');
-                        }
-                      }}
-                      className="w-4 h-4 mt-0.5 accent-cyan-500 rounded cursor-pointer"
-                    />
-                    <div>
-                      <span className="text-xs font-bold text-white block">برداشتن کامل بردر و خط کادر تایمر (همیشه بدون بردر)</span>
-                      <span className="text-[10px] text-slate-400 leading-relaxed block mt-0.5">
-                        کادر تایمر بدون هیچ خط بردر و حاشیه بیرونی، با هاله و پس‌زمینه شفاف نمایش می‌یابد.
-                      </span>
-                    </div>
-                  </label>
                 </div>
               </div>
 
-              {/* ⏱️ COUNTDOWN TIMER CONTROLS (تنظیمات سه‌گزینه‌ای تایمر با گزینه‌های options و جابه‌جایی در صفحه) */}
-              <div className="p-3.5 rounded-2xl bg-slate-900/90 border-0 space-y-3.5 shadow-xl">
+              {/* 🎨 SITE THEME & BACKGROUND CUSTOMIZATION (ویرایش بگراند و رنگ‌آمیزی کل سایت: تم دخترانه و پسرانه) */}
+              <div className="p-3.5 rounded-2xl bg-slate-900/90 border border-purple-500/40 space-y-4 shadow-xl">
                 
-                {/* Header with Switch */}
+                {/* Section Header */}
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
-                    <div className="w-7 h-7 rounded-xl bg-cyan-950 text-cyan-400 flex items-center justify-center shadow-[0_0_10px_rgba(6,182,212,0.3)]">
-                      <Clock size={15} />
+                    <div className="w-7 h-7 rounded-xl bg-purple-950 text-purple-400 flex items-center justify-center shadow-[0_0_10px_rgba(168,85,247,0.3)]">
+                      <Palette size={15} />
                     </div>
                     <div>
-                      <span className="text-xs font-black text-cyan-300 block">شمارش معکوس رویداد و مسابقات:</span>
-                      <span className="text-[10px] text-slate-400">جابه‌جایی آسان با درگ و دراپ (Drag & Drop) یا گزینه‌ها</span>
+                      <span className="text-xs font-black text-purple-200 block">پوسته، رنگ‌آمیزی و بک‌گراند کل سایت:</span>
+                      <span className="text-[10px] text-slate-400">تغییر تم دخترانه / پسرانه و انتخاب رنگ پس‌زمینه</span>
                     </div>
                   </div>
-                  <label className="flex items-center gap-1.5 cursor-pointer text-[11px] font-bold text-slate-300 bg-slate-950 px-2.5 py-1 rounded-xl border-0 hover:text-white transition">
-                    <input
-                      type="checkbox"
-                      checked={form.showCountdownTimer !== false}
-                      onChange={(e) => setForm(prev => ({ ...prev, showCountdownTimer: e.target.checked }))}
-                      className="w-4 h-4 accent-cyan-500 rounded cursor-pointer"
-                    />
-                    <span>{form.showCountdownTimer !== false ? 'فعال و نمایان' : 'مخفی'}</span>
-                  </label>
+                  <span className={`text-[9px] px-2 py-0.5 rounded-full font-bold border ${
+                    form.siteThemeMode === 'girls'
+                      ? 'bg-pink-950 text-pink-300 border-pink-500/40'
+                      : form.siteThemeMode === 'custom'
+                      ? 'bg-purple-950 text-purple-300 border-purple-500/40'
+                      : 'bg-blue-950 text-blue-300 border-blue-500/40'
+                  }`}>
+                    {form.siteThemeMode === 'girls' ? 'تم دخترانه فعال' : form.siteThemeMode === 'custom' ? 'تم دلخواه' : 'تم پسرانه فعال'}
+                  </span>
                 </div>
 
-                {form.showCountdownTimer !== false && (
-                  <div className="space-y-3.5 pt-2 border-t border-slate-800/80">
-                    
-                    {/* ⠿ DRAG AND DROP ARENA (جابه‌جایی تایمر به صورت درگ و اند دراپ) */}
-                    <div className="p-3 rounded-2xl bg-cyan-950/20 border-0 space-y-2.5 shadow-inner">
-                      <div className="flex items-center justify-between">
-                        <label className="text-[11px] font-black text-cyan-300 flex items-center gap-1.5">
-                          <GripVertical size={14} />
-                          <span>جابه‌جایی تایمر با درگ و اند دراپ (Drag & Drop):</span>
-                        </label>
-                        <span className="text-[9px] px-2 py-0.5 rounded-full bg-cyan-950 text-cyan-400 font-bold border-0">
-                          {form.countdownPosition === 'top' ? 'بالای صفحه' : form.countdownPosition === 'bottom' ? 'پایین صفحه' : 'میانه صفحه'}
+                {/* 1. THEME MODE PRESETS (تم دخترانه، پسرانه، تاکتیکال و دلخواه) */}
+                <div className="space-y-2">
+                  <label className="text-[11px] font-bold text-slate-300 block">انتخاب تم و فضای رنگی اصلی سایت:</label>
+                  
+                  <div className="grid grid-cols-2 gap-2">
+                    {/* Girls Theme Card */}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setForm(prev => ({
+                          ...prev,
+                          siteThemeMode: 'girls',
+                          siteCustomBgColor: '#160424',
+                          siteBgPattern: 'aurora',
+                          accentColor: '#f43f5e',
+                          animatedTextColor: '#ec4899',
+                          titleColor: '#ffffff'
+                        }));
+                        if (triggerAlert) triggerAlert('🌸 تم جذاب دخترانه (صورتی/ارغوانی نئونی) برای کل سایت فعال شد.');
+                      }}
+                      className={`p-3 rounded-xl border text-right transition cursor-pointer active:scale-95 ${
+                        form.siteThemeMode === 'girls'
+                          ? 'bg-gradient-to-br from-pink-950/80 via-purple-950 to-rose-950 border-pink-400 text-white shadow-[0_0_15px_rgba(244,63,94,0.35)] ring-1 ring-pink-400'
+                          : 'bg-slate-950 border-slate-800 text-slate-400 hover:text-white hover:border-pink-500/40'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between mb-1.5">
+                        <span className="text-xs font-black text-pink-300 flex items-center gap-1.5">
+                          <span>🌸 تم دخترانه</span>
                         </span>
+                        {form.siteThemeMode === 'girls' && <span className="text-[9px] bg-pink-500 text-slate-950 px-1.5 py-0.2 rounded font-black">فعال ✓</span>}
                       </div>
+                      <p className="text-[10px] text-pink-200/80 leading-relaxed">
+                        بک‌گراند ارغوانی نئونی، درخشش صورتی و بنفش، با کارت‌های شیشه‌ای ویژه دختران.
+                      </p>
+                    </button>
 
-                      {/* 1. Draggable Item */}
-                      <div
-                        draggable
-                        onDragStart={(e) => {
-                          e.dataTransfer.setData('text/plain', 'timer');
-                          e.dataTransfer.effectAllowed = 'move';
-                          setIsDraggingTimer(true);
-                        }}
-                        onDragEnd={() => setIsDraggingTimer(false)}
-                        className="p-2.5 rounded-xl bg-gradient-to-r from-cyan-950 via-slate-900 to-blue-950 border-0 cursor-grab active:cursor-grabbing hover:brightness-110 transition-all flex items-center justify-between shadow-lg select-none"
-                      >
-                        <div className="flex items-center gap-2">
-                          <div className="w-6 h-6 rounded-lg bg-cyan-500/20 text-cyan-300 flex items-center justify-center">
-                            <GripVertical size={15} />
-                          </div>
-                          <div>
-                            <span className="text-xs font-black text-white block">آیتم تایمر (بکشید و رها کنید)</span>
-                            <span className="text-[9px] text-cyan-300/80">برای جابه‌جایی، این کادر را به یکی از ۳ ناحیه زیر بکشید</span>
-                          </div>
-                        </div>
-                        <span className="text-[10px] bg-cyan-900 text-cyan-200 px-2 py-0.5 rounded-md font-bold">
-                          درگ کنید ⠿
+                    {/* Boys Theme Card */}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setForm(prev => ({
+                          ...prev,
+                          siteThemeMode: 'boys',
+                          siteCustomBgColor: '#030610',
+                          siteBgPattern: 'grid',
+                          accentColor: '#06b6d4',
+                          animatedTextColor: '#06b6d4',
+                          titleColor: '#ffffff'
+                        }));
+                        if (triggerAlert) triggerAlert('⚡ تم تاکتیکال پسرانه (آبی کبالت / قرمز رزمی) برای کل سایت فعال شد.');
+                      }}
+                      className={`p-3 rounded-xl border text-right transition cursor-pointer active:scale-95 ${
+                        form.siteThemeMode === 'boys' || !form.siteThemeMode
+                          ? 'bg-gradient-to-br from-blue-950/80 via-slate-900 to-red-950 border-cyan-400 text-white shadow-[0_0_15px_rgba(6,182,212,0.35)] ring-1 ring-cyan-400'
+                          : 'bg-slate-950 border-slate-800 text-slate-400 hover:text-white hover:border-cyan-500/40'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between mb-1.5">
+                        <span className="text-xs font-black text-cyan-300 flex items-center gap-1.5">
+                          <span>⚡ تم پسرانه (تاکتیکال)</span>
                         </span>
+                        {(form.siteThemeMode === 'boys' || !form.siteThemeMode) && <span className="text-[9px] bg-cyan-400 text-slate-950 px-1.5 py-0.2 rounded font-black">فعال ✓</span>}
                       </div>
+                      <p className="text-[10px] text-cyan-200/80 leading-relaxed">
+                        بک‌گراند تاکتیکال آبنوسی، نورهای کبالت و سرخ با گرید نظامی ۳۲ پیکسلی.
+                      </p>
+                    </button>
+                  </div>
+                </div>
 
-                      {/* 2. Three Interactive Drop Zones */}
-                      <div className="grid grid-cols-1 gap-1.5 pt-1">
-                        
-                        {/* Drop Zone: Top */}
-                        <div
-                          onDragOver={(e) => {
-                            e.preventDefault();
-                            e.dataTransfer.dropEffect = 'move';
-                          }}
-                          onDrop={(e) => {
-                            e.preventDefault();
-                            const current = form.homeSectionsOrder || ['hero', 'prizes', 'messengers', 'about', 'footer'];
-                            const filtered = current.filter(s => s !== 'timer');
-                            const newOrder = ['timer', ...filtered];
-                            setForm(prev => ({ ...prev, countdownPosition: 'top', homeSectionsOrder: newOrder }));
-                            setIsDraggingTimer(false);
-                            if (triggerAlert) triggerAlert('تایمر با درگ و دراپ به بالای صفحه منتقل شد.');
-                          }}
-                          onClick={() => {
-                            const current = form.homeSectionsOrder || ['hero', 'prizes', 'messengers', 'about', 'footer'];
-                            const filtered = current.filter(s => s !== 'timer');
-                            setForm(prev => ({ ...prev, countdownPosition: 'top', homeSectionsOrder: ['timer', ...filtered] }));
-                            if (triggerAlert) triggerAlert('موقعیت: بالای صفحه');
-                          }}
-                          className={`p-2.5 rounded-xl border-2 border-dashed transition-all flex items-center justify-between cursor-pointer ${
-                            form.countdownPosition === 'top'
-                              ? 'bg-cyan-950/80 border-cyan-400 text-cyan-200 shadow-[0_0_12px_rgba(6,182,212,0.3)]'
-                              : isDraggingTimer
-                              ? 'bg-cyan-950/40 border-cyan-400 animate-pulse text-white'
-                              : 'bg-slate-900/60 border-slate-800 text-slate-400 hover:border-slate-700'
-                          }`}
-                        >
-                          <div className="flex items-center gap-2">
-                            <ArrowUp size={13} className="text-cyan-400" />
-                            <span className="text-xs font-bold">ناحیه ۱: بالای صفحه (پیش از بنرها)</span>
-                          </div>
-                          <span className={`text-[9px] px-2 py-0.5 rounded font-bold border-0 ${
-                            form.countdownPosition === 'top'
-                              ? 'bg-cyan-900 text-cyan-200'
-                              : 'bg-slate-950 text-slate-400'
-                          }`}>
-                            {form.countdownPosition === 'top' ? 'محل فعال ✓' : 'Drop Here'}
-                          </span>
-                        </div>
-
-                        {/* Drop Zone: Middle */}
-                        <div
-                          onDragOver={(e) => {
-                            e.preventDefault();
-                            e.dataTransfer.dropEffect = 'move';
-                          }}
-                          onDrop={(e) => {
-                            e.preventDefault();
-                            const current = form.homeSectionsOrder || ['hero', 'prizes', 'messengers', 'about', 'footer'];
-                            const filtered = current.filter(s => s !== 'timer');
-                            const heroIdx = filtered.indexOf('hero');
-                            const newOrder = [...filtered];
-                            newOrder.splice(heroIdx + 1, 0, 'timer');
-                            setForm(prev => ({ ...prev, countdownPosition: 'middle', homeSectionsOrder: newOrder }));
-                            setIsDraggingTimer(false);
-                            if (triggerAlert) triggerAlert('تایمر با درگ و دراپ به میانه صفحه منتقل شد.');
-                          }}
-                          onClick={() => {
-                            const current = form.homeSectionsOrder || ['hero', 'prizes', 'messengers', 'about', 'footer'];
-                            const filtered = current.filter(s => s !== 'timer');
-                            const heroIdx = filtered.indexOf('hero');
-                            const newOrder = [...filtered];
-                            newOrder.splice(heroIdx + 1, 0, 'timer');
-                            setForm(prev => ({ ...prev, countdownPosition: 'middle', homeSectionsOrder: newOrder }));
-                            if (triggerAlert) triggerAlert('موقعیت: میانه صفحه');
-                          }}
-                          className={`p-2.5 rounded-xl border-2 border-dashed transition-all flex items-center justify-between cursor-pointer ${
-                            (form.countdownPosition === 'middle' || !form.countdownPosition)
-                              ? 'bg-cyan-950/80 border-cyan-400 text-cyan-200 shadow-[0_0_12px_rgba(6,182,212,0.3)]'
-                              : isDraggingTimer
-                              ? 'bg-cyan-950/40 border-cyan-400 animate-pulse text-white'
-                              : 'bg-slate-900/60 border-slate-800 text-slate-400 hover:border-slate-700'
-                          }`}
-                        >
-                          <div className="flex items-center gap-2">
-                            <MoveVertical size={13} className="text-cyan-400" />
-                            <span className="text-xs font-bold">ناحیه ۲: میانه صفحه (زیر بنرها)</span>
-                          </div>
-                          <span className={`text-[9px] px-2 py-0.5 rounded font-bold border-0 ${
-                            (form.countdownPosition === 'middle' || !form.countdownPosition)
-                              ? 'bg-cyan-950 text-cyan-200'
-                              : 'bg-slate-950 text-slate-400'
-                          }`}>
-                            {(form.countdownPosition === 'middle' || !form.countdownPosition) ? 'محل فعال ✓' : 'Drop Here'}
-                          </span>
-                        </div>
-
-                        {/* Drop Zone: Bottom */}
-                        <div
-                          onDragOver={(e) => {
-                            e.preventDefault();
-                            e.dataTransfer.dropEffect = 'move';
-                          }}
-                          onDrop={(e) => {
-                            e.preventDefault();
-                            const current = form.homeSectionsOrder || ['hero', 'prizes', 'messengers', 'about', 'footer'];
-                            const filtered = current.filter(s => s !== 'timer' && s !== 'footer');
-                            const newOrder = [...filtered, 'timer', 'footer'];
-                            setForm(prev => ({ ...prev, countdownPosition: 'bottom', homeSectionsOrder: newOrder }));
-                            setIsDraggingTimer(false);
-                            if (triggerAlert) triggerAlert('تایمر با درگ و دراپ به انتهای صفحه منتقل شد.');
-                          }}
-                          onClick={() => {
-                            const current = form.homeSectionsOrder || ['hero', 'prizes', 'messengers', 'about', 'footer'];
-                            const filtered = current.filter(s => s !== 'timer' && s !== 'footer');
-                            const newOrder = [...filtered, 'timer', 'footer'];
-                            setForm(prev => ({ ...prev, countdownPosition: 'bottom', homeSectionsOrder: newOrder }));
-                            if (triggerAlert) triggerAlert('موقعیت: انتهای صفحه');
-                          }}
-                          className={`p-2.5 rounded-xl border-2 border-dashed transition-all flex items-center justify-between cursor-pointer ${
-                            form.countdownPosition === 'bottom'
-                              ? 'bg-cyan-950/80 border-cyan-400 text-cyan-200 shadow-[0_0_12px_rgba(6,182,212,0.3)]'
-                              : isDraggingTimer
-                              ? 'bg-cyan-950/40 border-cyan-400 animate-pulse text-white'
-                              : 'bg-slate-900/60 border-slate-800 text-slate-400 hover:border-slate-700'
-                          }`}
-                        >
-                          <div className="flex items-center gap-2">
-                            <ArrowDown size={13} className="text-cyan-400" />
-                            <span className="text-xs font-bold">ناحیه ۳: انتهای صفحه (بالای فوتر)</span>
-                          </div>
-                          <span className={`text-[9px] px-2 py-0.5 rounded font-bold border-0 ${
-                            form.countdownPosition === 'bottom'
-                              ? 'bg-cyan-900 text-cyan-200'
-                              : 'bg-slate-950 text-slate-400'
-                          }`}>
-                            {form.countdownPosition === 'bottom' ? 'محل فعال ✓' : 'Drop Here'}
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* 🌟 1. POSITION SELECTION - 3 OPTIONS DROPDOWN (منوی کشویی سه گزینه‌ای options برای جابه‌جایی تایمر در هر جای صفحه) */}
-                    <div className="p-2.5 rounded-xl bg-slate-900/80 border border-slate-800 space-y-2">
-                      <div className="flex items-center justify-between">
-                        <label className="text-[11px] font-black text-cyan-300 flex items-center gap-1.5">
-                          <SlidersHorizontal size={13} />
-                          <span>موقعیت قرارگیری در صفحه (سه گزینه‌ای):</span>
-                        </label>
-                        <span className="text-[9px] px-2 py-0.5 rounded-full bg-cyan-950 text-cyan-400 border border-cyan-500/40 font-bold">
-                          {form.countdownPosition === 'top' ? 'بالای صفحه' : form.countdownPosition === 'bottom' ? 'پایین صفحه' : 'میانه صفحه'}
-                        </span>
-                      </div>
-
-                      {/* Select Dropdown with 3 options */}
-                      <select
-                        value={form.countdownPosition || 'middle'}
-                        onChange={(e) => {
-                          const val = e.target.value as 'top' | 'middle' | 'bottom';
-                          setForm(prev => ({ ...prev, countdownPosition: val }));
-                          const posNames = {
-                            top: 'بالای صفحه (پیش از بنرها)',
-                            middle: 'میانه صفحه (زیر بنرها)',
-                            bottom: 'انتهای صفحه (بالای فوتر)'
-                          };
-                          if (triggerAlert) triggerAlert(`تایمر معکوس به «${posNames[val]}» منتقل شد.`);
-                        }}
-                        className="w-full bg-slate-900 border border-cyan-500/60 rounded-xl px-3 py-2 text-xs text-cyan-200 font-bold outline-none focus:border-cyan-400 cursor-pointer shadow-inner"
-                      >
-                        <option value="top">گزینه ۱: بالای صفحه (بالای بنرهای ثبت‌نام / زیر تیتر اصلی)</option>
-                        <option value="middle">گزینه ۲: میانه صفحه (زیر بنرها / بین بنرها و سایر بخش‌ها)</option>
-                        <option value="bottom">گزینه ۳: انتهای صفحه (پایین صفحه / بالای فوتر و نمادها)</option>
-                      </select>
-
-                      {/* 3 Interactive Quick-Move Visual Option Cards */}
-                      <div className="grid grid-cols-3 gap-1.5 pt-1">
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setForm(prev => ({ ...prev, countdownPosition: 'top' }));
-                            if (triggerAlert) triggerAlert('تایمر به گزینه ۱ (بالای صفحه) منتقل شد.');
-                          }}
-                          className={`p-2 rounded-xl text-center border transition flex flex-col items-center gap-1 cursor-pointer active:scale-95 ${
-                            form.countdownPosition === 'top'
-                              ? 'bg-gradient-to-b from-cyan-900/60 to-cyan-950 border-cyan-400 text-cyan-200 font-black shadow-[0_0_12px_rgba(6,182,212,0.4)] scale-[1.02]'
-                              : 'bg-slate-900 border-slate-800 text-slate-400 hover:text-white hover:border-slate-700'
-                          }`}
-                        >
-                          <div className="w-5 h-5 rounded-lg bg-cyan-950 flex items-center justify-center text-cyan-400 border border-cyan-500/40">
-                            <ArrowUp size={11} />
-                          </div>
-                          <span className="text-[10px] font-black">گزینه ۱</span>
-                          <span className="text-[9px]">بالای بنرها</span>
-                        </button>
-
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setForm(prev => ({ ...prev, countdownPosition: 'middle' }));
-                            if (triggerAlert) triggerAlert('تایمر به گزینه ۲ (میانه صفحه) منتقل شد.');
-                          }}
-                          className={`p-2 rounded-xl text-center border transition flex flex-col items-center gap-1 cursor-pointer active:scale-95 ${
-                            form.countdownPosition === 'middle' || !form.countdownPosition
-                              ? 'bg-gradient-to-b from-cyan-900/60 to-cyan-950 border-cyan-400 text-cyan-200 font-black shadow-[0_0_12px_rgba(6,182,212,0.4)] scale-[1.02]'
-                              : 'bg-slate-900 border-slate-800 text-slate-400 hover:text-white hover:border-slate-700'
-                          }`}
-                        >
-                          <div className="w-5 h-5 rounded-lg bg-cyan-950 flex items-center justify-center text-cyan-400 border border-cyan-500/40">
-                            <MoveVertical size={11} />
-                          </div>
-                          <span className="text-[10px] font-black">گزینه ۲</span>
-                          <span className="text-[9px]">زیر بنرها</span>
-                        </button>
-
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setForm(prev => ({ ...prev, countdownPosition: 'bottom' }));
-                            if (triggerAlert) triggerAlert('تایمر به گزینه ۳ (پایین صفحه) منتقل شد.');
-                          }}
-                          className={`p-2 rounded-xl text-center border transition flex flex-col items-center gap-1 cursor-pointer active:scale-95 ${
-                            form.countdownPosition === 'bottom'
-                              ? 'bg-gradient-to-b from-cyan-900/60 to-cyan-950 border-cyan-400 text-cyan-200 font-black shadow-[0_0_12px_rgba(6,182,212,0.4)] scale-[1.02]'
-                              : 'bg-slate-900 border-slate-800 text-slate-400 hover:text-white hover:border-slate-700'
-                          }`}
-                        >
-                          <div className="w-5 h-5 rounded-lg bg-cyan-950 flex items-center justify-center text-cyan-400 border border-cyan-500/40">
-                            <ArrowDown size={11} />
-                          </div>
-                          <span className="text-[10px] font-black">گزینه ۳</span>
-                          <span className="text-[9px]">پایین صفحه</span>
-                        </button>
-                      </div>
-
-                      {/* Helper button to jump to sections reorder tab */}
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setSidebarTab('sections');
-                          // ensure timer is in sections order if user wants full free drag/reorder
-                          if (!currentSectionsOrder.includes('timer')) {
-                            setForm(prev => ({
-                              ...prev,
-                              homeSectionsOrder: ['hero', 'timer', ...(prev.homeSectionsOrder || ['prizes', 'messengers', 'about', 'footer']).filter(s => s !== 'hero')]
-                            }));
-                          }
-                          if (triggerAlert) triggerAlert('بخش تایمر در تب «ترتیب» قرار گرفت؛ می‌توانید آن را با فلش‌ها بالا و پایین ببرید.');
-                        }}
-                        className="w-full mt-1 py-1.5 px-2 bg-slate-900 hover:bg-slate-850 text-cyan-300 hover:text-cyan-200 rounded-lg text-[10px] font-bold flex items-center justify-center gap-1.5 border border-slate-800 transition cursor-pointer"
-                      >
-                        <Move size={12} />
-                        <span>جابه‌جایی آزاد بین همه بخش‌ها در تب «ترتیب»</span>
-                      </button>
-                    </div>
-
-                    {/* 🌟 2. STYLE SELECTION - 3 OPTIONS (طرح و استایل سه گزینه‌ای) */}
-                    <div>
-                      <label className="text-[11px] font-bold text-slate-300 block mb-1">
-                        استایل و طرح نمایشی تایمر (سه گزینه‌ای):
-                      </label>
-                      <select
-                        value={form.countdownStyle || 'tactical'}
-                        onChange={(e) => {
-                          const s = e.target.value as 'tactical' | 'compact' | 'neon';
-                          setForm(prev => ({ ...prev, countdownStyle: s }));
-                          if (triggerAlert) triggerAlert('استایل تایمر تغییر یافت.');
-                        }}
-                        className="w-full bg-slate-900 border border-slate-800 rounded-xl px-2.5 py-1.5 text-xs text-white outline-none focus:border-cyan-400 cursor-pointer mb-2"
-                      >
-                        <option value="tactical">گزینه ۱: کارت شیشه‌ای تاکتیکال مدرن (کامل با بافت تیره)</option>
-                        <option value="compact">گزینه ۲: نوار افقی باریک و فشرده (کم‌حجم و ساده)</option>
-                        <option value="neon">گزینه ۳: کادرهای نئونی سایبرپانکی (درخشان با افکت الکتریکی)</option>
-                      </select>
-
-                      <div className="grid grid-cols-3 gap-1.5">
-                        {[
-                          { id: 'tactical', label: 'تاکتیکال', desc: 'شیشه‌ای' },
-                          { id: 'compact', label: 'فشرده', desc: 'نوار باریک' },
-                          { id: 'neon', label: 'نئونی', desc: 'سایبرپانکی' },
-                        ].map(st => (
-                          <button
-                            key={st.id}
-                            type="button"
-                            onClick={() => {
-                              setForm(prev => ({ ...prev, countdownStyle: st.id as any }));
-                              if (triggerAlert) triggerAlert(`طرح «${st.label}» اعمال شد.`);
-                            }}
-                            className={`p-1.5 rounded-lg text-center border text-[10px] transition cursor-pointer ${
-                              (form.countdownStyle || 'tactical') === st.id
-                                ? 'bg-cyan-500/20 border-cyan-400 text-cyan-300 font-bold'
-                                : 'bg-slate-900 border-slate-800 text-slate-400 hover:text-white'
-                            }`}
-                          >
-                            <span className="block font-bold">{st.label}</span>
-                            <span className="text-[8px] opacity-70">{st.desc}</span>
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-
-                    {/* 🌟 3. TITLE & COUNTDOWN DURATION INPUT (عنوان و زمان شمارش معکوس) */}
-                    <div>
-                      <label className="text-[11px] font-bold text-slate-300 block mb-1">عنوان بالای تایمر:</label>
-                      <input
-                        type="text"
-                        value={form.countdownTitle || ''}
-                        onChange={(e) => setForm(prev => ({ ...prev, countdownTitle: e.target.value }))}
-                        placeholder="مهلت ثبت‌نام و آغاز رویداد بزرگ اتاق جنگ"
-                        className="w-full bg-slate-900 border border-slate-800 rounded-xl px-2.5 py-1.5 text-xs text-white outline-none focus:border-cyan-400"
+                {/* 2. BACKGROUND COLOR PICKER & PRESET PALETTES */}
+                <div className="p-3 rounded-xl bg-slate-950 border border-slate-800 space-y-2.5">
+                  <div className="flex items-center justify-between">
+                    <label className="text-[11px] font-bold text-slate-200 flex items-center gap-1.5">
+                      <Sparkles size={13} className="text-purple-400" />
+                      <span>رنگ پس‌زمینه (Background Color):</span>
+                    </label>
+                    <div className="flex items-center gap-2">
+                      <span className="font-mono text-[10px] text-slate-400 dir-ltr">{form.siteCustomBgColor || '#030610'}</span>
+                      <span 
+                        className="w-5 h-5 rounded-lg border border-white/40 shadow-inner"
+                        style={{ backgroundColor: form.siteCustomBgColor || '#030610' }}
                       />
                     </div>
-
-                    <div>
-                      <div className="flex items-center justify-between mb-1">
-                        <label className="text-[11px] font-bold text-slate-300">
-                          زمان شمارش معکوس (روز : ساعت : دقیقه : ثانیه):
-                        </label>
-                      </div>
-
-                      {/* Duration Presets Select (سه گزینه‌ای به صورت options) */}
-                      <div className="space-y-1.5">
-                        <select
-                          value={
-                            form.heroCountdown === '۰۲:۱۴:۳۹:۱۵' || form.heroCountdown === '02:14:39:15'
-                              ? 'opt1'
-                              : form.heroCountdown === '۰۷:۰۰:۰۰:۰۰' || form.heroCountdown === '07:00:00:00'
-                              ? 'opt2'
-                              : form.heroCountdown === '۳۰:۰۰:۰۰:۰۰' || form.heroCountdown === '30:00:00:00'
-                              ? 'opt3'
-                              : 'custom'
-                          }
-                          onChange={(e) => {
-                            const map: Record<string, string> = {
-                              opt1: '۰۲:۱۴:۳۹:۱۵',
-                              opt2: '۰۷:۰۰:۰۰:۰۰',
-                              opt3: '۳۰:۰۰:۰۰:۰۰',
-                            };
-                            if (map[e.target.value]) {
-                              setForm(prev => ({ ...prev, heroCountdown: map[e.target.value] }));
-                              if (triggerAlert) triggerAlert('زمان تایمر به‌روزرسانی شد.');
-                            }
-                          }}
-                          className="w-full bg-slate-900 border border-slate-800 rounded-xl px-2.5 py-1.5 text-xs text-cyan-300 font-bold outline-none focus:border-cyan-400 cursor-pointer"
-                        >
-                          <option value="opt1">گزینه ۱: ۲ روز و ۱۴ ساعت (پیش‌فرض رویداد)</option>
-                          <option value="opt2">گزینه ۲: ۱ هفته (۷ روز کامل)</option>
-                          <option value="opt3">گزینه ۳: ۱ ماه (۳۰ روز کامل)</option>
-                          <option value="custom">گزینه دستی و دلخواه...</option>
-                        </select>
-
-                        <input
-                          type="text"
-                          value={form.heroCountdown || ''}
-                          onChange={(e) => setForm(prev => ({ ...prev, heroCountdown: e.target.value }))}
-                          placeholder="مثلاً: ۰۲:۱۴:۳۹:۱۵"
-                          className="w-full bg-slate-900 border border-slate-800 rounded-xl px-2.5 py-1.5 text-xs text-white font-mono dir-ltr outline-none focus:border-cyan-400"
-                        />
-                      </div>
-                      
-                      <p className="text-[10px] text-slate-400 mt-1 leading-relaxed">
-                        می‌توانید زمان را به فرمت <code className="text-cyan-400">02:14:39:15</code> (روز:ساعت:دقیقه:ثانیه) وارد کنید تا ثانیه‌شمار زنده آن شروع به شمارش معکوس کند.
-                      </p>
-                    </div>
-
-                    {/* Quick Extension & Duration Presets (دکمه‌های تمدید سریع زمان و بازگشت بنرها) */}
-                    <div className="space-y-1.5 pt-1">
-                      <div className="flex items-center justify-between text-[10px] text-cyan-300 font-bold">
-                        <span>تمدید سریع زمان رویداد:</span>
-                        <span className="text-[9px] text-emerald-400">با تمدید، بنرها مجدداً ظاهر می‌شوند ✓</span>
-                      </div>
-                      
-                      <div className="flex gap-1.5">
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setForm(prev => ({ 
-                              ...prev, 
-                              heroCountdown: '۰۲:۱۴:۳۹:۱۵',
-                              showCountdownTimer: true,
-                              disableBannerLinks: false,
-                              hideRegistrationBanners: false
-                            }));
-                            if (triggerAlert) triggerAlert('تایمر تمدید شد (۲ روز و ۱۴ ساعت) و بنرهای ثبت‌نام مجدداً نمایان شدند.');
-                          }}
-                          className={`flex-1 py-1.5 rounded-lg text-[10px] font-bold border-0 transition active:scale-95 cursor-pointer ${
-                            form.heroCountdown === '۰۲:۱۴:۳۹:۱۵'
-                              ? 'bg-cyan-900 text-cyan-200 shadow-md'
-                              : 'bg-slate-900 hover:bg-slate-800 text-slate-300'
-                          }`}
-                        >
-                          تمدید ۲ روز
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setForm(prev => ({ 
-                              ...prev, 
-                              heroCountdown: '۰۷:۰۰:۰۰:۰۰',
-                              showCountdownTimer: true,
-                              disableBannerLinks: false,
-                              hideRegistrationBanners: false
-                            }));
-                            if (triggerAlert) triggerAlert('تایمر تمدید شد (۷ روز کامل) و بنرهای ثبت‌نام مجدداً نمایان شدند.');
-                          }}
-                          className={`flex-1 py-1.5 rounded-lg text-[10px] font-bold border-0 transition active:scale-95 cursor-pointer ${
-                            form.heroCountdown === '۰۷:۰۰:۰۰:۰۰'
-                              ? 'bg-cyan-900 text-cyan-200 shadow-md'
-                              : 'bg-slate-900 hover:bg-slate-800 text-slate-300'
-                          }`}
-                        >
-                          تمدید ۷ روز
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setForm(prev => ({ 
-                              ...prev, 
-                              heroCountdown: '۳۰:۰۰:۰۰:۰۰',
-                              showCountdownTimer: true,
-                              disableBannerLinks: false,
-                              hideRegistrationBanners: false
-                            }));
-                            if (triggerAlert) triggerAlert('تایمر تمدید شد (۳۰ روز کامل) و بنرهای ثبت‌نام مجدداً نمایان شدند.');
-                          }}
-                          className={`flex-1 py-1.5 rounded-lg text-[10px] font-bold border-0 transition active:scale-95 cursor-pointer ${
-                            form.heroCountdown === '۳۰:۰۰:۰۰:۰۰'
-                              ? 'bg-cyan-900 text-cyan-200 shadow-md'
-                              : 'bg-slate-900 hover:bg-slate-800 text-slate-300'
-                          }`}
-                        >
-                          تمدید ۳۰ روز
-                        </button>
-                      </div>
-                    </div>
-
                   </div>
-                )}
+
+                  {/* Preset Colors Grid */}
+                  <div className="space-y-1">
+                    <span className="text-[10px] text-slate-400 block">پالت‌های سریع پس‌زمینه:</span>
+                    <div className="grid grid-cols-4 gap-1.5">
+                      {BG_COLOR_PRESETS.map(c => (
+                        <button
+                          key={c.hex}
+                          type="button"
+                          onClick={() => {
+                            setForm(prev => ({ ...prev, siteCustomBgColor: c.hex }));
+                            if (triggerAlert) triggerAlert(`رنگ پس‌زمینه به «${c.name}» تغییر یافت.`);
+                          }}
+                          className={`p-1.5 rounded-lg border text-center transition flex flex-col items-center gap-1 cursor-pointer active:scale-95 ${
+                            form.siteCustomBgColor === c.hex
+                              ? 'border-cyan-400 ring-2 ring-cyan-400/50 bg-slate-900 shadow-md'
+                              : 'border-slate-800 bg-slate-950 hover:border-slate-700'
+                          }`}
+                        >
+                          <span className={`w-5 h-5 rounded-md border border-white/20 shadow ${c.class}`} />
+                          <span className="text-[8px] text-slate-300 font-bold truncate max-w-full">{c.name.split(' ')[0]}</span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Custom Hex Color Picker Input */}
+                  <div className="flex items-center gap-2 pt-1 border-t border-slate-800/80">
+                    <label className="text-[10px] text-slate-400 shrink-0">کد رنگ دقیق:</label>
+                    <input
+                      type="text"
+                      value={form.siteCustomBgColor || '#030610'}
+                      onChange={(e) => setForm(prev => ({ ...prev, siteCustomBgColor: e.target.value }))}
+                      placeholder="#030610"
+                      className="flex-1 bg-slate-900 border border-slate-800 rounded-lg px-2 py-1 text-xs text-white font-mono dir-ltr outline-none focus:border-purple-400"
+                    />
+                    <input
+                      type="color"
+                      value={form.siteCustomBgColor || '#030610'}
+                      onChange={(e) => setForm(prev => ({ ...prev, siteCustomBgColor: e.target.value }))}
+                      className="w-8 h-8 rounded-lg cursor-pointer bg-transparent border-0 shrink-0"
+                      title="انتخاب رنگ پس‌زمینه با پالت"
+                    />
+                  </div>
+                </div>
+
+                {/* 3. BACKGROUND PATTERN & ATMOSPHERE */}
+                <div className="p-3 rounded-xl bg-slate-950 border border-slate-800 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <label className="text-[11px] font-bold text-slate-200">الگو و بافت پس‌زمینه (Background Texture):</label>
+                    <span className="text-[9px] text-cyan-400 font-mono">
+                      {form.siteBgPattern === 'aurora' ? 'شفق نئونی' : form.siteBgPattern === 'stars' ? 'ستاره‌ای' : form.siteBgPattern === 'dots' ? 'ذرات ماتریسی' : form.siteBgPattern === 'none' ? 'ساده و یکدست' : 'گرید نظامی'}
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-3 gap-1.5">
+                    {[
+                      { id: 'grid', label: 'گرید نظامی', desc: 'خطوط ۳۲px' },
+                      { id: 'aurora', label: 'شفق نئونی', desc: 'هاله رنگی' },
+                      { id: 'stars', label: 'ستاره‌ای', desc: 'کیهانی' },
+                      { id: 'dots', label: 'ذرات نوری', desc: 'ماتریسی' },
+                      { id: 'none', label: 'یکدست', desc: 'ساده بدون بافت' },
+                    ].map(pat => (
+                      <button
+                        key={pat.id}
+                        type="button"
+                        onClick={() => {
+                          setForm(prev => ({ ...prev, siteBgPattern: pat.id as any }));
+                          if (triggerAlert) triggerAlert(`الگوی «${pat.label}» اعمال گردید.`);
+                        }}
+                        className={`p-2 rounded-xl text-center border text-[10px] transition cursor-pointer active:scale-95 ${
+                          (form.siteBgPattern || 'grid') === pat.id
+                            ? 'bg-purple-950/70 border-purple-400 text-purple-200 font-bold shadow-md'
+                            : 'bg-slate-900 border-slate-800 text-slate-400 hover:text-white'
+                        }`}
+                      >
+                        <span className="block font-bold">{pat.label}</span>
+                        <span className="text-[8px] opacity-70">{pat.desc}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* 4. ACCENT & BUTTONS COLOR */}
+                <div className="p-3 rounded-xl bg-slate-950 border border-slate-800 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <label className="text-[11px] font-bold text-slate-200">رنگ شاخص دکمه‌ها و المان‌ها (Accent Color):</label>
+                    <span 
+                      className="w-4 h-4 rounded-full border border-white/40 shadow"
+                      style={{ backgroundColor: form.accentColor || '#06b6d4' }}
+                    />
+                  </div>
+
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    {PRESET_COLORS.map(c => (
+                      <button
+                        key={c.hex}
+                        type="button"
+                        onClick={() => {
+                          setForm(prev => ({ ...prev, accentColor: c.hex }));
+                          if (triggerAlert) triggerAlert(`رنگ شاخص به «${c.name}» تغییر یافت.`);
+                        }}
+                        className={`w-7 h-7 rounded-xl border transition-transform cursor-pointer ${c.class} ${
+                          form.accentColor === c.hex ? 'scale-125 border-white ring-2 ring-purple-400' : 'border-transparent hover:scale-110'
+                        }`}
+                        title={c.name}
+                      />
+                    ))}
+                    <input
+                      type="color"
+                      value={form.accentColor || '#06b6d4'}
+                      onChange={(e) => setForm(prev => ({ ...prev, accentColor: e.target.value }))}
+                      className="w-7 h-7 rounded-xl cursor-pointer bg-transparent border-0"
+                      title="انتخاب رنگ دلخواه با جعبه رنگ"
+                    />
+                  </div>
+                </div>
+
               </div>
 
             </div>
@@ -1982,33 +1698,6 @@ export const VisualSiteContentStudio: React.FC<VisualSiteContentStudioProps> = (
                   );
                 })}
               </div>
-
-              {/* Add Timer to Sections Order if not already present */}
-              {!currentSectionsOrder.includes('timer') && (
-                <div className="p-3 rounded-2xl bg-cyan-950/30 border border-cyan-500/40 space-y-2 mt-3">
-                  <div className="flex items-center gap-2">
-                    <Clock size={15} className="text-cyan-400" />
-                    <span className="text-xs font-black text-cyan-200">جابه‌جایی تایمر بین تمام بخش‌های صفحه:</span>
-                  </div>
-                  <p className="text-[10px] text-slate-300 leading-relaxed">
-                    می‌توانید تایمر را به عنوان یک سکشن مستقل به این لیست اضافه کنید تا با فلش‌های بالا و پایین در هر نقطه‌ای از صفحه (بالاتر از جوایز، زیر پیام‌رسان‌ها یا بالای فوتر) قرار گیرد.
-                  </p>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setForm(prev => ({
-                        ...prev,
-                        homeSectionsOrder: ['hero', 'timer', ...(prev.homeSectionsOrder || ['prizes', 'messengers', 'about', 'footer']).filter(s => s !== 'hero')]
-                      }));
-                      if (triggerAlert) triggerAlert('سکشن شمارش معکوس به لیست افزوده شد و اکنون می‌توانید آن را به هر جای صفحه منتقل کنید.');
-                    }}
-                    className="w-full py-2 bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white rounded-xl text-xs font-black flex items-center justify-center gap-1.5 shadow active:scale-95 transition cursor-pointer"
-                  >
-                    <Plus size={14} />
-                    <span>افزودن تایمر به لیست جهت جابه‌جایی آزاد</span>
-                  </button>
-                </div>
-              )}
             </div>
           )}
 
@@ -3370,16 +3059,6 @@ export const VisualSiteContentStudio: React.FC<VisualSiteContentStudioProps> = (
                         </button>
                       </div>
                     </div>
-
-                    {/* Render countdown timer above footer in preview if position is bottom and timer is not in custom order */}
-                    {secKey === 'footer' && 
-                     form.showCountdownTimer !== false && 
-                     form.countdownPosition === 'bottom' && 
-                     !currentSectionsOrder.includes('timer') && (
-                      <div className="w-full mb-3">
-                        {renderActualSection('timer')}
-                      </div>
-                    )}
 
                     {/* Actual Real Component */}
                     <div className="w-full">

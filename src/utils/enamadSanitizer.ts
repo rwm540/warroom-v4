@@ -8,23 +8,27 @@ export const OFFICIAL_ENAMAD_HTML = `<a referrerpolicy='origin' target='_blank' 
 
 /**
  * Sanitizes the given eNAMAD HTML snippet.
- * Strips any dangerous scripts, iframes, inline event handlers, or protocol exploits.
+ * Strips any dangerous scripts, iframes, inline event handlers, or protocol exploits
+ * while strictly preserving the official <a> and <img> elements, URLs, and attributes.
  */
-export function sanitizeEnamadHtml(rawHtml: string): string {
+export function sanitizeEnamadHtml(rawHtml?: string | null): string {
   if (!rawHtml || typeof rawHtml !== 'string') {
-    return '';
+    return OFFICIAL_ENAMAD_HTML;
   }
 
   const trimmed = rawHtml.trim();
-  if (!trimmed) return '';
+  if (!trimmed) {
+    return OFFICIAL_ENAMAD_HTML;
+  }
 
   if (typeof window === 'undefined' || typeof DOMParser === 'undefined') {
     // Basic regex fallback for non-DOM environments
-    return trimmed
+    const cleaned = trimmed
       .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
       .replace(/\son\w+\s*=\s*(['"]).*?\1/gi, '')
       .replace(/\son\w+\s*=\s*[^>\s]+/gi, '')
       .replace(/javascript\s*:/gi, '');
+    return cleaned || OFFICIAL_ENAMAD_HTML;
   }
 
   try {
@@ -69,7 +73,7 @@ export function sanitizeEnamadHtml(rawHtml: string): string {
 
         // Enforce allowed attributes per tag
         if (tagName === 'a') {
-          const allowedA = ['href', 'target', 'rel', 'referrerpolicy', 'id', 'class', 'title', 'code'];
+          const allowedA = ['href', 'target', 'rel', 'referrerpolicy', 'id', 'class', 'title', 'code', 'style'];
           if (!allowedA.includes(attrName)) {
             el.removeAttribute(attr.name);
           }
@@ -85,19 +89,21 @@ export function sanitizeEnamadHtml(rawHtml: string): string {
       if (tagName === 'a') {
         el.setAttribute('target', '_blank');
         el.setAttribute('referrerpolicy', 'origin');
-        const currentRel = el.getAttribute('rel') || '';
-        if (!currentRel.includes('noopener')) {
-          el.setAttribute('rel', 'noopener noreferrer');
-        }
       } else if (tagName === 'img') {
         el.setAttribute('referrerpolicy', 'origin');
       }
     });
 
-    return doc.body.innerHTML.trim();
+    const result = doc.body.innerHTML.trim();
+    // Guarantee that <a> and <img> exist; otherwise return official fallback
+    if (!result || !result.includes('<img') || !result.includes('<a')) {
+      return OFFICIAL_ENAMAD_HTML;
+    }
+
+    return result;
   } catch (err) {
     console.error('[eNAMAD Sanitizer] Parsing error:', err);
-    return '';
+    return OFFICIAL_ENAMAD_HTML;
   }
 }
 

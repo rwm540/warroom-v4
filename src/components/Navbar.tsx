@@ -38,6 +38,7 @@ import { formatToPersianDigits } from '../utils/jalali';
 // In-project commander character avatars
 import womanCommanderAvatar from '../assets/images/avatar/woman/Commander_giving_orders_2K_202608210108.jpeg';
 import maleCommanderAvatar from '../assets/images/avatar/male/Commander_in_tactical_uniform_ready_202608210056.jpeg';
+import { PWAInstallButton } from './PWAInstallButton';
 
 interface NavbarProps {
   currentUser: User | null;
@@ -244,6 +245,8 @@ export default function Navbar({
                     <span className="hidden sm:inline">چت روم</span>
                   </button>
                 )}
+
+                <PWAInstallButton className="hidden sm:inline-flex" />
               </>
             )}
           </div>
@@ -362,6 +365,9 @@ export default function Navbar({
 
               {/* Sheet Extended Items */}
               <div className="space-y-2">
+                <div className="pb-1">
+                  <PWAInstallButton className="w-full justify-center py-2.5 text-xs shadow-md" />
+                </div>
                 {mobileSheetItems.map((item) => {
                   const Icon = item.icon;
                   const isActive = item.isAdmin 

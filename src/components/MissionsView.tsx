@@ -22,6 +22,7 @@ import {
 } from 'lucide-react';
 import { User, Mission, MissionSubmission } from '../types';
 import { formatToPersianDigits } from '../utils/jalali';
+import { PaginationControls } from './common/PaginationControls';
 
 interface MissionsViewProps {
   currentUser: User;
@@ -134,8 +135,10 @@ export default function MissionsView({
     );
   }
 
-  const [selectedMissionId, setSelectedMissionId] = useState<string>(missions[0]?.id || '');
-  const selectedMission = missions.find(m => m.id === selectedMissionId) || missions[0];
+  const activeMissions = missions.filter(m => m.is_active !== false);
+  const [selectedMissionId, setSelectedMissionId] = useState<string>(activeMissions[0]?.id || missions[0]?.id || '');
+  const [missionsPage, setMissionsPage] = useState<number>(1);
+  const selectedMission = missions.find(m => m.id === selectedMissionId) || activeMissions[0] || missions[0];
 
   // Current user's submission for this mission
   const existingSubmission = submissions.find(
@@ -281,14 +284,16 @@ export default function MissionsView({
           <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">فهرست مأموریت‌های فعال:</h3>
           
           <div className="space-y-2.5">
-            {missions.filter(m => m.is_active).length === 0 && (
+            {activeMissions.length === 0 && (
               <div className="p-6 rounded-xl border border-dashed border-slate-700 bg-[#080d21]/60 text-center space-y-2">
                 <Target className="mx-auto text-slate-600" size={28} />
                 <p className="text-xs text-slate-400 font-bold">هنوز مأموریت فعالی تعریف نشده است</p>
                 <p className="text-[10px] text-slate-500 leading-relaxed">مأموریت‌های عملیاتی توسط ستاد فرماندهی از طریق پنل مدیریت تعریف می‌شوند. به‌زودی اولین عملیات اعلام خواهد شد.</p>
               </div>
             )}
-            {missions.filter(m => m.is_active).map(m => {
+            {activeMissions
+              .slice((missionsPage - 1) * 10, missionsPage * 10)
+              .map(m => {
               const sub = submissions.find(s => s.mission_id === m.id && s.user_id === currentUser.id);
               const isSelected = m.id === selectedMission?.id;
 
@@ -335,6 +340,18 @@ export default function MissionsView({
                 </div>
               );
             })}
+
+            {activeMissions.length > 10 && (
+              <div className="pt-2">
+                <PaginationControls
+                  currentPage={missionsPage}
+                  totalItems={activeMissions.length}
+                  itemsPerPage={10}
+                  onPageChange={setMissionsPage}
+                  themeColor="cyan"
+                />
+              </div>
+            )}
           </div>
         </div>
 

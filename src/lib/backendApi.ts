@@ -17,6 +17,7 @@ import {
 } from './supabaseData';
 import { validateSessionToken, clearRedisSession, isRedisEnabled } from './redisClient';
 import { logAudit } from './auditLogger';
+import { getCachedTableData, enqueueOfflineMutation, cacheTableData } from './offlineStorage';
 
 export interface ApiError {
   code: string;
@@ -187,6 +188,8 @@ function createFallbackAdminUser(): User {
     group_id: undefined,
     completed_stages: [],
     mustChangePassword: false,
+    is_active: true,
+    is_blocked: false,
     password: '',
   };
 }
@@ -269,14 +272,25 @@ export async function apiLogin(nationalCode: string, password: string): Promise<
 
   if (isSupabaseEnabled && supabase) {
     try {
-      const { data, error } = await supabase.from('warroom_users').select('id, data');
-      if (error) {
-        void logAudit({ event: 'auth.login_database_error', level: 'error', source: 'client', metadata: { code: error.code } });
-        console.warn('[WarRoom Supabase Auth] خطا در خواندن کاربران:', error);
-        return { ok: false, error: { code: 'AUTH_UNAVAILABLE', message: 'ارتباط با سامانه احراز هویت برقرار نشد.' } };
+      let data: any[] | null = null;
+      try {
+        const res = await supabase.from('warroom_users').select('id, data');
+        if (!res.error && res.data) {
+          data = res.data;
+        }
+      } catch {
+        data = null;
       }
 
-      if (!error && data && data.length > 0) {
+      // در صورت آفلاین بودن یا عدم دسترسی به سرور، از کَش پایدار IndexedDB استفاده کن
+      if (!data || data.length === 0) {
+        const cached = await getCachedTableData<User>('warroom_users');
+        if (cached && cached.length > 0) {
+          data = cached.map((u) => ({ id: u.id, data: u }));
+        }
+      }
+
+      if (data && data.length > 0) {
         const matched = data.find((row: any) => {
           const u = row.data as User;
           if (!u) return false;
@@ -306,7 +320,11 @@ export async function apiLogin(nationalCode: string, password: string): Promise<
             // ثبت در کش محلی امن
             setUserPasswordInCache(matched.id, passwordHash);
 
-            const safeUser: User = { ...u };
+            const safeUser: User = { 
+              ...u, 
+              is_active: u.is_active !== undefined ? u.is_active : true, 
+              is_blocked: Boolean(u.is_blocked) 
+            };
             delete (safeUser as any).password;
             const mustChange = Boolean(u.mustChangePassword);
             activeSession = { user: safeUser, mustChangePassword: mustChange };
@@ -349,6 +367,8 @@ export async function apiLogin(nationalCode: string, password: string): Promise<
             school_name: '',
             group_id: group.id,
             is_group_member: true,
+            is_active: true,
+            is_blocked: false,
             password: ''
           };
           await supabase.from('warroom_users').upsert({
@@ -447,6 +467,8 @@ export async function apiRegister(payload: Record<string, any>): Promise<ApiResu
     level: 1,
     points: 100,
     group_id: payload.group_id || payload.groupId || undefined,
+    is_active: true,
+    is_blocked: false,
     password: passwordHash,
     mustChangePassword: false,
   };
@@ -454,20 +476,35 @@ export async function apiRegister(payload: Record<string, any>): Promise<ApiResu
   // ثبت در کش رمز عبور امن برای جلوگیری از بازنویسی توسط فرانت‌اند
   setUserPasswordInCache(newUser.id, passwordHash);
 
-  // ذخیره مستقیم در Supabase
-  if (isSupabaseEnabled && supabase) {
+  // ذخیره در Supabase یا صف آفلاین در صورت عدم اتصال
+  let savedToRemote = false;
+  if (isSupabaseEnabled && supabase && typeof navigator !== 'undefined' && navigator.onLine) {
     try {
       const { error } = await supabase.from('warroom_users').upsert({
         id: newUser.id,
         data: newUser,
         updated_at: new Date().toISOString(),
       });
-      if (error) throw error;
+      if (!error) savedToRemote = true;
     } catch (err: any) {
-      console.warn('[WarRoom Supabase Auth] ذخیره در Supabase با خطا مواجه شد:', err);
-      return { ok: false, error: { code: 'DB_ERROR', message: 'خطا در ثبت اطلاعات در دیتابیس Supabase.' } };
+      console.warn('[WarRoom Supabase Auth] ذخیره آنلاین با خطا مواجه شد؛ انتقال به صف آفلاین:', err);
     }
   }
+
+  if (!savedToRemote) {
+    // صف‌بندی آفلاین
+    await enqueueOfflineMutation({
+      table: 'warroom_users',
+      operation: 'upsert',
+      rows: [newUser],
+    });
+  }
+
+  // بروزرسانی کَش محلی کاربران در IndexedDB
+  try {
+    const cachedUsers = (await getCachedTableData<User>('warroom_users')) || [];
+    await cacheTableData('warroom_users', [...cachedUsers.filter((u) => u.id !== newUser.id), newUser]);
+  } catch {}
 
   const safeUser: User = { ...newUser };
   delete (safeUser as any).password;

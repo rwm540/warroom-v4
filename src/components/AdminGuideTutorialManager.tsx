@@ -16,8 +16,15 @@ import {
   Grid,
   Trophy,
   ToggleLeft,
-  ToggleRight
+  ToggleRight,
+  UserCheck,
+  User as UserIcon
 } from 'lucide-react';
+import { 
+  WOMAN_AVATARS, 
+  MALE_AVATARS, 
+  getCustomAvatars 
+} from '../data/avatars';
 
 export interface GuideTutorialStep {
   id: string;
@@ -30,10 +37,19 @@ export interface GuideTutorialStep {
 export interface GuideTutorialConfig {
   isEnabled: boolean;
   steps: GuideTutorialStep[];
+  girlAvatarUrl?: string;
+  boyAvatarUrl?: string;
+  useUserAvatar?: boolean;
 }
+
+export const DEFAULT_GIRL_AVATAR = '/images/avatar/woman/Commander_giving_orders_2K_202608210108.jpeg';
+export const DEFAULT_BOY_AVATAR = '/images/avatar/male/Cartoon_commander_saluting_2K_202608210048.jpeg';
 
 export const defaultGuideConfig: GuideTutorialConfig = {
   isEnabled: true,
+  girlAvatarUrl: DEFAULT_GIRL_AVATAR,
+  boyAvatarUrl: DEFAULT_BOY_AVATAR,
+  useUserAvatar: true,
   steps: [
     {
       id: 'step_1',
@@ -222,6 +238,117 @@ export default function AdminGuideTutorialManager({
               <span>پیش‌نمایش زنده</span>
             </button>
           )}
+        </div>
+      </div>
+
+      {/* Guide Character Avatar Selector from Project Avatars */}
+      <div className="p-4 sm:p-5 rounded-3xl bg-[#080d22] border border-slate-800 shadow-xl space-y-4">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 pb-3 border-b border-slate-800/80">
+          <div>
+            <h3 className="text-xs sm:text-sm font-black text-white flex items-center gap-2">
+              <UserIcon size={16} className="text-cyan-400" />
+              <span>انتخاب کاراکتر راهنما از بین آواتارهای اصلی پروژه</span>
+            </h3>
+            <p className="text-[11px] text-slate-400 mt-1">
+              تصویر کاراکتر سخنگو در کنار دیالوگ‌های راهنما از بین آواتارهای طراحی‌شده پروژه انتخاب می‌شود.
+            </p>
+          </div>
+
+          {/* Toggle useUserAvatar */}
+          <button
+            type="button"
+            onClick={() => {
+              const updated = { ...formConfig, useUserAvatar: !(formConfig.useUserAvatar ?? true) };
+              setFormConfig(updated);
+              if (setGuideConfig) setGuideConfig(updated);
+            }}
+            className={`px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer border ${
+              (formConfig.useUserAvatar ?? true)
+                ? 'bg-cyan-500/20 text-cyan-300 border-cyan-500/40'
+                : 'bg-slate-900 text-slate-400 border-slate-700'
+            }`}
+          >
+            <UserCheck size={14} />
+            <span>{(formConfig.useUserAvatar ?? true) ? 'استفاده از آواتار پروفایل کاربر در اولویت است' : 'فقط آواتارهای سازمانی زیر نمایش داده شود'}</span>
+          </button>
+        </div>
+
+        {/* Girls Guide Avatar Picker */}
+        <div className="space-y-2">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-black text-pink-300 flex items-center gap-1.5">
+              <span>🌸 کاراکتر راهنمای دختران (فرمانده نگار):</span>
+            </span>
+            <span className="text-[10px] text-slate-400">آواتارهای پوشه رسمی public/images/avatar/woman/</span>
+          </div>
+          <div className="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-none">
+            {WOMAN_AVATARS.map((av) => {
+              const isSelected = (formConfig.girlAvatarUrl || DEFAULT_GIRL_AVATAR) === av.url;
+              return (
+                <button
+                  key={av.id}
+                  type="button"
+                  onClick={() => {
+                    const updated = { ...formConfig, girlAvatarUrl: av.url };
+                    setFormConfig(updated);
+                    if (setGuideConfig) setGuideConfig(updated);
+                  }}
+                  className={`w-14 h-16 sm:w-16 sm:h-20 rounded-2xl overflow-hidden shrink-0 relative border-2 transition-all cursor-pointer ${
+                    isSelected
+                      ? 'border-pink-500 scale-105 shadow-[0_0_15px_rgba(244,63,94,0.5)] ring-2 ring-pink-400/40'
+                      : 'border-slate-700 hover:border-slate-500 opacity-60 hover:opacity-100'
+                  }`}
+                  title={av.name}
+                >
+                  <img src={av.url} alt={av.name} className="w-full h-full object-cover object-top" />
+                  {isSelected && (
+                    <div className="absolute top-1 right-1 w-4 h-4 rounded-full bg-pink-500 text-white flex items-center justify-center">
+                      <Check size={10} />
+                    </div>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Boys Guide Avatar Picker */}
+        <div className="space-y-2 pt-2 border-t border-slate-800/60">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-black text-cyan-300 flex items-center gap-1.5">
+              <span>⚔️ کاراکتر راهنمای پسران (فرمانده کاوه):</span>
+            </span>
+            <span className="text-[10px] text-slate-400">آواتارهای پوشه رسمی public/images/avatar/male/</span>
+          </div>
+          <div className="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-none">
+            {MALE_AVATARS.map((av) => {
+              const isSelected = (formConfig.boyAvatarUrl || DEFAULT_BOY_AVATAR) === av.url;
+              return (
+                <button
+                  key={av.id}
+                  type="button"
+                  onClick={() => {
+                    const updated = { ...formConfig, boyAvatarUrl: av.url };
+                    setFormConfig(updated);
+                    if (setGuideConfig) setGuideConfig(updated);
+                  }}
+                  className={`w-14 h-16 sm:w-16 sm:h-20 rounded-2xl overflow-hidden shrink-0 relative border-2 transition-all cursor-pointer ${
+                    isSelected
+                      ? 'border-cyan-500 scale-105 shadow-[0_0_15px_rgba(6,182,212,0.5)] ring-2 ring-cyan-400/40'
+                      : 'border-slate-700 hover:border-slate-500 opacity-60 hover:opacity-100'
+                  }`}
+                  title={av.name}
+                >
+                  <img src={av.url} alt={av.name} className="w-full h-full object-cover object-top" />
+                  {isSelected && (
+                    <div className="absolute top-1 right-1 w-4 h-4 rounded-full bg-cyan-500 text-white flex items-center justify-center">
+                      <Check size={10} />
+                    </div>
+                  )}
+                </button>
+              );
+            })}
+          </div>
         </div>
       </div>
 

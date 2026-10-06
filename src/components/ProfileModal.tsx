@@ -5,7 +5,7 @@ import { User, Medal, UserMedal } from '../types';
 import { formatToPersianDigits } from '../utils/jalali';
 import { getSavedPostIds } from '../data/vitrinData';
 import SavedVitrinReelsModal from './SavedVitrinReelsModal';
-import { getAvatarsByGender, getDefaultAvatar } from '../data/avatars';
+import { getAvatarsByGender, getDefaultAvatar, AvatarItem } from '../data/avatars';
 
 interface ProfileModalProps {
   isOpen: boolean;
@@ -29,12 +29,21 @@ export default function ProfileModal({
   onNavigateTab
 }: ProfileModalProps) {
   const isGirls = currentUser?.gender === 'دختر';
-  const availableAvatars = getAvatarsByGender(currentUser?.gender);
   const defaultAv = getDefaultAvatar(currentUser?.gender);
 
+  const [availableAvatars, setAvailableAvatars] = useState<AvatarItem[]>(() => getAvatarsByGender(currentUser?.gender));
   const [selectedAvatar, setSelectedAvatar] = useState(currentUser?.avatar_url || defaultAv);
   const [showSavedReels, setShowSavedReels] = useState(false);
   const [savedCount, setSavedCount] = useState(0);
+
+  useEffect(() => {
+    const updateList = () => {
+      setAvailableAvatars(getAvatarsByGender(currentUser?.gender));
+    };
+    updateList();
+    window.addEventListener('warroom_custom_avatars_changed', updateList);
+    return () => window.removeEventListener('warroom_custom_avatars_changed', updateList);
+  }, [currentUser?.gender]);
 
   useEffect(() => {
     if (isOpen) {

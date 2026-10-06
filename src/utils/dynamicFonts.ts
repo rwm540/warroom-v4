@@ -50,6 +50,9 @@ export function injectCustomFontCssUrl(cssUrl: string): void {
     linkEl = document.createElement('link');
     linkEl.id = linkId;
     linkEl.rel = 'stylesheet';
+    linkEl.onerror = () => {
+      console.info('[WarRoom Fonts] فونت سفارشی اینترنتی در دسترس نیست، استفاده از فونت وزیرمتن محلی آفلاین.');
+    };
     document.head.appendChild(linkEl);
   }
 

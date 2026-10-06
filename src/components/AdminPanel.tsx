@@ -71,8 +71,11 @@ import {
   X,
   Heart,
   Loader2,
-  CreditCard
+  CreditCard,
+  Camera
 } from 'lucide-react';
+import AdminAvatarsPanel from './admin/AdminAvatarsPanel';
+import { PaginationControls } from './common/PaginationControls';
 import { defaultHomeButtons } from '../data/home';
 import { VitrinPost, buildVitrinPostFromSubmission } from '../data/vitrinData';
 import { uploadToStorage, isSupabaseEnabled, sha256Hex } from '../lib/supabaseData';
@@ -263,7 +266,7 @@ export default function AdminPanel({
   onNavigate
 }: AdminPanelProps) {
   const [activeAdminTab, setActiveAdminTab] = useState<
-    'overview' | 'submissions' | 'users' | 'missions' | 'trainings' | 'medals' | 'tickets' | 'news' | 'site_editor' | 'enamad' | 'notifications' | 'chat_control' | 'soundtracks' | 'portals' | 'vitrins' | 'password_resets' | 'stage_builder' | 'prizes' | 'payments' | 'daily_challenges' | 'guide_tutorial'
+    'overview' | 'submissions' | 'users' | 'missions' | 'trainings' | 'medals' | 'tickets' | 'news' | 'site_editor' | 'enamad' | 'notifications' | 'chat_control' | 'soundtracks' | 'portals' | 'vitrins' | 'password_resets' | 'stage_builder' | 'prizes' | 'payments' | 'daily_challenges' | 'guide_tutorial' | 'avatars'
   >('submissions');
 
   // 🛡️ وضعیت بک‌اند امن (برای مدیریت امن رمز کاربران)
@@ -276,6 +279,15 @@ export default function AdminPanel({
 
   // رمز یک‌بارمصرف نمایش‌داده‌شده پس از ایجاد/بازنشانی کاربر (هرگز ذخیره نمی‌شود)
   const [oneTimeCredential, setOneTimeCredential] = useState<{ title: string; password: string } | null>(null);
+
+  // 📄 وضعیت‌های صفحه‌بندی بخش‌های مختلف پنل مدیریت (۱۰ مورد در هر صفحه با بارگذاری بهینه)
+  const [usersPage, setUsersPage] = useState<number>(1);
+  const [submissionsPage, setSubmissionsPage] = useState<number>(1);
+  const [ticketsPage, setTicketsPage] = useState<number>(1);
+  const [missionsPage, setMissionsPage] = useState<number>(1);
+  const [trainingsPage, setTrainingsPage] = useState<number>(1);
+  const [medalsPage, setMedalsPage] = useState<number>(1);
+  const [prizesPage, setPrizesPage] = useState<number>(1);
   // 🎁 PRIZES & AWARDS MANAGEMENT STATE
   const [showPrizeModal, setShowPrizeModal] = useState<boolean>(false);
   const [editingPrize, setEditingPrize] = useState<PrizeItem | null>(null);
@@ -290,7 +302,7 @@ export default function AdminPanel({
     title: '',
     category: 'gaming',
     requiredPoints: 5000,
-    imageUrl: 'https://images.unsplash.com/photo-1621259182978-fbf93132d53d?w=600&auto=format&fit=crop&q=80',
+    imageUrl: '/images/badges/stage_badge_star_victory.webp',
     stockCount: 10,
     tag: 'جایزه ویژه'
   });
@@ -301,7 +313,7 @@ export default function AdminPanel({
       title: '',
       category: 'gaming',
       requiredPoints: 5000,
-      imageUrl: 'https://images.unsplash.com/photo-1621259182978-fbf93132d53d?w=600&auto=format&fit=crop&q=80',
+      imageUrl: '/images/badges/stage_badge_star_victory.webp',
       stockCount: 10,
       tag: 'جایزه ویژه'
     });
@@ -589,7 +601,7 @@ export default function AdminPanel({
     mediaType: 'image',
     mediaUrl: '',
     videoSourceUrl: '',
-    authorAvatar: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=200&q=80',
+    authorAvatar: '/images/avatar/male/male_1.jpeg',
     likesCount: 0,
     ratingAverage: 5
   });
@@ -608,7 +620,7 @@ export default function AdminPanel({
       mediaType: 'image',
       mediaUrl: '',
       videoSourceUrl: '',
-      authorAvatar: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=200&q=80',
+      authorAvatar: '/images/avatar/male/male_1.jpeg',
       likesCount: 0,
       ratingAverage: 5
     });
@@ -702,7 +714,7 @@ export default function AdminPanel({
       const newPost: VitrinPost = {
         id: `vit_${Date.now()}`,
         authorName: vitrinForm.authorName.trim() || 'رزمنده اتاق جنگ',
-        authorAvatar: vitrinForm.authorAvatar.trim() || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=200&q=80',
+        authorAvatar: vitrinForm.authorAvatar.trim() || '/images/avatar/male/male_1.jpeg',
         squadName: vitrinForm.squadName.trim() || 'ستاد اتاق جنگ',
         title: vitrinForm.title.trim(),
         description: vitrinForm.description.trim(),
@@ -1226,7 +1238,7 @@ export default function AdminPanel({
   const [missionForm, setMissionForm] = useState({
     title: '',
     description: '',
-    banner_path: 'https://images.unsplash.com/photo-1526374965328-7f61d4dc18c5?auto=format&fit=crop&w=1200&q=80',
+    banner_path: '/images/banners/boys_registration_banner.webp',
     video_url: '',
     max_score: 100,
     is_optional: false,
@@ -1628,7 +1640,7 @@ export default function AdminPanel({
     setMissionForm({
       title: '',
       description: '',
-      banner_path: 'https://images.unsplash.com/photo-1526374965328-7f61d4dc18c5?auto=format&fit=crop&w=1200&q=80',
+      banner_path: '/images/banners/boys_registration_banner.webp',
       video_url: '',
       max_score: 100,
       is_optional: false,
@@ -1644,7 +1656,7 @@ export default function AdminPanel({
     setMissionForm({
       title: m.title || '',
       description: m.description || '',
-      banner_path: m.banner_path || 'https://images.unsplash.com/photo-1526374965328-7f61d4dc18c5?auto=format&fit=crop&w=1200&q=80',
+      banner_path: m.banner_path || '/images/banners/boys_registration_banner.webp',
       video_url: m.video_url || '',
       max_score: m.max_score || 100,
       is_optional: Boolean(m.is_optional),
@@ -1673,7 +1685,7 @@ export default function AdminPanel({
         ...m,
         title: missionForm.title.trim(),
         description: missionForm.description.trim(),
-        banner_path: missionForm.banner_path.trim() || 'https://images.unsplash.com/photo-1526374965328-7f61d4dc18c5?auto=format&fit=crop&w=1200&q=80',
+        banner_path: missionForm.banner_path.trim() || '/images/banners/boys_registration_banner.webp',
         video_url: missionForm.video_url.trim() || undefined,
         media_type: missionForm.video_url.trim() ? 'video' : 'image',
         max_score: Number(missionForm.max_score) || 100,
@@ -1690,7 +1702,7 @@ export default function AdminPanel({
         id: `m-${Date.now()}`,
         title: missionForm.title.trim(),
         description: missionForm.description.trim(),
-        banner_path: missionForm.banner_path.trim() || 'https://images.unsplash.com/photo-1526374965328-7f61d4dc18c5?auto=format&fit=crop&w=1200&q=80',
+        banner_path: missionForm.banner_path.trim() || '/images/banners/boys_registration_banner.webp',
         video_url: missionForm.video_url.trim() || undefined,
         media_type: missionForm.video_url.trim() ? 'video' : 'image',
         max_score: Number(missionForm.max_score) || 100,
@@ -2260,6 +2272,19 @@ export default function AdminPanel({
           <span>مدیریت راهنما</span>
         </button>
 
+        <button
+          onClick={() => setActiveAdminTab('avatars')}
+          className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl whitespace-nowrap shrink-0 transition border relative ${
+            activeAdminTab === 'avatars'
+              ? 'bg-gradient-to-r from-emerald-500 via-teal-400 to-cyan-500 text-slate-950 border-emerald-400 font-black shadow-[0_0_20px_rgba(16,185,129,0.5)]'
+              : 'bg-[#080d21] text-emerald-300 border-emerald-500/40 hover:border-emerald-400 hover:text-white'
+          }`}
+          id="btn-tab-avatars"
+        >
+          <Camera size={15} className="text-emerald-400" />
+          <span>مدیریت آواتارهای کاربری</span>
+        </button>
+
       </div>
 
       <button
@@ -2327,7 +2352,9 @@ export default function AdminPanel({
           </h3>
 
           <div className="space-y-3.5">
-            {submissions.map(sub => {
+            {submissions
+              .slice((submissionsPage - 1) * 10, submissionsPage * 10)
+              .map(sub => {
               const mission = missions.find(m => m.id === sub.mission_id);
               const maxScore = mission?.max_score || 100;
               const isGradingThis = gradingSubId === sub.id;
@@ -2491,6 +2518,15 @@ export default function AdminPanel({
               );
             })}
           </div>
+
+          {/* 📄 صفحه‌بندی ارسال‌های مأموریت (۱۰ مورد در هر صفحه) */}
+          <PaginationControls
+            currentPage={submissionsPage}
+            totalItems={submissions.length}
+            itemsPerPage={10}
+            onPageChange={setSubmissionsPage}
+            themeColor="amber"
+          />
         </div>
       )}
 
@@ -2572,7 +2608,9 @@ export default function AdminPanel({
                 <p className="text-xs font-bold">هیچ کاربری با این مشخصات یافت نشد.</p>
               </div>
             ) : (
-              filteredUsers.map(u => {
+              filteredUsers
+                .slice((usersPage - 1) * 10, usersPage * 10)
+                .map(u => {
                 const isUserAdmin = u.role === 'admin';
                 const isLeader = u.role === 'leader';
                 const isMember = u.role === 'member';
@@ -2702,6 +2740,15 @@ export default function AdminPanel({
               })
             )}
           </div>
+
+          {/* 📄 صفحه‌بندی کاربران (۱۰ کاربر در هر صفحه) */}
+          <PaginationControls
+            currentPage={usersPage}
+            totalItems={filteredUsers.length}
+            itemsPerPage={10}
+            onPageChange={setUsersPage}
+            themeColor="amber"
+          />
 
           {/* VIEW USER FULL DETAIL MODAL */}
           {viewingUserDetail && (
@@ -3223,7 +3270,9 @@ export default function AdminPanel({
 
           {/* Missions List */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {missions.map(m => (
+            {missions
+              .slice((missionsPage - 1) * 10, missionsPage * 10)
+              .map(m => (
               <div key={m.id} className="bg-[#080d21] border border-slate-800 hover:border-slate-700 p-4 rounded-2xl flex flex-col justify-between gap-3 transition-all group">
                 <div className="space-y-2">
                   <div className="flex items-start justify-between gap-2">
@@ -3286,6 +3335,15 @@ export default function AdminPanel({
               </div>
             ))}
           </div>
+
+          {/* 📄 صفحه‌بندی مأموریت‌ها (۱۰ مأموریت در هر صفحه) */}
+          <PaginationControls
+            currentPage={missionsPage}
+            totalItems={missions.length}
+            itemsPerPage={10}
+            onPageChange={setMissionsPage}
+            themeColor="amber"
+          />
 
           {/* MISSION EDIT/CREATE MODAL */}
           {showMissionModal && (
@@ -3506,61 +3564,74 @@ export default function AdminPanel({
                 );
               }
               return (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {cleanPrizes.map((prize) => (
-                    <div
-                      key={prize.id}
-                      className="bg-slate-950/80 border border-slate-800 hover:border-amber-500/40 rounded-2xl p-4 flex flex-col justify-between space-y-3 transition shadow-md"
-                    >
-                      <div className="space-y-2">
-                        <div className="flex items-center justify-between">
-                          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/40">
-                            {prize.tag || 'جایزه اختصاصی'}
-                          </span>
-                          <span className="text-[10px] font-mono text-slate-400">
-                            موجودی: {formatToPersianDigits(prize.stockCount)} عدد
-                          </span>
+                <div className="space-y-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {cleanPrizes
+                      .slice((prizesPage - 1) * 10, prizesPage * 10)
+                      .map((prize) => (
+                      <div
+                        key={prize.id}
+                        className="bg-slate-950/80 border border-slate-800 hover:border-amber-500/40 rounded-2xl p-4 flex flex-col justify-between space-y-3 transition shadow-md"
+                      >
+                        <div className="space-y-2">
+                          <div className="flex items-center justify-between">
+                            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/40">
+                              {prize.tag || 'جایزه اختصاصی'}
+                            </span>
+                            <span className="text-[10px] font-mono text-slate-400">
+                              موجودی: {formatToPersianDigits(prize.stockCount)} عدد
+                            </span>
+                          </div>
+
+                          <div className="aspect-video w-full rounded-xl overflow-hidden bg-slate-900 border border-slate-800 relative">
+                            <img 
+                              src={prize.imageUrl} 
+                              alt={prize.title} 
+                              className="w-full h-full object-cover"
+                              onError={(e) => {
+                                (e.target as HTMLImageElement).src = '/images/badges/stage_badge_star_victory.webp';
+                              }}
+                            />
+                          </div>
+
+                          <h4 className="text-xs font-bold text-white line-clamp-2">{prize.title}</h4>
+                          
+                          <div className="flex items-center justify-between text-xs pt-1 border-t border-slate-800/80">
+                            <span className="text-slate-400">کریستال / امتیاز لازم:</span>
+                            <span className="text-amber-300 font-black font-mono">
+                              {formatToPersianDigits(prize.requiredPoints)}
+                            </span>
+                          </div>
                         </div>
 
-                        <div className="aspect-video w-full rounded-xl overflow-hidden bg-slate-900 border border-slate-800 relative">
-                          <img 
-                            src={prize.imageUrl} 
-                            alt={prize.title} 
-                            className="w-full h-full object-cover"
-                            onError={(e) => {
-                              (e.target as HTMLImageElement).src = 'https://images.unsplash.com/photo-1513151233558-d860c5398176?w=600&auto=format&fit=crop&q=80';
-                            }}
-                          />
-                        </div>
-
-                        <h4 className="text-xs font-bold text-white line-clamp-2">{prize.title}</h4>
-                        
-                        <div className="flex items-center justify-between text-xs pt-1 border-t border-slate-800/80">
-                          <span className="text-slate-400">کریستال / امتیاز لازم:</span>
-                          <span className="text-amber-300 font-black font-mono">
-                            {formatToPersianDigits(prize.requiredPoints)}
-                          </span>
+                        <div className="flex items-center gap-2 pt-2">
+                          <button
+                            onClick={() => handleOpenEditPrize(prize)}
+                            className="flex-1 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs font-bold text-slate-200 transition flex items-center justify-center gap-1 cursor-pointer"
+                          >
+                            <Edit3 size={13} />
+                            <span>ویرایش</span>
+                          </button>
+                          <button
+                            onClick={() => handleDeletePrize(prize.id, prize.title)}
+                            className="p-1.5 rounded-xl bg-red-950/60 hover:bg-red-900 text-red-400 transition cursor-pointer"
+                            title="حذف جایزه"
+                          >
+                            <Trash2 size={15} />
+                          </button>
                         </div>
                       </div>
+                    ))}
+                  </div>
 
-                      <div className="flex items-center gap-2 pt-2">
-                        <button
-                          onClick={() => handleOpenEditPrize(prize)}
-                          className="flex-1 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs font-bold text-slate-200 transition flex items-center justify-center gap-1 cursor-pointer"
-                        >
-                          <Edit3 size={13} />
-                          <span>ویرایش</span>
-                        </button>
-                        <button
-                          onClick={() => handleDeletePrize(prize.id, prize.title)}
-                          className="p-1.5 rounded-xl bg-red-950/60 hover:bg-red-900 text-red-400 transition cursor-pointer"
-                          title="حذف جایزه"
-                        >
-                          <Trash2 size={15} />
-                        </button>
-                      </div>
-                    </div>
-                  ))}
+                  {/* 📄 صفحه‌بندی جوایز (۱۰ جایزه در هر صفحه) */}
+                  <PaginationControls
+                    currentPage={prizesPage}
+                    totalItems={cleanPrizes.length}
+                    itemsPerPage={10}
+                    onPageChange={setPrizesPage}
+                    themeColor="amber"
+                  />
                 </div>
               );
             })()}
@@ -3723,12 +3794,12 @@ export default function AdminPanel({
                       <div className="text-[10px] text-slate-400 mb-1.5">یا انتخاب سریع از تصاویر نمونه:</div>
                       <div className="flex flex-wrap gap-1.5">
                         {[
-                          { label: 'کنسول گیمینگ', url: 'https://images.unsplash.com/photo-1606813907291-d86efa9b94db?w=600&auto=format&fit=crop&q=80' },
-                          { label: 'تبلت هوشمند', url: 'https://images.unsplash.com/photo-1544244015-0df4b3ffc6b0?w=600&auto=format&fit=crop&q=80' },
-                          { label: 'دوربین عکاسی', url: 'https://images.unsplash.com/photo-1516035069371-29a1b244cc32?w=600&auto=format&fit=crop&q=80' },
-                          { label: 'ساعت هوشمند', url: 'https://images.unsplash.com/photo-1508685096489-7aacd43bd3b1?w=600&auto=format&fit=crop&q=80' },
-                          { label: 'هدفون گیمینگ', url: 'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=600&auto=format&fit=crop&q=80' },
-                          { label: 'بسته هدیه نفیس', url: 'https://images.unsplash.com/photo-1513151233558-d860c5398176?w=600&auto=format&fit=crop&q=80' },
+                          { label: 'کنسول گیمینگ', url: '/images/badges/stage_badge_star_victory.webp' },
+                          { label: 'تبلت هوشمند', url: '/images/badges/stage_badge_tactical_shield.webp' },
+                          { label: 'دوربین عکاسی', url: '/images/badges/stage_badge_knowledge_book.webp' },
+                          { label: 'ساعت هوشمند', url: '/images/badges/stage_badge_rifle_squad.webp' },
+                          { label: 'هدفون گیمینگ', url: '/images/badges/stage_badge_crescent_moon.webp' },
+                          { label: 'بسته هدیه نفیس', url: '/images/badges/stage_badge_first_aid.webp' },
                         ].map((preset, idx) => (
                           <button
                             key={idx}
@@ -3873,7 +3944,9 @@ export default function AdminPanel({
             )}
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              {medals.map(m => (
+              {medals
+                .slice((medalsPage - 1) * 10, medalsPage * 10)
+                .map(m => (
                 <div key={m.id} className="bg-[#080d21] border border-slate-800 p-3 rounded-xl flex items-center gap-3">
                   <span className="text-2xl p-2 bg-slate-950 rounded-lg border border-slate-800">{m.image}</span>
                   <div>
@@ -3883,6 +3956,15 @@ export default function AdminPanel({
                 </div>
               ))}
             </div>
+
+            {/* 📄 صفحه‌بندی مدال‌ها (۱۰ نشان در هر صفحه) */}
+            <PaginationControls
+              currentPage={medalsPage}
+              totalItems={medals.length}
+              itemsPerPage={10}
+              onPageChange={setMedalsPage}
+              themeColor="amber"
+            />
           </div>
 
         </div>
@@ -4053,7 +4135,9 @@ export default function AdminPanel({
 
           {/* Tickets Cards List */}
           <div className="space-y-3.5">
-            {filteredTickets.map(t => {
+            {filteredTickets
+              .slice((ticketsPage - 1) * 10, ticketsPage * 10)
+              .map(t => {
               const ticketReplies = replies.filter(r => r.ticket_id === t.id);
 
               return (
@@ -4313,6 +4397,15 @@ export default function AdminPanel({
             )}
           </div>
 
+          {/* 📄 صفحه‌بندی تیکت‌های پشتیبانی (۱۰ تیکت در هر صفحه) */}
+          <PaginationControls
+            currentPage={ticketsPage}
+            totalItems={filteredTickets.length}
+            itemsPerPage={10}
+            onPageChange={setTicketsPage}
+            themeColor="amber"
+          />
+
         </div>
       )}
 
@@ -4350,7 +4443,9 @@ export default function AdminPanel({
 
           {/* Trainings List */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {trainings.map(t => (
+            {trainings
+              .slice((trainingsPage - 1) * 10, trainingsPage * 10)
+              .map(t => (
               <div key={t.id} className="bg-[#080d21] border border-slate-800 hover:border-slate-700 p-4 rounded-2xl flex flex-col justify-between gap-3 transition-all group">
                 <div className="space-y-2">
                   <div className="flex items-start justify-between gap-2">
@@ -4417,6 +4512,15 @@ export default function AdminPanel({
               </div>
             ))}
           </div>
+
+          {/* 📄 صفحه‌بندی آموزش‌ها (۱۰ دوره در هر صفحه) */}
+          <PaginationControls
+            currentPage={trainingsPage}
+            totalItems={trainings.length}
+            itemsPerPage={10}
+            onPageChange={setTrainingsPage}
+            themeColor="cyan"
+          />
 
           {/* TRAINING EDIT/CREATE MODAL */}
           {showTrainingModal && (
@@ -5685,7 +5789,14 @@ export default function AdminPanel({
       )}
 
       {/* ==================================================================== */}
-      {/* 13. 🎖️ VITRIN (SHOWCASE) MANAGER TAB — ویترین آثار                     */}
+      {/* 13. 📸 AVATARS STUDIO TAB — مدیریت و آپلود آواتارهای پروفایل کاربری    */}
+      {/* ==================================================================== */}
+      {activeAdminTab === 'avatars' && (
+        <AdminAvatarsPanel triggerAlert={triggerAlert} />
+      )}
+
+      {/* ==================================================================== */}
+      {/* 14. 🎖️ VITRIN (SHOWCASE) MANAGER TAB — ویترین آثار                     */}
       {/* ==================================================================== */}
       {activeAdminTab === 'vitrins' && (
         <div className="space-y-6 dir-rtl font-sans">
@@ -5750,7 +5861,7 @@ export default function AdminPanel({
                       loading="lazy"
                       className="w-full h-full object-cover group-hover:scale-105 transition duration-500"
                       onError={(e) => {
-                        (e.target as HTMLImageElement).src = 'https://images.unsplash.com/photo-1513542789411-b6a5d4f31634?auto=format&fit=crop&w=800&q=80';
+                        (e.target as HTMLImageElement).src = '/images/backgrounds/tactical_war_map_background.webp';
                       }}
                     />
                     {post.mediaType === 'video' && (

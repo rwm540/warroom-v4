@@ -25,7 +25,7 @@ export const initialHomeAnnouncements: HomeAnnouncement[] = [
     id: 'ann-1',
     title: 'دستورالعمل عملیاتی شماره ۴: آغاز فاز دوم مسابقات',
     message: 'تمامی رزمندگان و فرماندهان جوخه‌ها موظفند پاسخ مأموریت‌های فعال را حداکثر تا ۲۵ تیرماه در سامانه بارگذاری نمایند.',
-    imageUrl: 'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?auto=format&fit=crop&w=400&q=80',
+    imageUrl: '/images/banners/boys_registration_banner.webp',
     createdAt: '۱۴۰۳/۰۴/۱۸',
     isActive: true,
     isNew: true
@@ -34,7 +34,7 @@ export const initialHomeAnnouncements: HomeAnnouncement[] = [
     id: 'ann-2',
     title: 'افتتاح بخش آموزش‌های هوش مصنوعی و امنیت شبکه',
     message: 'دوره جدید ارتقای مهارت در بخش آموزش‌های قرارگاه فعال شد. هم‌اکنون می‌توانید ویدئوها و جزوات آموزشی را مشاهده نمایید.',
-    imageUrl: 'https://images.unsplash.com/photo-1526374965328-7f61d4dc18c5?auto=format&fit=crop&w=400&q=80',
+    imageUrl: '/images/backgrounds/tactical_war_map_background.webp',
     createdAt: '۱۴۰۳/۰۴/۱۵',
     isActive: true,
     isNew: true
@@ -43,7 +43,7 @@ export const initialHomeAnnouncements: HomeAnnouncement[] = [
     id: 'ann-3',
     title: 'اهدای مدال‌های شجاعت و نخبگی به جوخه‌های برتر',
     message: 'مدال‌های افتخار دوره اول ارزیابی توسط هیئت داوران ستاد به حساب کاربری رزمندگان برتر اعطا گردید.',
-    imageUrl: 'https://images.unsplash.com/photo-1531482615713-2afd69097998?auto=format&fit=crop&w=400&q=80',
+    imageUrl: '/images/banners/girls_registration_banner.webp',
     createdAt: '۱۴۰۳/۰۴/۱۰',
     isActive: true,
     isNew: false

@@ -430,12 +430,16 @@ export default function VitrinView({
 
               {/* Feed Media with Lazy Loading & Double Tap */}
               <div 
-                onClick={() => handleDoubleTap(post)}
+                onClick={() => {
+                  if (!isPlaying) {
+                    handleDoubleTap(post);
+                  }
+                }}
                 className="relative aspect-square sm:aspect-[4/3] bg-black flex items-center justify-center overflow-hidden group select-none"
               >
                 {post.mediaType === 'video' && isPlaying ? (
                   <TacticalVideoPlayer 
-                    src={post.videoSourceUrl || 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4'} 
+                    src={post.videoSourceUrl || '/videowarroom.mp4'} 
                     poster={post.mediaUrl}
                     autoPlay
                     onDoubleTap={() => {
@@ -815,7 +819,7 @@ export default function VitrinView({
             <div className="relative aspect-video bg-black flex items-center justify-center overflow-hidden flex-shrink-0">
               {selectedPost.mediaType === 'video' ? (
                 <TacticalVideoPlayer 
-                  src={selectedPost.videoSourceUrl || 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4'} 
+                  src={selectedPost.videoSourceUrl || '/videowarroom.mp4'} 
                   poster={selectedPost.mediaUrl}
                   onDoubleTap={() => {
                     toggleLike(selectedPost.id, true);

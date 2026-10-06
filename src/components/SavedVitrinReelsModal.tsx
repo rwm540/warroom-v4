@@ -307,7 +307,7 @@ export default function SavedVitrinReelsModal({
                         <>
                           <video
                             ref={(el) => { videoRefs.current[post.id] = el; }}
-                            src={post.videoSourceUrl && !post.videoSourceUrl.includes('#') ? `${post.videoSourceUrl}#t=0.001` : (post.videoSourceUrl || 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4#t=0.001')}
+                            src={post.videoSourceUrl && !post.videoSourceUrl.includes('#') ? `${post.videoSourceUrl}#t=0.001` : (post.videoSourceUrl || '/videowarroom.mp4#t=0.001')}
                             poster={post.mediaUrl}
                             playsInline
                             loop
@@ -430,7 +430,7 @@ export default function SavedVitrinReelsModal({
                                             className="w-full h-full object-cover"
                                             onError={(e) => {
                                               // Fallback if image fails
-                                              (e.target as HTMLImageElement).src = 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=100&q=80';
+                                              (e.target as HTMLImageElement).src = '/images/avatar/male/male_1.jpeg';
                                             }} 
                                           />
                                         ) : (

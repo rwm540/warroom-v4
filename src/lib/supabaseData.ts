@@ -6,6 +6,14 @@
  */
 import { useState, useEffect, useRef, Dispatch, SetStateAction } from 'react';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
+import {
+  cacheTableData,
+  getCachedTableData,
+  enqueueOfflineMutation,
+  replayPendingMutations,
+  setOfflineKv,
+  getOfflineKv,
+} from './offlineStorage.ts';
 
 /* ------------------------------------------------------------------ */
 /* اس‌یوپیابیس (Supabase) کلاینت — پلتفرم اتاق جنگ                       */
@@ -163,7 +171,7 @@ export function getUserPasswordFromCache(userId: string): string | undefined {
 }
 
 /** نرمال‌سازی ردیف قبل از ارسال به Supabase */
-async function normalizeRowForDb(table: string, row: Record<string, any>): Promise<Record<string, any>> {
+export async function normalizeRowForDb(table: string, row: Record<string, any>): Promise<Record<string, any>> {
   if (table === 'warroom_users') {
     const userId = row.id || row.data?.id;
     const rawPass = row?.data?.password;
@@ -226,22 +234,34 @@ export function useSyncedCollection<T extends { id: string }>(options: {
   const pendingSkipRef = useRef(true);
   const prevRef = useRef<T[]>(value);
 
-  // ۱. بارگذاری اولیه داده‌ها از جدول Supabase و اتصال کانال Realtime
+  // ۱. بارگذاری اولیه داده‌ها: ابتدا کَش محلی IndexedDB، سپس استعلام از Supabase
   useEffect(() => {
+    let cancelled = false;
+
+    // الف) بارگذاری فوری از حافظه آفلاین IndexedDB برای صفر ثانیه تاخیر و تاب‌آوری آفلاین
+    getCachedTableData<T>(table)
+      .then((cachedRows) => {
+        if (!cancelled && cachedRows && cachedRows.length > 0 && !dbLoadedRef.current) {
+          pendingSkipRef.current = true;
+          setValue(cachedRows);
+        }
+      })
+      .catch(() => {});
+
     if (!isSupabaseEnabled || !supabase) {
       dbLoadedRef.current = true;
       return;
     }
-    let cancelled = false;
+
     (async () => {
       try {
         const { data, error } = await supabase!.from(table).select('data');
         if (error) throw error;
         if (cancelled) return;
         const rows = ((data || []) as any[])
-          .map(r => (r && typeof r === 'object' && 'data' in r ? (r.data as T) : null))
+          .map((r) => (r && typeof r === 'object' && 'data' in r ? (r.data as T) : null))
           .filter((r): r is T => Boolean(r && typeof r === 'object'));
-        
+
         if (rows.length > 0) {
           if (table === 'warroom_users') {
             rows.forEach((r: any) => {
@@ -252,12 +272,15 @@ export function useSyncedCollection<T extends { id: string }>(options: {
           }
           pendingSkipRef.current = true;
           setValue(rows);
+          // ذخیره در حافظه پایدار آفلاین
+          void cacheTableData(table, rows);
         } else {
           setValue([]);
+          void cacheTableData(table, []);
         }
         dbLoadedRef.current = true;
       } catch (err) {
-        console.warn(`[WarRoom Supabase] بارگذاری ${table} ناموفق:`, err);
+        console.warn(`[WarRoom Supabase] بارگذاری آنلاین ${table} ناموفق بود (استفاده از نسخه آفلاین):`, err);
         dbLoadedRef.current = true;
       }
     })();
@@ -267,42 +290,70 @@ export function useSyncedCollection<T extends { id: string }>(options: {
     };
   }, [table]);
 
-  // ۲. ارسال فوری تغییرات (Upsert / Delete) به Supabase
+  // ۲. ارسال تغییرات (Upsert / Delete) با پشتیبانی کامل از صف جهش‌های آفلاین
   useEffect(() => {
     const prev = prevRef.current;
     prevRef.current = value;
 
-    if (!isSupabaseEnabled || !supabase) return;
     if (pendingSkipRef.current) {
       pendingSkipRef.current = false;
       return;
     }
     if (!dbLoadedRef.current) return;
 
-    const prevMap = new Map(prev.map(r => [r.id, r]));
-    const nextIds = new Set(value.map(r => r.id));
+    // ذخیره فوری در حافظه کَش آفلاین برای حفظ تغییرات در صورت رفرش آفلاین
+    void cacheTableData(table, value);
 
-    const changed = value.filter(r => {
+    const prevMap = new Map(prev.map((r) => [r.id, r]));
+    const nextIds = new Set(value.map((r) => r.id));
+
+    const changed = value.filter((r) => {
       const p = prevMap.get(r.id);
       return !p || JSON.stringify(p) !== JSON.stringify(r);
     });
-    const removedIds = prev.filter(r => !nextIds.has(r.id)).map(r => r.id);
+    const removedIds = prev.filter((r) => !nextIds.has(r.id)).map((r) => r.id);
+
+    if (changed.length === 0 && removedIds.length === 0) return;
+
+    const isOnline = typeof navigator !== 'undefined' ? navigator.onLine : true;
 
     (async () => {
       try {
-        if (changed.length > 0) {
-          const rows = await Promise.all(
-            changed.map(r => normalizeRowForDb(table, { id: r.id, data: r }))
-          );
-          const { error } = await supabase!.from(table).upsert(rows);
-          if (error) console.warn(`[WarRoom Supabase] Upsert ${table} ناموفق:`, error.message);
-        }
-        if (removedIds.length > 0) {
-          const { error } = await supabase!.from(table).delete().in('id', removedIds);
-          if (error) console.warn(`[WarRoom Supabase] Delete ${table} ناموفق:`, error.message);
+        if (isOnline && isSupabaseEnabled && supabase) {
+          if (changed.length > 0) {
+            const rows = await Promise.all(
+              changed.map((r) => normalizeRowForDb(table, { id: r.id, data: r }))
+            );
+            const { error } = await supabase!.from(table).upsert(rows);
+            if (error) {
+              console.warn(`[WarRoom Offline Queue] خطای سرور؛ افزودن به صف آفلاین ${table}:`, error.message);
+              await enqueueOfflineMutation({ table, operation: 'upsert', rows: changed });
+            }
+          }
+          if (removedIds.length > 0) {
+            const { error } = await supabase!.from(table).delete().in('id', removedIds);
+            if (error) {
+              console.warn(`[WarRoom Offline Queue] خطای سرور؛ افزودن حذف به صف آفلاین ${table}:`, error.message);
+              await enqueueOfflineMutation({ table, operation: 'delete', rows: removedIds });
+            }
+          }
+        } else {
+          // در حالت آفلاین، عملیات فوراً در صف آفلاین ذخیره می‌شود تا هنگام اتصال مجدد ارسال گردد
+          if (changed.length > 0) {
+            await enqueueOfflineMutation({ table, operation: 'upsert', rows: changed });
+          }
+          if (removedIds.length > 0) {
+            await enqueueOfflineMutation({ table, operation: 'delete', rows: removedIds });
+          }
         }
       } catch (err) {
-        console.warn(`[WarRoom Supabase] همگام‌سازی ${table} با خطا مواجه شد:`, err);
+        console.warn(`[WarRoom Supabase] خطا در ارسال تغییرات؛ صف‌بندی آفلاین ${table}:`, err);
+        if (changed.length > 0) {
+          await enqueueOfflineMutation({ table, operation: 'upsert', rows: changed });
+        }
+        if (removedIds.length > 0) {
+          await enqueueOfflineMutation({ table, operation: 'delete', rows: removedIds });
+        }
       }
     })();
   }, [value, table]);
@@ -786,6 +837,21 @@ export async function uploadAudioFileToSupabase(file: File): Promise<{ success: 
     };
     reader.readAsDataURL(file);
   });
+}
+
+/* ------------------------------------------------------------------ */
+/* فعال‌سازی خودکار بازپخش صف جهش‌های آفلاین پس از اتصال مجدد اینترنت     */
+/* ------------------------------------------------------------------ */
+if (typeof window !== 'undefined') {
+  const triggerAutoSync = () => {
+    if (isSupabaseEnabled && supabase && typeof navigator !== 'undefined' && navigator.onLine) {
+      void replayPendingMutations(supabase, normalizeRowForDb);
+    }
+  };
+
+  window.addEventListener('online', triggerAutoSync);
+  window.addEventListener('warroom_network_online', triggerAutoSync);
+  setTimeout(triggerAutoSync, 3000);
 }
 
 

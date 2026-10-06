@@ -579,7 +579,7 @@ export default function DashboardView({
               <div className="space-y-2.5">
                 <div className="aspect-video w-full rounded-xl bg-slate-900 overflow-hidden relative shadow-inner">
                   <img 
-                    src="https://images.unsplash.com/photo-1526374965328-7f61d4dc18c5?auto=format&fit=crop&w=400&q=80" 
+                    src="/images/backgrounds/tactical_war_map_background.webp" 
                     alt="دوره" 
                     className="w-full h-full object-cover"
                   />
@@ -597,7 +597,7 @@ export default function DashboardView({
               <div className="space-y-2.5">
                 <div className="aspect-video w-full rounded-xl bg-slate-900 overflow-hidden relative shadow-inner">
                   <img 
-                    src="https://images.unsplash.com/photo-1516321318423-f06f85e504b3?auto=format&fit=crop&w=400&q=80" 
+                    src="/images/banners/boys_registration_banner.webp" 
                     alt="دوره" 
                     className="w-full h-full object-cover"
                   />
@@ -615,7 +615,7 @@ export default function DashboardView({
               <div className="space-y-2.5">
                 <div className="aspect-video w-full rounded-xl bg-slate-900 overflow-hidden relative shadow-inner">
                   <img 
-                    src="https://images.unsplash.com/photo-1531482615713-2afd69097998?auto=format&fit=crop&w=400&q=80" 
+                    src="/images/banners/girls_registration_banner.webp" 
                     alt="دوره" 
                     className="w-full h-full object-cover"
                   />

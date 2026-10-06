@@ -6,11 +6,9 @@ import {
   Copy, 
   Eye, 
   AlertCircle, 
-  ExternalLink,
   Code2,
   CheckCircle2,
-  XCircle,
-  FileCheck2
+  XCircle
 } from 'lucide-react';
 import { EnamadBadge } from '../common/EnamadBadge';
 import { OFFICIAL_ENAMAD_HTML, validateEnamadHtml, sanitizeEnamadHtml } from '../../utils/enamadSanitizer';
@@ -270,30 +268,6 @@ export const AdminEnamadManager: React.FC<AdminEnamadManagerProps> = ({
                 <p className="text-[10px] text-slate-500">برای فعال‌سازی، دکمه «فعال» بالا را انتخاب و تغییرات را ذخیره نمایید.</p>
               </div>
             )}
-          </div>
-        </div>
-
-        {/* Verification & Meta Tag Status Info Card */}
-        <div className="p-4 rounded-2xl bg-[#081026] border border-cyan-500/30 space-y-2">
-          <div className="flex items-center gap-2 text-xs font-black text-cyan-300">
-            <FileCheck2 size={16} />
-            <span>اطلاعات احراز هویت متاتگ و فایل ریشه eNAMAD:</span>
-          </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-[11px] text-slate-300">
-            <div className="p-2.5 rounded-xl bg-slate-950/80 border border-slate-800/80 flex items-center justify-between">
-              <span>کد تأییدیه اختصاصی:</span>
-              <strong className="text-amber-400 font-mono">69416073</strong>
-            </div>
-            <div className="p-2.5 rounded-xl bg-slate-950/80 border border-slate-800/80 flex items-center justify-between">
-              <span>فایل احراز هویت ریشه:</span>
-              <strong className="text-emerald-400 font-mono">/69416073.txt (موجود)</strong>
-            </div>
-            <div className="p-2.5 rounded-xl bg-slate-950/80 border border-slate-800/80 sm:col-span-2 flex items-center justify-between">
-              <span>متا تگ در بخش Head:</span>
-              <code className="text-cyan-300 font-mono text-[10px] dir-ltr">
-                {'<meta name="enamad" content="69416073" />'}
-              </code>
-            </div>
           </div>
         </div>
 

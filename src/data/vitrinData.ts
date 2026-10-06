@@ -175,15 +175,15 @@ export function buildVitrinPostFromSubmission(sub: {
   return {
     id: `sub_${sub.id}`,
     authorName: sub.user_name,
-    authorAvatar: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=200&q=80',
+    authorAvatar: '/images/avatar/male/male_1.jpeg',
     squadName: `رزمنده کد ${sub.personal_code}`,
     title: sub.mission_title,
     description: sub.user_note || `اثر ارسالی رزمنده ${sub.user_name} برای مأموریت ${sub.mission_title} که پس از ارزیابی داوران در ویترین منتخبین قرار گرفت.`,
     mediaUrl: sub.file_path && sub.file_path.startsWith('http')
       ? sub.file_path
       : isVideo
-      ? 'https://images.unsplash.com/photo-1536240478700-b869070f9279?auto=format&fit=crop&w=800&q=80'
-      : 'https://images.unsplash.com/photo-1513542789411-b6a5d4f31634?auto=format&fit=crop&w=800&q=80',
+      ? '/images/banners/boys_registration_banner.webp'
+      : '/images/backgrounds/tactical_war_map_background.webp',
     videoSourceUrl: isVideo
       ? (sub.file_path && sub.file_path.startsWith('http') ? sub.file_path : '/videowarroom.mp4')
       : undefined,

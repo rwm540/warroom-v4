@@ -14,9 +14,7 @@ const GIRLS_BANNER_MOBILE_PATH = '/images/banners/girls_registration_banner_mobi
 
 // Fast reliable video URLs with warroom video as primary
 const FALLBACK_VIDEOS = [
-  '/videowarroom.mp4',
-  'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4',
-  'https://vjs.zencdn.net/v/oceans.mp4'
+  '/videowarroom.mp4'
 ];
 
 /**

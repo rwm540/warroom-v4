@@ -90,28 +90,31 @@ import LiveNotificationToast from './components/LiveNotificationToast.tsx';
 import InternalDialogHost from './components/InternalDialogHost.tsx';
 import RadarLoading from './components/RadarLoading.tsx';
 import GroupChatPanel from './components/GroupChatPanel.tsx';
+import { OfflineSyncBanner } from './components/OfflineSyncBanner.tsx';
 
-// Code-Split Dynamic Views & Modals (loaded on-demand for maximum performance & lowest initial JS payload)
-const AuthView = lazy(() => import('./components/AuthView.tsx'));
-const DashboardView = lazy(() => import('./components/DashboardView.tsx'));
-const JourneyView = lazy(() => import('./components/JourneyView.tsx'));
-const MissionsView = lazy(() => import('./components/MissionsView.tsx'));
-const TrainingsView = lazy(() => import('./components/TrainingsView.tsx'));
-const SupportView = lazy(() => import('./components/SupportView.tsx'));
-const ContactView = lazy(() => import('./components/ContactView.tsx'));
-const AboutView = lazy(() => import('./components/AboutView.tsx'));
-const RulesView = lazy(() => import('./components/RulesView.tsx'));
-const ProfileView = lazy(() => import('./components/ProfileView.tsx'));
-const PrizesPointsView = lazy(() => import('./components/PrizesPointsView.tsx'));
-const VitrinView = lazy(() => import('./components/VitrinView.tsx'));
-const WalletTransfersView = lazy(() => import('./components/WalletTransfersView.tsx'));
-const SquadManagementModal = lazy(() => import('./components/SquadManagementModal.tsx'));
-const ProfileModal = lazy(() => import('./components/ProfileModal.tsx'));
-const GameSelectionPortalModal = lazy(() => import('./components/GameSelectionPortalModal.tsx'));
-const NotificationCenterModal = lazy(() => import('./components/NotificationCenterModal.tsx'));
-const OnboardingCommanderTutorial = lazy(() => import('./components/OnboardingCommanderTutorial.tsx'));
-const ForcePasswordChangeModal = lazy(() => import('./components/ForcePasswordChangeModal.tsx'));
-const AdminPanel = lazy(() => import('./components/AdminPanel.tsx'));
+import { lazyWithRetry } from './utils/lazyWithRetry';
+
+// Code-Split Dynamic Views & Modals (loaded on-demand with offline recovery)
+const AuthView = lazyWithRetry(() => import('./components/AuthView.tsx'));
+const DashboardView = lazyWithRetry(() => import('./components/DashboardView.tsx'));
+const JourneyView = lazyWithRetry(() => import('./components/JourneyView.tsx'));
+const MissionsView = lazyWithRetry(() => import('./components/MissionsView.tsx'));
+const TrainingsView = lazyWithRetry(() => import('./components/TrainingsView.tsx'));
+const SupportView = lazyWithRetry(() => import('./components/SupportView.tsx'));
+const ContactView = lazyWithRetry(() => import('./components/ContactView.tsx'));
+const AboutView = lazyWithRetry(() => import('./components/AboutView.tsx'));
+const RulesView = lazyWithRetry(() => import('./components/RulesView.tsx'));
+const ProfileView = lazyWithRetry(() => import('./components/ProfileView.tsx'));
+const PrizesPointsView = lazyWithRetry(() => import('./components/PrizesPointsView.tsx'));
+const VitrinView = lazyWithRetry(() => import('./components/VitrinView.tsx'));
+const WalletTransfersView = lazyWithRetry(() => import('./components/WalletTransfersView.tsx'));
+const SquadManagementModal = lazyWithRetry(() => import('./components/SquadManagementModal.tsx'));
+const ProfileModal = lazyWithRetry(() => import('./components/ProfileModal.tsx'));
+const GameSelectionPortalModal = lazyWithRetry(() => import('./components/GameSelectionPortalModal.tsx'));
+const NotificationCenterModal = lazyWithRetry(() => import('./components/NotificationCenterModal.tsx'));
+const OnboardingCommanderTutorial = lazyWithRetry(() => import('./components/OnboardingCommanderTutorial.tsx'));
+const ForcePasswordChangeModal = lazyWithRetry(() => import('./components/ForcePasswordChangeModal.tsx'));
+const AdminPanel = lazyWithRetry(() => import('./components/AdminPanel.tsx'));
 import { GuideTutorialConfig, defaultGuideConfig } from './components/AdminGuideTutorialManager';
 
 // Highly optimized Draggable Floating Chat Button component
@@ -359,7 +362,7 @@ export default function App() {
       heroTitle: 'مأموریت اصلی: مسابقه بزرگ اتاق جنگ',
       heroProgress: '۷۲٪',
       heroCountdown: '۰۲:۱۴:۳۹:۱۵',
-      showCountdownTimer: true,
+      showCountdownTimer: false,
       countdownTitle: 'مهلت ثبت‌نام و آغاز رویداد بزرگ اتاق جنگ',
       countdownPosition: 'middle',
       countdownStyle: 'tactical',
@@ -374,7 +377,7 @@ export default function App() {
       bannerLayout: 'dual',
       iconAnimatedText: 'به بزرگترین رویداد رقابتی و استراتژیک اتاق جنگ خوش آمدید!',
       customLogoUrl: '/images/logos/warroom_logo.webp',
-      homeSectionsOrder: ['hero', 'timer', 'prizes', 'messengers', 'about', 'footer'],
+      homeSectionsOrder: ['hero', 'prizes', 'messengers', 'about', 'footer'],
       prizesSectionTitle: 'ویترین جایزه‌ها',
       prizesSectionSubtitle: 'کریستال جمع کن و جوایز ویژه سامانه را بازگشایی کن',
       prizesBadgeText: 'جوایز کشوری و استانی',
@@ -830,17 +833,6 @@ export default function App() {
   };
 
   const handleTabChange = (tab: string) => {
-    const payRequired = Boolean(paymentSettings?.enabled && paymentSettings.amount > 0);
-    const hasPaid = currentUser && currentUser.role !== 'admin'
-      ? paymentTransactions.some(tx => (tx.user_id === currentUser.id || tx.national_code === currentUser.national_code) && tx.status === 'paid')
-      : true;
-
-    if (currentUser && currentUser.role !== 'admin' && payRequired && !hasPaid && tab !== 'Wallet' && tab !== 'Home') {
-      triggerAlert('برای دسترسی به سامانه، ابتدا باید هزینه ثبت‌نام را از طریق صفحه فاکتور و پرداخت واریز نمایید.');
-      setActiveTab('Wallet');
-      return;
-    }
-
     setShowAuthScreen(false);
     if (tab === 'GamePortals') {
       setIsGamePortalMandatory(false);
@@ -860,7 +852,7 @@ export default function App() {
       const saved = localStorage.getItem('warroom_chat_open_state');
       if (saved !== null) return saved === 'true';
     }
-    return true; // default open in desktop web design
+    return false; // Default closed so it does not jump out or block the page
   });
 
   const handleToggleFloatingChat = () => {
@@ -910,19 +902,19 @@ export default function App() {
       } else {
         const defaultSettings = {
           id: 'payment_settings',
-          enabled: true,
-          amount: 3500000,
+          enabled: false,
+          amount: 0,
           currency: 'IRT' as const,
           gateway: 'zarinpal' as const,
-          api_key: 'zarinpal_merchant_36_characters_code',
-          redirect_url: 'https://zarinpal.com/pg/StartPay/',
-          callback_url: 'https://warroom-game.ir/payment/callback',
-          description: 'هزینه ثبت‌نام و شرکت در ماراتن بزرگ اتاق جنگ',
-          card_enabled: true,
-          card_number: '۶۰۳۷۹۹۷۵۱۲۳۴۵۶۷۸',
-          card_holder: 'ستاد برگزاری مسابقه بزرگ اتاق جنگ',
-          card_bank: 'بانک ملی ایران',
-          card_instructions: 'لطفاً پس از انتقال وجه به شماره کارت فوق، کادرهای مربوط به نام و کد پیگیری را پر کرده و دکمه ارسال را کلیک کنید تا رسید شما برای تایید مدیریت ارسال شود و دسترسی پنل شما بازگردد.',
+          api_key: '',
+          redirect_url: '',
+          callback_url: '',
+          description: 'ثبت‌نام رایگان در ماراتن بزرگ اتاق جنگ',
+          card_enabled: false,
+          card_number: '',
+          card_holder: '',
+          card_bank: '',
+          card_instructions: '',
           updated_at: new Date().toISOString()
         };
         localStorage.setItem('warroom_payment_settings', JSON.stringify(defaultSettings));
@@ -1142,40 +1134,16 @@ export default function App() {
     }
 
     setIsAdminMode(false);
-    const payRequired = Boolean(paymentSettings?.enabled && paymentSettings.amount > 0);
-    const hasPaid = paymentTransactions.some(tx => (tx.user_id === safeUser.id || tx.national_code === safeUser.national_code) && tx.status === 'paid');
-
-    if (payRequired && !hasPaid) {
-      setActiveTab('Wallet');
-      setIsGamePortalMandatory(false);
-      setShowGamePortal(false);
-      triggerAlert(`خوش آمدید رزمنده ${safeUser.first_name} ${safeUser.last_name} — لطفاً پیش از ورود به سامانه، فاکتور هزینه ثبت‌نام را پرداخت فرمایید.`);
-      return;
-    }
-
     setActiveTab('Journey');
+    setIsGamePortalMandatory(false);
+    setShowGamePortal(false);
 
     if (_meta?.isNewRegistration) {
-      setIsGamePortalMandatory(true);
-      setShowGamePortal(true);
-      triggerAlert(`ثبت‌نام با موفقیت انجام شد. خوش آمدید رزمنده ${safeUser.first_name} ${safeUser.last_name} — لطفاً درگاه ورود به بازی را انتخاب فرمایید.`);
+      triggerAlert(`ثبت‌نام با موفقیت انجام شد. خوش آمدید رزمنده ${safeUser.first_name} ${safeUser.last_name} — وارد پنل کاربری شدید.`);
     } else {
-      setIsGamePortalMandatory(false);
-      setShowGamePortal(false);
       triggerAlert(`خوش آمدید رزمنده ${safeUser.first_name} ${safeUser.last_name} — به سامانه اتاق جنگ خوش آمدید.`);
     }
   };
-
-  // Guard: if user hasn't paid and payment is required, redirect to Wallet
-  useEffect(() => {
-    if (currentUser && currentUser.role !== 'admin') {
-      const payRequired = Boolean(paymentSettings?.enabled && paymentSettings.amount > 0);
-      const hasPaid = paymentTransactions.some(tx => (tx.user_id === currentUser.id || tx.national_code === currentUser.national_code) && tx.status === 'paid');
-      if (payRequired && !hasPaid && activeTab !== 'Wallet' && activeTab !== 'Home') {
-        setActiveTab('Wallet');
-      }
-    }
-  }, [currentUser, paymentSettings, paymentTransactions, activeTab]);
 
   // Guard: Live Kick Out ONLY if explicitly Blocked
   useEffect(() => {
@@ -1234,12 +1202,24 @@ export default function App() {
     }
   }, [isAdminMode, activeTab]);
 
-  const isGirlsTheme = campaignTheme === 'girls' || currentUser?.gender === 'دختر';
+  const isGirlsTheme = siteSettings?.siteThemeMode === 'girls'
+    ? true
+    : siteSettings?.siteThemeMode === 'boys'
+    ? false
+    : siteSettings?.siteThemeMode === 'tactical_dark'
+    ? false
+    : (campaignTheme === 'girls' || currentUser?.gender === 'دختر');
 
   return (
-    <div className={`text-slate-100 min-h-screen w-full overflow-x-hidden flex flex-col relative font-sans dir-rtl transition-colors duration-700 ${
-      isGirlsTheme ? 'girls-atmosphere-bg' : 'boys-atmosphere-bg'
-    }`}>
+    <div 
+      className={`text-slate-100 min-h-screen w-full overflow-x-hidden flex flex-col relative font-sans dir-rtl transition-colors duration-700 ${
+        isGirlsTheme ? 'girls-atmosphere-bg girl-theme' : 'boys-atmosphere-bg boy-theme'
+      }`}
+      style={{
+        backgroundColor: siteSettings?.siteCustomBgColor || undefined,
+        fontFamily: siteSettings?.siteFontFamily || undefined,
+      }}
+    >
       
       {/* Loading Screen with Radar & Logo */}
       {isLoading && (
@@ -1259,6 +1239,12 @@ export default function App() {
           <div className="absolute -bottom-24 -left-20 w-[550px] sm:w-[700px] h-[550px] sm:h-[700px] blur-[140px] sm:blur-[170px] rounded-full bg-[#ff1389]/30 pointer-events-none transition-all duration-700" />
           <div className="absolute -bottom-24 -right-20 w-[600px] sm:w-[750px] h-[600px] sm:h-[750px] blur-[150px] sm:blur-[180px] rounded-full bg-[#7c3aed]/35 pointer-events-none transition-all duration-700" />
           <div className="absolute bottom-[20%] left-1/2 -translate-x-1/2 w-[500px] h-[400px] blur-[160px] rounded-full bg-[#4a0d67]/25 pointer-events-none" />
+          {siteSettings?.siteBgPattern === 'grid' && (
+            <div className="absolute inset-0 bg-[linear-gradient(rgba(244,63,94,0.06)_1px,transparent_1px),linear-gradient(90deg,rgba(244,63,94,0.06)_1px,transparent_1px)] bg-[size:32px_32px] opacity-70" />
+          )}
+          {siteSettings?.siteBgPattern === 'dots' && (
+            <div className="absolute inset-0 bg-[radial-gradient(rgba(244,63,94,0.15)_1px,transparent_1px)] bg-[size:24px_24px] opacity-80" />
+          )}
         </div>
       ) : (
         /* Boys Wallpaper Atmosphere: Exactly matching uploaded wallpaper (Obsidian void top, Crimson Red bottom-left, Electric Cobalt Blue bottom-right, Central violet blend, and crisp 32px grid) */
@@ -1267,7 +1253,9 @@ export default function App() {
           <div className="absolute -bottom-20 -left-20 w-[550px] sm:w-[750px] h-[550px] sm:h-[750px] blur-[130px] sm:blur-[160px] rounded-full bg-gradient-to-tr from-[#991b1b] via-[#dc2626] to-[#e11d48] opacity-65 pointer-events-none transition-all duration-700" />
           <div className="absolute -bottom-20 -right-20 w-[600px] sm:w-[800px] h-[600px] sm:h-[800px] blur-[140px] sm:blur-[170px] rounded-full bg-gradient-to-tl from-[#1e40af] via-[#2563eb] to-[#3b82f6] opacity-70 pointer-events-none transition-all duration-700" />
           <div className="absolute bottom-[10%] left-1/2 -translate-x-1/2 w-[550px] h-[350px] blur-[150px] rounded-full bg-[#581c87]/35 pointer-events-none" />
-          <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.075)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.075)_1px,transparent_1px)] bg-[size:32px_32px] opacity-80" />
+          {siteSettings?.siteBgPattern !== 'none' && (
+            <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.075)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.075)_1px,transparent_1px)] bg-[size:32px_32px] opacity-80" />
+          )}
         </div>
       )}
 
@@ -1454,8 +1442,8 @@ export default function App() {
               />
             </Suspense>
           </motion.div>
-        ) : (currentUser && currentUser.role !== 'admin' && !isAdminMode && (currentUser.is_blocked || (paymentSettings?.enabled && paymentSettings.amount > 0 && !paymentTransactions.some(tx => (tx.user_id === currentUser.id || tx.national_code === currentUser.national_code) && tx.status === 'paid')))) ? (
-          /* MANDATORY ACCESS BARRIER OVERLAY (100% SECURE & NO NAV) */
+        ) : (currentUser && currentUser.role !== 'admin' && !isAdminMode && currentUser.is_blocked) ? (
+          /* MANDATORY ACCESS BARRIER OVERLAY (ONLY FOR BLOCKED USERS) */
           <motion.div
             key="access_barrier"
             initial={{ opacity: 0 }}
@@ -1478,65 +1466,18 @@ export default function App() {
               </div>
 
               {/* Blocked Account Card */}
-              {currentUser.is_blocked && (
-                <div className="max-w-md mx-auto rounded-3xl border-2 border-red-500/40 bg-red-950/20 p-6 text-center space-y-4 shadow-xl">
-                  <h2 className="text-lg font-black text-red-400">حساب کاربری مسدود شده است</h2>
-                  <p className="text-xs leading-relaxed text-slate-300">
-                    رزمنده گرامی، حساب کاربری شما به دلیل نقض قوانین، فعالیت‌های مشکوک یا دستور ستاد داوری به‌طور کامل مسدود (بلاک) گردیده است. امکان ورود و دسترسی به هیچ‌یک از بخش‌های پنل کاربری برای شما وجود ندارد.
-                  </p>
-                  <button
-                    onClick={handleLogout}
-                    className="w-full py-3 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-700 text-slate-200 text-xs font-bold transition cursor-pointer"
-                  >
-                    خروج از حساب کاربری
-                  </button>
-                </div>
-              )}
-
-              {/* Inactive/Deactivated Account Card */}
-              {!currentUser.is_blocked && currentUser.is_active === false && (
-                <div className="max-w-md mx-auto rounded-3xl border-2 border-amber-500/40 bg-amber-950/20 p-6 text-center space-y-4 shadow-xl">
-                  <h2 className="text-lg font-black text-amber-400">دسترسی به پنل موقتاً غیرفعال است</h2>
-                  <p className="text-xs leading-relaxed text-slate-300">
-                    رزمنده گرامی، پنل کاربری شما در حال حاضر توسط مدیریت غیرفعال شده است. پس از تایید نهایی ستاد فرماندهی یا رفع نواقص پرونده، دسترسی شما برقرار خواهد شد. جهت کسب اطلاعات بیشتر با پشتیبانی تماس بگیرید.
-                  </p>
-                  <button
-                    onClick={handleLogout}
-                    className="w-full py-3 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-700 text-slate-200 text-xs font-bold transition cursor-pointer"
-                  >
-                    خروج از حساب کاربری
-                  </button>
-                </div>
-              )}
-
-              {/* Unpaid Account Card with nested WalletTransfersView (without navigation tabs) */}
-              {!currentUser.is_blocked && currentUser.is_active !== false && (paymentSettings?.enabled && paymentSettings.amount > 0 && !paymentTransactions.some(tx => (tx.user_id === currentUser.id || tx.national_code === currentUser.national_code) && tx.status === 'paid')) && (
-                <div className="space-y-4">
-                  <div className="bg-slate-950/80 border border-slate-800 rounded-3xl p-5 shadow-2xl space-y-5">
-                    <div className="flex items-center justify-between border-b border-slate-900 pb-3">
-                      <div>
-                        <h2 className="text-base sm:text-lg font-black text-white">تکمیل هزینه ثبت‌نام الزامی است</h2>
-                        <p className="text-[11px] text-slate-400 mt-0.5">جهت فعال‌سازی کامل پنل کاربری و استفاده از امکانات بازی، پرداخت الزامی است.</p>
-                      </div>
-                      <button
-                        onClick={handleLogout}
-                        className="px-3.5 py-1.5 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-800 text-slate-400 hover:text-white text-xs font-bold transition cursor-pointer"
-                      >
-                        خروج از حساب
-                      </button>
-                    </div>
-
-                    <WalletTransfersView
-                      currentUser={currentUser}
-                      paymentTransactions={paymentTransactions}
-                      paymentSettings={paymentSettings}
-                      triggerAlert={triggerAlert}
-                      onNavigate={(tab) => handleTabChange(tab)}
-                      onAddTransaction={(tx) => setPaymentTransactions(prev => [tx, ...prev])}
-                    />
-                  </div>
-                </div>
-              )}
+              <div className="max-w-md mx-auto rounded-3xl border-2 border-red-500/40 bg-red-950/20 p-6 text-center space-y-4 shadow-xl">
+                <h2 className="text-lg font-black text-red-400">حساب کاربری مسدود شده است</h2>
+                <p className="text-xs leading-relaxed text-slate-300">
+                  رزمنده گرامی، حساب کاربری شما به دلیل نقض قوانین، فعالیت‌های مشکوک یا دستور ستاد داوری به‌طور کامل مسدود (بلاک) گردیده است. امکان ورود و دسترسی به هیچ‌یک از بخش‌های پنل کاربری برای شما وجود ندارد.
+                </p>
+                <button
+                  onClick={handleLogout}
+                  className="w-full py-3 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-700 text-slate-200 text-xs font-bold transition cursor-pointer"
+                >
+                  خروج از حساب کاربری
+                </button>
+              </div>
             </div>
           </motion.div>
         ) : (
@@ -2026,6 +1967,9 @@ export default function App() {
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* Global Offline Status & Background Queue Synchronization Banner */}
+      <OfflineSyncBanner />
 
     </div>
   );

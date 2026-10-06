@@ -120,7 +120,7 @@ export default function AdminDailyChallengeManager({
       correctOptionIndex: 0,
       timeLimitSeconds: 15,
       isActive: true,
-      bannerUrl: 'https://images.unsplash.com/photo-1518770660439-4636190af475?auto=format&fit=crop&w=800&q=80'
+      bannerUrl: '/images/banners/boys_registration_banner.webp'
     });
     setIsModalOpen(true);
   };

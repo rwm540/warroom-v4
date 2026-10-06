@@ -535,6 +535,10 @@ export interface SiteSettings {
   animatedTextColor?: string; // رنگ متن انیمیشنی زیر آیکون
   titleColor?: string; // رنگ عنوان‌ها
   accentColor?: string; // رنگ اصلی المان‌ها و دکمه‌ها
+  siteThemeMode?: 'boys' | 'girls' | 'tactical_dark' | 'custom'; // پوسته و تم رنگی کل سایت (دخترانه یا پسرانه)
+  siteCustomBgColor?: string; // رنگ سفارشی پس‌زمینه کل سایت
+  siteBgPattern?: 'stars' | 'grid' | 'aurora' | 'dots' | 'none'; // الگوی پس‌زمینه سایت
+  customProfileAvatars?: Array<{ id: string; name: string; url: string; gender: 'دختر' | 'پسر' }>; // آواتارهای آپلودشده توسط ادمین
   // فیلدهای محتوایی بخش‌های صفحه اصلی
   // ۱. ویترین جایزه‌ها (متن‌ها، عناوین، بنرها، فیچرها و کارت‌های جوایز)
   prizesSectionTitle?: string;

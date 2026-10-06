@@ -579,7 +579,7 @@ export default function ProfileView({
             <div className="relative aspect-video bg-black flex items-center justify-center overflow-hidden">
               {selectedPost.mediaType === 'video' ? (
                 <TacticalVideoPlayer 
-                  src={selectedPost.videoSourceUrl || 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4'} 
+                  src={selectedPost.videoSourceUrl || '/videowarroom.mp4'} 
                   poster={selectedPost.mediaUrl}
                   aspectRatioClass="w-full h-full"
                   className="w-full h-full rounded-none border-0"

@@ -56,7 +56,7 @@ export default function StageQuizModal({
         stageTitle: stage?.title || '',
         question: q.question || 'سوال بدون متن',
         mediaType: 'image' as const,
-        mediaUrl: stage?.bgThemeUrl || 'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?auto=format&fit=crop&w=900&q=80',
+        mediaUrl: stage?.bgThemeUrl || '/images/backgrounds/tactical_war_map_background.webp',
         mediaCaption: `سوال ${formatToPersianDigits(idx + 1)} مرحله ${stage?.title || ''}`,
         options: (q.options && q.options.length >= 4 
           ? [q.options[0] || '', q.options[1] || '', q.options[2] || '', q.options[3] || ''] 

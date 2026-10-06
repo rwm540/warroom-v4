@@ -28,25 +28,25 @@ const MAP_PRESETS = [
     id: 'satellite_ops',
     title: 'نقشه ماهواره‌ای عملیاتی',
     description: 'دید ماهواره‌ای تاکتیکی با کدهای مختصات جغرافیایی',
-    url: 'https://images.unsplash.com/photo-1526778548025-fa2f459cd5c1?auto=format&fit=crop&w=1000&q=80',
+    url: '/images/backgrounds/tactical_war_map_background.webp',
   },
   {
     id: 'cyber_grid',
     title: 'شبکه نئونی سایبرپانک',
     description: 'ماتریکس تاریک دیجیتال با خطوط فیروزه‌ای و کهکشانی',
-    url: 'https://images.unsplash.com/photo-1518709268805-4e9042af9f23?auto=format&fit=crop&w=1000&q=80',
+    url: '/images/banners/boys_registration_banner.webp',
   },
   {
     id: 'ancient_parchment',
     title: 'طومار کهن تاریخی',
     description: 'بافت کاغذ کهن و باستانی مناسب داستان‌ها و ماجراهای تاریخی',
-    url: 'https://images.unsplash.com/photo-1524995997946-a1c2e315a42f?auto=format&fit=crop&w=1000&q=80',
+    url: '/images/banners/girls_registration_banner.webp',
   },
   {
     id: 'dark_nebula',
     title: 'سحابی و کهکشان تاکتیکی',
     description: 'فضای کیهانی و ستاره‌ای با عمق میدان نبرد وسیع',
-    url: 'https://images.unsplash.com/photo-1506703719100-a0f3a48c0f86?auto=format&fit=crop&w=1000&q=80',
+    url: '/images/logos/warroom_logo.webp',
   }
 ];
 

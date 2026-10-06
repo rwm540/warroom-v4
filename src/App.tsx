@@ -90,7 +90,6 @@ import LiveNotificationToast from './components/LiveNotificationToast.tsx';
 import InternalDialogHost from './components/InternalDialogHost.tsx';
 import RadarLoading from './components/RadarLoading.tsx';
 import GroupChatPanel from './components/GroupChatPanel.tsx';
-import { OfflineSyncBanner } from './components/OfflineSyncBanner.tsx';
 
 import { lazyWithRetry } from './utils/lazyWithRetry';
 
@@ -114,7 +113,7 @@ const GameSelectionPortalModal = lazyWithRetry(() => import('./components/GameSe
 const NotificationCenterModal = lazyWithRetry(() => import('./components/NotificationCenterModal.tsx'));
 const OnboardingCommanderTutorial = lazyWithRetry(() => import('./components/OnboardingCommanderTutorial.tsx'));
 const ForcePasswordChangeModal = lazyWithRetry(() => import('./components/ForcePasswordChangeModal.tsx'));
-const AdminPanel = lazyWithRetry(() => import('./components/AdminPanel.tsx'));
+import AdminPanel from './components/AdminPanel.tsx';
 import { GuideTutorialConfig, defaultGuideConfig } from './components/AdminGuideTutorialManager';
 
 // Highly optimized Draggable Floating Chat Button component
@@ -1969,7 +1968,6 @@ export default function App() {
       </AnimatePresence>
 
       {/* Global Offline Status & Background Queue Synchronization Banner */}
-      <OfflineSyncBanner />
 
     </div>
   );

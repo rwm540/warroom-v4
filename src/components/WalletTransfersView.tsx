@@ -344,12 +344,12 @@ export default function WalletTransfersView({
                         amount: selectedGateway.amount,
                         currency: selectedGateway.currency,
                         gateway: 'zarinpal',
-                        status: 'paid', // simulate instant online gateway success
+                        status: 'pending', // Simulate pending payment
                         ref_id: 'ONL-' + Math.floor(100000 + Math.random() * 900000),
                         created_at: new Date().toISOString()
                       });
                     }
-                    triggerAlert('پرداخت آنلاین با موفقیت انجام شد و دسترسی حساب شما فعال گردید.');
+                    triggerAlert('درخواست پرداخت آنلاین ثبت شد. در انتظار تأیید نهایی توسط سامانه بانکی.');
                   }}
                   className="w-full py-3.5 px-6 rounded-2xl bg-gradient-to-r from-amber-400 via-amber-500 to-yellow-400 text-slate-950 font-black text-xs sm:text-sm transition shadow-[0_0_25px_rgba(245,158,11,0.4)] flex items-center justify-center gap-2 cursor-pointer hover:brightness-110"
                 >

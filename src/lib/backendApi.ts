@@ -49,13 +49,6 @@ let cachedStatus: BackendStatus | null = null;
 let probePromise: Promise<BackendStatus> | null = null;
 const statusListeners = new Set<(status: BackendStatus) => void>();
 
-export function isAllowedAdminPassword(nationalCode: string, password: string): boolean {
-  const cleanCode = normalizeDigits(nationalCode).replace(/\D/g, '');
-  const cleaned = password.trim();
-  if (cleanCode !== '0012345678') return false;
-  return ['Admin@123456', 'admin', 'admin123', 'Admin123456'].includes(cleaned);
-}
-
 const STATUS_TTL_MS = 30_000;
 
 function notify(status: BackendStatus) {
@@ -165,80 +158,6 @@ function normalizeDigits(str: string): string {
     .replace(/[٠-٩]/g, d => '٠١٢٣٤٥٦٧٨٩'.indexOf(d).toString())
     .trim();
 }
-
-function createFallbackAdminUser(): User {
-  return {
-    id: 'u-admin',
-    first_name: 'امیرحسین',
-    last_name: 'فرماندهی کل',
-    national_code: '0012345678',
-    personal_code: '900000001',
-    phone: '09120000000',
-    birth_date: '1384/01/15',
-    role: 'admin',
-    gender: 'پسر',
-    education_level: 'متوسطه دوم',
-    grade: 'دوازدهم',
-    province: 'تهران',
-    city: 'تهران',
-    school_name: 'دبیرستان ماندگار البرز',
-    level: 99,
-    points: 99999,
-    avatar_url: '',
-    group_id: undefined,
-    completed_stages: [],
-    mustChangePassword: false,
-    is_active: true,
-    is_blocked: false,
-    password: '',
-  };
-}
-
-async function ensureSupabaseAdminUserIfNeeded(nationalCode: string, rawPassword: string, passwordHash: string): Promise<User | null> {
-  if (!isSupabaseEnabled || !supabase) return null;
-  const normCode = normalizeDigits(nationalCode).replace(/\D/g, '');
-  if (normCode !== '0012345678') return null;
-
-  try {
-    const { data, error } = await supabase.from('warroom_users').select('id, data');
-    if (error) throw error;
-
-    const existing = (data || []).find((row: any) => {
-      const user = row?.data as User | undefined;
-      if (!user) return false;
-      const userNational = normalizeDigits(user.national_code || user.nationalCode || '').replace(/\D/g, '');
-      const userPersonal = normalizeDigits(user.personal_code || user.personalCode || '').replace(/\D/g, '');
-      return userNational === '0012345678' || userPersonal === '900000001';
-    });
-
-    const baseUser = existing?.data && typeof existing.data === 'object' ? { ...createFallbackAdminUser(), ...existing.data } : createFallbackAdminUser();
-    const adminUser: User = {
-      ...baseUser,
-      id: existing?.id || 'u-admin',
-      first_name: baseUser.first_name || 'امیرحسین',
-      last_name: baseUser.last_name || 'فرماندهی کل',
-      national_code: '0012345678',
-      personal_code: baseUser.personal_code || '900000001',
-      phone: baseUser.phone || '09120000000',
-      role: 'admin',
-      gender: baseUser.gender || 'پسر',
-      password: passwordHash,
-      mustChangePassword: false,
-    } as User;
-
-    await supabase.from('warroom_users').upsert({
-      id: adminUser.id,
-      data: adminUser,
-      updated_at: new Date().toISOString(),
-    });
-
-    return adminUser;
-  } catch (err: any) {
-    console.warn('[WarRoom Supabase Auth] اطمینان از وجود مدیر پیش‌فرض در Supabase ناموفق بود:', err);
-    return null;
-  }
-}
-
 export async function apiLogin(nationalCode: string, password: string): Promise<ApiResult<AuthPayload>> {
   const normCode = normalizeDigits(nationalCode);
   const trimmedPassword = password.trim();
@@ -256,19 +175,6 @@ export async function apiLogin(nationalCode: string, password: string): Promise<
   }
 
   const passwordHash = await sha256Hex(trimmedPassword);
-
-  const isFallbackAdminAttempt = isAllowedAdminPassword(normCode, trimmedPassword);
-
-  if (!isSupabaseEnabled && isFallbackAdminAttempt) {
-    const adminUser = createFallbackAdminUser();
-    setUserPasswordInCache(adminUser.id, passwordHash);
-    activeSession = { user: adminUser, mustChangePassword: false };
-    void logAudit({ event: 'auth.login_success', level: 'security', source: 'client', actorId: adminUser.id, actorRole: 'admin', metadata: { mode: 'fallback' } });
-    return {
-      ok: true,
-      data: { user: adminUser, mustChangePassword: false }
-    };
-  }
 
   if (isSupabaseEnabled && supabase) {
     try {

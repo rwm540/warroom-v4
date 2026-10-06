@@ -1,9 +1,7 @@
 import tailwindcss from '@tailwindcss/vite';
 import react from '@vitejs/plugin-react';
 import path from 'path';
-import {defineConfig} from 'vite';
-import type { ViteDevServer } from 'vite';
-import { VitePWA } from 'vite-plugin-pwa';
+import {defineConfig, ViteDevServer} from 'vite';
 import { appendOperationLog, normalizeOperationLogEvent, shouldWriteOperationLog } from './server/logServer.ts';
 
 const MAX_LOG_BODY_BYTES = 64 * 1024;
@@ -63,107 +61,6 @@ export default defineConfig(() => {
       react(),
       tailwindcss(),
       operationLogPlugin,
-      VitePWA({
-        registerType: 'autoUpdate',
-        injectRegister: 'auto',
-        includeAssets: [
-          'favicon.ico',
-          'apple-touch-icon.png',
-          'fonts/vazirmatn.css',
-          'fonts/*.woff2',
-          'images/logos/warroom_logo.webp',
-          'images/logos/warroom_logo_sm.webp',
-          'images/banners/*.webp',
-          'images/backgrounds/*.webp',
-          'images/badges/*.webp',
-          'images/avatar/male/*.jpeg',
-          'images/avatar/woman/*.jpeg',
-          'images/icons/*.png',
-          'pwa-192x192.png',
-          'pwa-512x512.png',
-          'pwa-maskable-512x512.png',
-        ],
-        manifest: {
-          id: '/',
-          name: 'اتاق جنگ | سامانه فرماندهی و عملیات',
-          short_name: 'اتاق جنگ',
-          description: 'سامانه یکپارچه مأموریت‌ها، آموزش‌ها، ویترین آثار و امتیازات اتاق جنگ',
-          theme_color: '#030610',
-          background_color: '#030610',
-          display: 'standalone',
-          orientation: 'portrait-primary',
-          start_url: '/',
-          scope: '/',
-          dir: 'rtl',
-          lang: 'fa',
-          icons: [
-            {
-              src: '/pwa-192x192.png',
-              sizes: '192x192',
-              type: 'image/png',
-              purpose: 'any',
-            },
-            {
-              src: '/pwa-512x512.png',
-              sizes: '512x512',
-              type: 'image/png',
-              purpose: 'any',
-            },
-            {
-              src: '/pwa-maskable-512x512.png',
-              sizes: '512x512',
-              type: 'image/png',
-              purpose: 'maskable',
-            },
-          ],
-        },
-        workbox: {
-          globPatterns: ['**/*.{js,css,html,ico,png,svg,webp,woff,woff2,jpeg,jpg,json}'],
-          navigateFallback: '/index.html',
-          navigateFallbackDenylist: [/^\/api\//],
-          runtimeCaching: [
-            {
-              urlPattern: ({ request }) => request.destination === 'image',
-              handler: 'CacheFirst',
-              options: {
-                cacheName: 'warroom-images-cache',
-                expiration: {
-                  maxEntries: 120,
-                  maxAgeSeconds: 60 * 60 * 24 * 30, // 30 days
-                },
-                cacheableResponse: {
-                  statuses: [0, 200],
-                },
-              },
-            },
-            {
-              urlPattern: ({ request }) => request.destination === 'font' || request.url.includes('/fonts/'),
-              handler: 'CacheFirst',
-              options: {
-                cacheName: 'warroom-fonts-cache',
-                expiration: {
-                  maxEntries: 40,
-                  maxAgeSeconds: 60 * 60 * 24 * 365, // 1 year
-                },
-                cacheableResponse: {
-                  statuses: [0, 200],
-                },
-              },
-            },
-            {
-              urlPattern: ({ request }) => request.destination === 'style' || request.destination === 'script' || request.destination === 'worker',
-              handler: 'StaleWhileRevalidate',
-              options: {
-                cacheName: 'warroom-static-assets',
-              },
-            },
-          ],
-        },
-        devOptions: {
-          enabled: true,
-          type: 'module',
-        },
-      }),
     ],
     resolve: {
       extensions: ['.mjs', '.js', '.mts', '.ts', '.jsx', '.tsx', '.json'],

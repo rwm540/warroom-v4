@@ -671,6 +671,8 @@ export interface SiteSettings {
   gameMapHeight?: number; // طول و ارتفاع بوم نقشه (۴۰۰ تا ۱۵۰۰ پیکسل)
   gameMapRoadWidthScale?: number; // مقیاس عرضی جاده
   gameMapConnectStagesWithRoad?: boolean; // اتصال خودکار خط جاده از روی مراحل درگ شده
+  gameMapTimerDeadline?: string; // مهلت / زمان‌سنج انقضای نقشه بازی و مراحل
+  gameMapEnforcePoints?: boolean; // اجبار سخت‌گیرانه امتیاز و پیش‌نیاز مرحله
 }
 
 

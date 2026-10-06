@@ -3,7 +3,7 @@ import {
   Map, Upload, Image as ImageIcon, RotateCcw, Check, Sparkles, 
   Sliders, Eye, Layers, Compass, Shield, MapPin, AlertCircle,
   EyeOff, Move, MoveHorizontal, GitCommit, SlidersHorizontal, 
-  Palette, Maximize2, Minimize2, MousePointerClick, Grid, RefreshCw
+  Palette, Maximize2, Minimize2, MousePointerClick, Grid, RefreshCw, Clock
 } from 'lucide-react';
 import { SiteSettings, JourneyStage } from '../../types';
 import { formatToPersianDigits } from '../../utils/jalali';
@@ -80,6 +80,8 @@ export const AdminGameMapManager: React.FC<AdminGameMapManagerProps> = ({
   // 📐 طول و ابعاد بوم نقشه
   const [mapHeight, setMapHeight] = useState<number>(siteSettings?.gameMapHeight || 620);
   const [connectStagesWithRoad, setConnectStagesWithRoad] = useState<boolean>(siteSettings?.gameMapConnectStagesWithRoad !== false);
+  const [timerDeadline, setTimerDeadline] = useState<string>(siteSettings?.gameMapTimerDeadline || '');
+  const [enforcePoints, setEnforcePoints] = useState<boolean>(siteSettings?.gameMapEnforcePoints !== false);
 
   // 📍 مختصات درگ اند دراپ مراحل (موقعیت بر حسب درصد 0 تا 100)
   const [stageCoordinates, setStageCoordinates] = useState<Record<string, { x: number; y: number }>>(() => {
@@ -211,6 +213,8 @@ export const AdminGameMapManager: React.FC<AdminGameMapManagerProps> = ({
       gameMapHeight: mapHeight,
       gameMapConnectStagesWithRoad: connectStagesWithRoad,
       gameMapStageCoordinates: stageCoordinates,
+      gameMapTimerDeadline: timerDeadline.trim(),
+      gameMapEnforcePoints: enforcePoints,
     };
     setSiteSettings(updatedSiteSettings);
 
@@ -724,6 +728,41 @@ export const AdminGameMapManager: React.FC<AdminGameMapManagerProps> = ({
                       </button>
                     );
                   })}
+                </div>
+              </div>
+            </div>
+
+            {/* Game Map Timer & Strict Enforcement Settings */}
+            <div className="p-4 rounded-2xl bg-slate-950/80 border border-amber-500/40 space-y-3">
+              <div className="flex items-center gap-2 border-b border-slate-800 pb-2">
+                <Clock size={16} className="text-amber-400" />
+                <span className="text-xs font-black text-white">تنظیم زمان‌سنج و قوانین سخت‌گیرانه امتیاز مراحل:</span>
+              </div>
+              <div className="space-y-3 text-xs">
+                <div>
+                  <label className="text-[11px] text-slate-300 block mb-1">مهلت / زمان‌سنج انقضای مراحل (تاریخ و ساعت):</label>
+                  <input
+                    type="datetime-local"
+                    value={timerDeadline}
+                    onChange={(e) => setTimerDeadline(e.target.value)}
+                    className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-white text-xs font-mono"
+                  />
+                  <p className="text-[10px] text-slate-500 mt-0.5">در صورت تنظیم تاریخ، پیش از فرا رسیدن زمان مقرر، امکان اجرای مراحل قفل خواهد بود.</p>
+                </div>
+                <div className="flex items-center justify-between pt-1">
+                  <div>
+                    <span className="font-bold text-slate-200 block">اجبار سخت‌گیرانه امتیاز (نیاز به امتیاز کافی / پیش‌نیاز)</span>
+                    <span className="text-[10px] text-slate-400">کاربر بدون کسب امتیاز مرحله یا تکمیل مرحله قبل نمی‌تواند وارد بازی شود</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setEnforcePoints(!enforcePoints)}
+                    className={`px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer ${
+                      enforcePoints ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40' : 'bg-slate-900 text-slate-400 border border-slate-700'
+                    }`}
+                  >
+                    {enforcePoints ? 'فعال (سخت‌گیرانه) ✓' : 'غیرفعال'}
+                  </button>
                 </div>
               </div>
             </div>

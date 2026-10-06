@@ -72,18 +72,11 @@ export default function AdminPaymentsPanel({
   const [formEnabled, setFormEnabled] = useState(true);
   const [formAmount, setFormAmount] = useState(3500000);
   const [formCurrency, setFormCurrency] = useState<'IRR' | 'IRT'>('IRT');
-  const [formType, setFormType] = useState<'online' | 'card'>('online');
   const [formGateway, setFormGateway] = useState<'zarinpal' | 'custom'>('zarinpal');
   const [formApiKey, setFormApiKey] = useState('');
   const [formRedirectUrl, setFormRedirectUrl] = useState('');
   const [formCallbackUrl, setFormCallbackUrl] = useState('');
   const [formDescription, setFormDescription] = useState('هزینه ثبت‌نام مسابقه اتاق جنگ');
-  
-  // Card specific form states
-  const [formCardNumber, setFormCardNumber] = useState('');
-  const [formCardHolder, setFormCardHolder] = useState('');
-  const [formCardBank, setFormCardBank] = useState('');
-  const [formCardInstructions, setFormCardInstructions] = useState('');
 
   // Save the complete list of gateways and update core setting
   const updateGatewaysList = (newList: any[]) => {
@@ -121,16 +114,11 @@ export default function AdminPaymentsPanel({
     setFormEnabled(true);
     setFormAmount(3500000);
     setFormCurrency('IRT');
-    setFormType('online');
     setFormGateway('zarinpal');
     setFormApiKey('');
     setFormRedirectUrl('');
     setFormCallbackUrl('');
     setFormDescription('هزینه ثبت‌نام مسابقه اتاق جنگ');
-    setFormCardNumber('');
-    setFormCardHolder('');
-    setFormCardBank('');
-    setFormCardInstructions('');
     setIsEditing(true);
   };
 
@@ -141,16 +129,11 @@ export default function AdminPaymentsPanel({
     setFormEnabled(gw.enabled !== false);
     setFormAmount(gw.amount || 0);
     setFormCurrency(gw.currency || 'IRT');
-    setFormType(gw.gateway === 'card' || gw.card_enabled ? 'card' : 'online');
-    setFormGateway(gw.gateway === 'card' ? 'zarinpal' : gw.gateway || 'zarinpal');
+    setFormGateway(gw.gateway || 'zarinpal');
     setFormApiKey(gw.api_key || '');
     setFormRedirectUrl(gw.redirect_url || '');
     setFormCallbackUrl(gw.callback_url || '');
     setFormDescription(gw.description || 'هزینه ثبت‌نام مسابقه اتاق جنگ');
-    setFormCardNumber(gw.card_number || '');
-    setFormCardHolder(gw.card_holder || '');
-    setFormCardBank(gw.card_bank || '');
-    setFormCardInstructions(gw.card_instructions || '');
     setIsEditing(true);
   };
 
@@ -186,16 +169,12 @@ export default function AdminPaymentsPanel({
       enabled: formEnabled,
       amount: Number(formAmount) || 0,
       currency: formCurrency,
-      gateway: formType === 'card' ? 'card' : formGateway,
+      gateway: formGateway,
       api_key: formApiKey.trim(),
       redirect_url: formRedirectUrl.trim(),
       callback_url: formCallbackUrl.trim(),
       description: formDescription.trim(),
-      card_enabled: formType === 'card',
-      card_number: formCardNumber.trim(),
-      card_holder: formCardHolder.trim(),
-      card_bank: formCardBank.trim(),
-      card_instructions: formCardInstructions.trim()
+      card_enabled: false
     };
 
     let updatedList: any[];
@@ -331,16 +310,8 @@ export default function AdminPaymentsPanel({
                 </div>
                 <div className="flex justify-between items-center">
                   <span className="text-slate-400 text-[11px]">نوع پرداخت:</span>
-                  <span className="font-bold text-cyan-300">
-                    {gw.card_enabled || gw.gateway === 'card' ? 'کارت به کارت دستی' : 'درگاه پرداخت آنلاین'}
-                  </span>
+                  <span className="font-bold text-cyan-300">درگاه پرداخت آنلاین امن</span>
                 </div>
-                {gw.card_enabled && (
-                  <div className="flex justify-between items-center text-[11px] pt-1">
-                    <span className="text-slate-400">شماره کارت:</span>
-                    <span className="font-mono text-slate-200">{gw.card_number || '-'}</span>
-                  </div>
-                )}
               </div>
             </div>
 
@@ -423,25 +394,13 @@ export default function AdminPaymentsPanel({
             </div>
           </label>
 
-          <label className="text-xs text-slate-300">نوع روش پرداخت
-            <select
-              className="mt-2 w-full rounded-xl border border-slate-700 bg-slate-900 p-3 text-white text-xs font-bold focus:border-amber-400 focus:outline-none"
-              value={formType}
-              onChange={e => setFormType(e.target.value as any)}
-            >
-              <option value="online">درگاه آنلاین بانکی (زرین‌پال / متصل)</option>
-              <option value="card">واریز کارت به کارت (ثبت دستی فیش)</option>
-            </select>
-          </label>
-
-          {formType === 'online' ? (
-            <>
               <label className="text-xs text-slate-300">کلید درگاه پرداخت (Merchant ID / API Key)
                 <input
                   className="mt-2 w-full rounded-xl border border-slate-700 bg-slate-900 p-3 text-white font-mono"
                   value={formApiKey}
                   onChange={e => setFormApiKey(e.target.value)}
                   placeholder="XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXXX"
+                  required
                 />
               </label>
 
@@ -452,40 +411,9 @@ export default function AdminPaymentsPanel({
                   value={formCallbackUrl}
                   onChange={e => setFormCallbackUrl(e.target.value)}
                   placeholder="https://.../payment/callback"
+                  required
                 />
               </label>
-            </>
-          ) : (
-            <div className="md:col-span-2 border-t border-slate-800 pt-4 space-y-3">
-              <span className="text-xs font-black text-amber-300 block">💳 اطلاعات حساب جهت واریز کارت به کارت:</span>
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                <label className="text-xs text-slate-300">شماره کارت بانکی (۱۶ رقمی)
-                  <input
-                    className="mt-1.5 w-full rounded-xl border border-slate-700 bg-slate-900 p-3 text-white font-mono"
-                    value={formCardNumber}
-                    onChange={e => setFormCardNumber(e.target.value)}
-                    placeholder="۵۰۲۲۲۹۱۰۱۲۳۴۵۶۷۸"
-                  />
-                </label>
-                <label className="text-xs text-slate-300">نام صاحب حساب
-                  <input
-                    className="mt-1.5 w-full rounded-xl border border-slate-700 bg-slate-900 p-3 text-white"
-                    value={formCardHolder}
-                    onChange={e => setFormCardHolder(e.target.value)}
-                    placeholder="امیرحسین رضایی"
-                  />
-                </label>
-                <label className="text-xs text-slate-300">نام بانک عامل
-                  <input
-                    className="mt-1.5 w-full rounded-xl border border-slate-700 bg-slate-900 p-3 text-white"
-                    value={formCardBank}
-                    onChange={e => setFormCardBank(e.target.value)}
-                    placeholder="بانک ملی ایران"
-                  />
-                </label>
-              </div>
-            </div>
-          )}
 
           <div className="md:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-2 pt-2 border-t border-slate-900">
             <button

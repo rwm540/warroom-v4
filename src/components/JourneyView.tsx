@@ -457,8 +457,18 @@ export default function JourneyView({
   };
 
   const handleStageClick = (stage: JourneyStage) => {
+    const mapTimerDeadline = siteSettings?.gameMapTimerDeadline;
+    if (mapTimerDeadline && new Date(mapTimerDeadline).getTime() > Date.now()) {
+      triggerAlert('⚠️ عملیات نقشه بازی هنوز آغاز نشده است! لطفاً تا پایان مهلت تعیین‌شده در تنظیمات ادمین منتظر بمانید.');
+      return;
+    }
     if (isGameLockedByTimer) {
       triggerAlert('⚠️ عملیات هنوز آغاز نشده است! لطفاً تا پایان زمان‌سنج و بازگشایی رسمی مراحل منتظر بمانید.');
+      return;
+    }
+    const enforcePoints = siteSettings?.gameMapEnforcePoints !== false;
+    if (enforcePoints && stage.requiredPoints && userPoints < stage.requiredPoints) {
+      triggerAlert(`⚠️ امتیاز کافی ندارید! برای باز شدن این مرحله به ${formatToPersianDigits(stage.requiredPoints.toLocaleString('fa-IR'))} امتیاز نیاز دارید (امتیاز فعلی شما: ${formatToPersianDigits(userPoints.toLocaleString('fa-IR'))}).`);
       return;
     }
     setSelectedStage(stage);

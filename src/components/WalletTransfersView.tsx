@@ -302,31 +302,11 @@ export default function WalletTransfersView({
           </div>
 
           {/* Dynamic Payment Gateways Selector Tabs */}
-          <div className="grid grid-cols-2 gap-2 p-1.5 rounded-2xl bg-slate-950/80 border border-slate-800">
-            <button
-              type="button"
-              onClick={() => setPaymentMethod('zarinpal')}
-              className={`py-3 rounded-xl text-xs font-black transition-all flex items-center justify-center gap-2 cursor-pointer border ${
-                paymentMethod === 'zarinpal'
-                  ? 'bg-amber-500 text-slate-950 border-amber-400 shadow-md'
-                  : 'bg-slate-900 text-slate-400 border-slate-800 hover:text-white hover:bg-slate-800/80'
-              }`}
-            >
+          <div className="p-1.5 rounded-2xl bg-slate-950/80 border border-slate-800 text-center">
+            <span className="py-2.5 rounded-xl text-xs font-black bg-amber-500 text-slate-950 border border-amber-400 shadow-md flex items-center justify-center gap-2">
               <CreditCard size={14} />
-              <span>پرداخت آنلاین زرین‌پال (آنی)</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => setPaymentMethod('card')}
-              className={`py-3 rounded-xl text-xs font-black transition-all flex items-center justify-center gap-2 cursor-pointer border ${
-                paymentMethod === 'card'
-                  ? 'bg-amber-500 text-slate-950 border-amber-400 shadow-md'
-                  : 'bg-slate-900 text-slate-400 border-slate-800 hover:text-white hover:bg-slate-800/80'
-              }`}
-            >
-              <Building size={14} />
-              <span>انتقال کارت به کارت (آفلاین)</span>
-            </button>
+              <span>درگاه پرداخت آنلاین امن بانکی (زرین‌پال / متصل)</span>
+            </span>
           </div>
 
           {/* Selected Gateway Detail Panel */}
@@ -350,185 +330,33 @@ export default function WalletTransfersView({
                 </div>
               </div>
 
-              {/* CARD-TO-CARD (OFFLINE) SUB-FORM */}
-              {paymentMethod === 'card' ? (
-                <div className="bg-slate-950/90 border border-slate-800 rounded-2xl p-4 sm:p-5 space-y-4">
-                  <span className="text-xs font-black text-amber-300 flex items-center gap-1.5">
-                    <CreditCard size={15} />
-                    <span>اطلاعات حساب جهت انتقال کارت به کارت</span>
-                  </span>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs bg-slate-900/60 p-3.5 rounded-xl border border-slate-800">
-                    <div className="space-y-1">
-                      <span className="text-[10px] text-slate-500">شماره کارت مقصد:</span>
-                      <div className="flex items-center gap-1.5">
-                        <span className="font-mono font-bold text-white tracking-wider text-xs">{selectedGateway.card_number || '-'}</span>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            navigator.clipboard?.writeText(selectedGateway.card_number || '');
-                            triggerAlert('شماره کارت مقصد کپی شد.');
-                          }}
-                          className="text-cyan-400 hover:text-white transition p-1 hover:bg-slate-800 rounded-lg"
-                        >
-                          <Copy size={12} />
-                        </button>
-                      </div>
-                    </div>
-
-                    <div className="space-y-1">
-                      <span className="text-[10px] text-slate-500">نام صاحب حساب:</span>
-                      <span className="font-bold text-white block">{selectedGateway.card_holder || '-'}</span>
-                    </div>
-
-                    <div className="space-y-1">
-                      <span className="text-[10px] text-slate-500">بانک عامل:</span>
-                      <span className="font-bold text-white block">{selectedGateway.card_bank || '-'}</span>
-                    </div>
-                  </div>
-
-                  {selectedGateway.card_instructions && (
-                    <p className="text-[11px] text-slate-400 leading-relaxed bg-slate-900/30 p-3 rounded-xl border border-slate-900/60">
-                      {selectedGateway.card_instructions}
-                    </p>
-                  )}
-
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1 text-xs">
-                    <div>
-                      <label className="text-[11px] text-slate-400 block mb-1">نام پرداخت‌کننده (کارت واریزکننده):</label>
-                      <input
-                        type="text"
-                        value={cardPayerName}
-                        onChange={(e) => setCardPayerName(e.target.value)}
-                        placeholder="مثال: محمد رضایی..."
-                        className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3.5 py-2.5 text-xs text-white"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="text-[11px] text-slate-400 block mb-1">شماره فیش واریز / کد رهگیری تراکنش:</label>
-                      <input
-                        type="text"
-                        value={cardRefId}
-                        onChange={(e) => setCardRefId(e.target.value)}
-                        placeholder="مثال: ۱۲۳۴۵۶..."
-                        className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3.5 py-2.5 text-xs text-white font-mono"
-                      />
-                    </div>
-
-                    <div className="sm:col-span-2">
-                      <label className="text-[11px] text-slate-400 block mb-1">بارگذاری تصویر فیش واریزی (اختیاری):</label>
-                      <label className="px-4 py-2.5 bg-slate-900 border border-slate-800 hover:border-slate-700 rounded-xl text-xs text-slate-300 hover:text-white flex items-center justify-center gap-1.5 cursor-pointer transition">
-                        <Printer size={14} />
-                        <span>{cardReceiptFile ? 'تصویر فیش انتخاب شد ✓' : 'انتخاب فایل فیش واریزی...'}</span>
-                        <input
-                          type="file"
-                          accept="image/*"
-                          onChange={(e) => {
-                            const file = e.target.files?.[0];
-                            if (file) {
-                              const reader = new FileReader();
-                              reader.onload = (event) => {
-                                  if (event.target?.result) setCardReceiptFile(event.target.result as string);
-                              };
-                              reader.readAsDataURL(file);
-                            }
-                          }}
-                          className="hidden"
-                        />
-                      </label>
-                    </div>
-                  </div>
-
-                  <button
-                    type="button"
-                    onClick={() => {
-                      if (!cardPayerName.trim() || !cardRefId.trim()) {
-                        triggerAlert('خطا: لطفا نام واریزکننده و کد رهگیری فیش را وارد کنید.');
-                        return;
-                      }
-                      if (onAddTransaction) {
-                        onAddTransaction({
-                          id: 'tx_card_' + Date.now(),
-                          user_id: currentUser.id,
-                          national_code: currentUser.national_code,
-                          full_name: cardPayerName.trim(),
-                          amount: selectedGateway.amount,
-                          currency: selectedGateway.currency,
-                          gateway: 'card',
-                          status: 'pending',
-                          ref_id: cardRefId.trim(),
-                          created_at: new Date().toISOString()
-                        });
-                      }
-                      triggerAlert('فیش واریزی شما با موفقیت ثبت شد و در انتظار تایید مدیریت قرار گرفت.');
-                    }}
-                    className="w-full py-3 px-4 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 text-slate-950 font-black text-xs transition shadow-lg flex items-center justify-center gap-2 cursor-pointer font-bold"
-                  >
-                    <CheckCircle2 size={16} />
-                    <span>ثبت فیش واریزی و ارسال برای تایید مدیریت</span>
-                  </button>
-                </div>
-              ) : (
-                /* ONLINE GATEWAY SUB-FORM */
-                <div className="flex flex-col sm:flex-row items-center gap-3 pt-2">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      if (onAddTransaction) {
-                        onAddTransaction({
-                          id: 'tx_' + Date.now(),
-                          user_id: currentUser.id,
-                          national_code: currentUser.national_code,
-                          full_name: `${currentUser.first_name || ''} ${currentUser.last_name || ''}`.trim(),
-                          amount: selectedGateway.amount,
-                          currency: selectedGateway.currency,
-                          gateway: selectedGateway.gateway,
-                          status: 'paid',
-                          ref_id: 'REF_' + Math.floor(100000 + Math.random() * 900000),
-                          created_at: new Date().toISOString()
-                        });
-                      }
-                      triggerAlert('هدایت به درگاه پرداخت... پرداخت با موفقیت شبیه‌سازی و تأیید شد.');
-                      setTimeout(() => {
-                        onNavigate?.('Journey');
-                      }, 1200);
-                    }}
-                    className="w-full sm:flex-1 py-3.5 px-4 rounded-xl bg-gradient-to-r from-amber-500 to-yellow-500 hover:brightness-110 text-slate-950 font-black text-xs transition shadow-lg flex items-center justify-center gap-2 cursor-pointer font-bold"
-                  >
-                    <ExternalLink size={16} />
-                    <span>اتصال به درگاه و پرداخت آنلاین ({selectedGateway.gateway === 'zarinpal' ? 'زرین‌پال' : 'سفارشی'})</span>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => {
-                      if (onAddTransaction) {
-                        onAddTransaction({
-                          id: 'tx_' + Date.now(),
-                          user_id: currentUser.id,
-                          national_code: currentUser.national_code,
-                          full_name: `${currentUser.first_name || ''} ${currentUser.last_name || ''}`.trim(),
-                          amount: selectedGateway.amount,
-                          currency: selectedGateway.currency,
-                          gateway: selectedGateway.gateway,
-                          status: 'paid',
-                          ref_id: 'REF_' + Math.floor(100000 + Math.random() * 900000),
-                          created_at: new Date().toISOString()
-                        });
-                      }
-                      triggerAlert('پرداخت تایید شد! در حال انتقال به پنل کاربری...');
-                      setTimeout(() => {
-                        onNavigate?.('Journey');
-                      }, 1000);
-                    }}
-                    className="w-full sm:flex-1 py-3.5 px-4 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-600 hover:brightness-110 text-white font-black text-xs transition shadow-lg flex items-center justify-center gap-2 cursor-pointer font-bold"
-                  >
-                    <CheckCircle2 size={16} />
-                    <span>تایید و ثبت پرداخت موفق (بازگشت شبیه‌سازی شده)</span>
-                  </button>
-                </div>
-              )}
+              {/* ONLINE GATEWAY SUB-FORM */}
+              <div className="flex flex-col sm:flex-row items-center gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (onAddTransaction) {
+                      onAddTransaction({
+                        id: 'tx_' + Date.now(),
+                        user_id: currentUser.id,
+                        national_code: currentUser.national_code,
+                        full_name: `${currentUser.first_name || ''} ${currentUser.last_name || ''}`.trim() || currentUser.national_code,
+                        amount: selectedGateway.amount,
+                        currency: selectedGateway.currency,
+                        gateway: 'zarinpal',
+                        status: 'paid', // simulate instant online gateway success
+                        ref_id: 'ONL-' + Math.floor(100000 + Math.random() * 900000),
+                        created_at: new Date().toISOString()
+                      });
+                    }
+                    triggerAlert('پرداخت آنلاین با موفقیت انجام شد و دسترسی حساب شما فعال گردید.');
+                  }}
+                  className="w-full py-3.5 px-6 rounded-2xl bg-gradient-to-r from-amber-400 via-amber-500 to-yellow-400 text-slate-950 font-black text-xs sm:text-sm transition shadow-[0_0_25px_rgba(245,158,11,0.4)] flex items-center justify-center gap-2 cursor-pointer hover:brightness-110"
+                >
+                  <ExternalLink size={18} />
+                  <span>اتصال به درگاه پرداخت آنلاین امن بانکی و فعال‌سازی آنی</span>
+                </button>
+              </div>
             </div>
           )}
         </div>

@@ -75,6 +75,7 @@ import {
   Camera
 } from 'lucide-react';
 import AdminAvatarsPanel from './admin/AdminAvatarsPanel';
+import { AdminGameMapManager } from './admin/AdminGameMapManager';
 import { PaginationControls } from './common/PaginationControls';
 import { defaultHomeButtons } from '../data/home';
 import { VitrinPost, buildVitrinPostFromSubmission } from '../data/vitrinData';
@@ -90,7 +91,6 @@ import { PasswordResetRequest } from '../types';
 import { showInternalToast, confirmInternal } from '../lib/appDialog';
 import AdminSoundtrackManager from './AdminSoundtrackManager';
 import AdminDailyChallengeManager from './AdminDailyChallengeManager';
-import { AdminGameMapManager } from './admin/AdminGameMapManager';
 import { AdminEnamadManager } from './admin/AdminEnamadManager';
 import PasswordResetsAdmin from './PasswordResetsAdmin';
 import AdminPaymentsPanel from './AdminPaymentsPanel';
@@ -266,7 +266,7 @@ export default function AdminPanel({
   onNavigate
 }: AdminPanelProps) {
   const [activeAdminTab, setActiveAdminTab] = useState<
-    'overview' | 'submissions' | 'users' | 'missions' | 'trainings' | 'medals' | 'tickets' | 'news' | 'site_editor' | 'enamad' | 'notifications' | 'chat_control' | 'soundtracks' | 'portals' | 'vitrins' | 'password_resets' | 'stage_builder' | 'prizes' | 'payments' | 'daily_challenges' | 'guide_tutorial' | 'avatars'
+    'overview' | 'submissions' | 'users' | 'missions' | 'trainings' | 'medals' | 'tickets' | 'news' | 'site_editor' | 'enamad' | 'notifications' | 'chat_control' | 'soundtracks' | 'portals' | 'vitrins' | 'password_resets' | 'stage_builder' | 'prizes' | 'payments' | 'daily_challenges' | 'guide_tutorial' | 'avatars' | 'game_journey_map'
   >('submissions');
 
   // 🛡️ وضعیت بک‌اند امن (برای مدیریت امن رمز کاربران)
@@ -2283,6 +2283,19 @@ export default function AdminPanel({
         >
           <Camera size={15} className="text-emerald-400" />
           <span>مدیریت آواتارهای کاربری</span>
+        </button>
+
+        <button
+          onClick={() => setActiveAdminTab('game_journey_map')}
+          className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl whitespace-nowrap shrink-0 transition border relative ${
+            activeAdminTab === 'game_journey_map'
+              ? 'bg-gradient-to-r from-red-600 via-amber-500 to-yellow-400 text-slate-950 border-amber-400 font-black shadow-[0_0_20px_rgba(245,158,11,0.5)]'
+              : 'bg-[#080d21] text-amber-300 border-amber-500/40 hover:border-amber-400 hover:text-white'
+          }`}
+          id="btn-tab-game-journey-map"
+        >
+          <Compass size={15} className="text-amber-400" />
+          <span>نقشه بازی و مراحل</span>
         </button>
 
       </div>
@@ -5793,6 +5806,17 @@ export default function AdminPanel({
       {/* ==================================================================== */}
       {activeAdminTab === 'avatars' && (
         <AdminAvatarsPanel triggerAlert={triggerAlert} />
+      )}
+
+      {/* ==================================================================== */}
+      {/* 13.5 🗺️ GAME JOURNEY MAP MANAGER TAB — نقشه بازی و مراحل                 */}
+      {/* ==================================================================== */}
+      {activeAdminTab === 'game_journey_map' && (
+        <AdminGameMapManager
+          siteSettings={siteSettings}
+          setSiteSettings={setSiteSettings}
+          triggerAlert={triggerAlert}
+        />
       )}
 
       {/* ==================================================================== */}

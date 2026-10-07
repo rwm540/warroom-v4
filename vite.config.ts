@@ -62,7 +62,21 @@ export default defineConfig(() => {
       tailwindcss(),
       operationLogPlugin,
     ],
+    optimizeDeps: {
+      force: true,
+      include: [
+        'react',
+        'react-dom',
+        'react-dom/client',
+        'react/jsx-runtime',
+        'motion',
+        'motion/react',
+        'lucide-react',
+        '@supabase/supabase-js'
+      ],
+    },
     resolve: {
+      dedupe: ['react', 'react-dom'],
       extensions: ['.mjs', '.js', '.mts', '.ts', '.jsx', '.tsx', '.json'],
       alias: [
         { find: /^@\/(.*)/, replacement: path.resolve(rootDir, 'src/$1') },
@@ -76,16 +90,20 @@ export default defineConfig(() => {
       rollupOptions: {
         output: {
           manualChunks(id) {
-            if (id.includes('node_modules/react/') || id.includes('node_modules/react-dom/')) {
+            if (
+              id.includes('node_modules/react') ||
+              id.includes('node_modules/react-dom') ||
+              id.includes('node_modules/scheduler')
+            ) {
               return 'vendor-react';
             }
-            if (id.includes('node_modules/motion/')) {
+            if (id.includes('node_modules/motion')) {
               return 'vendor-motion';
             }
-            if (id.includes('node_modules/lucide-react/')) {
+            if (id.includes('node_modules/lucide-react')) {
               return 'vendor-icons';
             }
-            if (id.includes('node_modules/@supabase/')) {
+            if (id.includes('node_modules/@supabase')) {
               return 'vendor-supabase';
             }
           },

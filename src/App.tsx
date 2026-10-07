@@ -79,7 +79,7 @@ import {
 } from './data/vitrinData';
 import { DEFAULT_GAME_PORTALS } from './data/portalData';
 
-// Static Base Views (Needed for immediate FCP & LCP)
+// Static Base Views
 import HomeView from './components/HomeView.tsx';
 import Navbar from './components/Navbar.tsx';
 import BottomNavigation from './components/home/BottomNavigation.tsx';
@@ -91,28 +91,26 @@ import InternalDialogHost from './components/InternalDialogHost.tsx';
 import RadarLoading from './components/RadarLoading.tsx';
 import GroupChatPanel from './components/GroupChatPanel.tsx';
 
-import { lazyWithRetry } from './utils/lazyWithRetry';
+import AuthView from './components/AuthView.tsx';
+import DashboardView from './components/DashboardView.tsx';
+import JourneyView from './components/JourneyView.tsx';
+import MissionsView from './components/MissionsView.tsx';
+import TrainingsView from './components/TrainingsView.tsx';
+import SupportView from './components/SupportView.tsx';
+import ContactView from './components/ContactView.tsx';
+import AboutView from './components/AboutView.tsx';
+import RulesView from './components/RulesView.tsx';
+import ProfileView from './components/ProfileView.tsx';
+import PrizesPointsView from './components/PrizesPointsView.tsx';
+import VitrinView from './components/VitrinView.tsx';
+import WalletTransfersView from './components/WalletTransfersView.tsx';
 
-// Code-Split Dynamic Views & Modals (loaded on-demand with offline recovery)
-const AuthView = lazyWithRetry(() => import('./components/AuthView.tsx'));
-const DashboardView = lazyWithRetry(() => import('./components/DashboardView.tsx'));
-const JourneyView = lazyWithRetry(() => import('./components/JourneyView.tsx'));
-const MissionsView = lazyWithRetry(() => import('./components/MissionsView.tsx'));
-const TrainingsView = lazyWithRetry(() => import('./components/TrainingsView.tsx'));
-const SupportView = lazyWithRetry(() => import('./components/SupportView.tsx'));
-const ContactView = lazyWithRetry(() => import('./components/ContactView.tsx'));
-const AboutView = lazyWithRetry(() => import('./components/AboutView.tsx'));
-const RulesView = lazyWithRetry(() => import('./components/RulesView.tsx'));
-const ProfileView = lazyWithRetry(() => import('./components/ProfileView.tsx'));
-const PrizesPointsView = lazyWithRetry(() => import('./components/PrizesPointsView.tsx'));
-const VitrinView = lazyWithRetry(() => import('./components/VitrinView.tsx'));
-const WalletTransfersView = lazyWithRetry(() => import('./components/WalletTransfersView.tsx'));
-const SquadManagementModal = lazyWithRetry(() => import('./components/SquadManagementModal.tsx'));
-const ProfileModal = lazyWithRetry(() => import('./components/ProfileModal.tsx'));
-const GameSelectionPortalModal = lazyWithRetry(() => import('./components/GameSelectionPortalModal.tsx'));
-const NotificationCenterModal = lazyWithRetry(() => import('./components/NotificationCenterModal.tsx'));
-const OnboardingCommanderTutorial = lazyWithRetry(() => import('./components/OnboardingCommanderTutorial.tsx'));
-const ForcePasswordChangeModal = lazyWithRetry(() => import('./components/ForcePasswordChangeModal.tsx'));
+import SquadManagementModal from './components/SquadManagementModal.tsx';
+import ProfileModal from './components/ProfileModal.tsx';
+import GameSelectionPortalModal from './components/GameSelectionPortalModal.tsx';
+import NotificationCenterModal from './components/NotificationCenterModal.tsx';
+import OnboardingCommanderTutorial from './components/OnboardingCommanderTutorial.tsx';
+import ForcePasswordChangeModal from './components/ForcePasswordChangeModal.tsx';
 import AdminPanel from './components/AdminPanel.tsx';
 import { GuideTutorialConfig, defaultGuideConfig } from './components/AdminGuideTutorialManager';
 

@@ -42,10 +42,10 @@ export default function BottomNavigation({
   }, []);
 
   const primaryItems = [
+    { id: 'Vitrin', label: 'ویترین و آثار', icon: Grid, isAdmin: false },
     { id: 'GamePortals', label: 'انتخاب بازی', icon: Gamepad2, isAdmin: false },
-    { id: 'Journey', label: 'نقشه بازی', icon: Compass, isAdmin: false },
-    { id: 'Rewards', label: 'جوایز', icon: Gift, isAdmin: false },
-    { id: 'Vitrin', label: 'ویترین', icon: Grid, isAdmin: false },
+    { id: 'Journey', label: 'نقشه مراحل', icon: Compass, isAdmin: false, isCenter: true },
+    { id: 'Rewards', label: 'جوایز و امتیازات', icon: Gift, isAdmin: false },
   ];
 
   const secondaryItems = [
@@ -149,22 +149,42 @@ export default function BottomNavigation({
 
               <div className="relative z-10 flex flex-col items-center justify-center w-full">
                 <motion.div
-                  animate={{ scale: isActive ? 1.12 : 1 }}
+                  animate={{ scale: isActive ? (item.isCenter ? 1.2 : 1.12) : 1 }}
                   transition={{ type: "spring", stiffness: 420, damping: 26 }}
                 >
-                  <Icon 
-                    size={20} 
-                    strokeWidth={isActive ? 2.3 : 1.7} 
-                    className={
+                  {item.isCenter ? (
+                    <div className={`w-6 h-6 rounded-full flex items-center justify-center p-0.5 relative transition-all ${
                       isActive 
-                        ? item.isAdmin
-                          ? 'text-amber-300 drop-shadow-[0_0_8px_rgba(245,158,11,0.85)]'
-                          : isGirls
-                            ? 'text-pink-300 drop-shadow-[0_0_8px_rgba(244,63,94,0.85)]'
-                            : 'text-blue-300 drop-shadow-[0_0_8px_rgba(37,99,235,0.85)]'
-                        : 'text-slate-400'
-                    }
-                  />
+                        ? isGirls
+                          ? 'drop-shadow-[0_0_12px_rgba(255,19,137,1)]'
+                          : 'drop-shadow-[0_0_12px_rgba(6,182,212,1)] shadow-[0_0_15px_rgba(239,68,68,0.6)]'
+                        : 'opacity-80 grayscale-[0.2]'
+                    }`}>
+                      <img 
+                        src="/images/logos/warroom_logo_sm.webp" 
+                        alt="اتاق جنگ" 
+                        className="w-full h-full object-contain filter drop-shadow-[0_0_6px_rgba(34,211,238,0.9)]"
+                        onError={(e) => {
+                          // Fallback if logo fails
+                          (e.target as HTMLElement).style.display = 'none';
+                        }}
+                      />
+                    </div>
+                  ) : (
+                    <Icon 
+                      size={20} 
+                      strokeWidth={isActive ? 2.3 : 1.7} 
+                      className={
+                        isActive 
+                          ? item.isAdmin
+                            ? 'text-amber-300 drop-shadow-[0_0_8px_rgba(245,158,11,0.85)]'
+                            : isGirls
+                              ? 'text-pink-300 drop-shadow-[0_0_8px_rgba(244,63,94,0.85)]'
+                              : 'text-blue-300 drop-shadow-[0_0_8px_rgba(37,99,235,0.85)]'
+                          : 'text-slate-400'
+                      }
+                    />
+                  )}
                 </motion.div>
                 
                 <span className={`text-[9.5px] sm:text-[10px] font-bold mt-1 tracking-tight truncate max-w-full text-center transition-colors ${

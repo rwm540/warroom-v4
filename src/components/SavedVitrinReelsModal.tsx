@@ -8,6 +8,7 @@ import { VitrinPost, VitrinComment, getAllComments, saveComment, toggleCommentLi
 import { formatToPersianDigits } from '../utils/jalali';
 import { User } from '../types';
 import { getDefaultAvatar } from '../data/avatars';
+import TacticalVideoPlayer from './TacticalVideoPlayer';
 
 interface SavedVitrinReelsModalProps {
   isOpen: boolean;
@@ -299,52 +300,17 @@ export default function SavedVitrinReelsModal({
 
                     {/* Media / Video Stage with Reel Controls */}
                     <div 
-                      className="relative aspect-video bg-black flex items-center justify-center overflow-hidden cursor-pointer select-none"
-                      onClick={() => handleDoubleTap(post.id)}
+                      className="relative aspect-video bg-black flex items-center justify-center overflow-hidden select-none"
                       onContextMenu={(e) => e.preventDefault()}
                     >
                       {post.mediaType === 'video' ? (
-                        <>
-                          <video
-                            ref={(el) => { videoRefs.current[post.id] = el; }}
-                            src={post.videoSourceUrl && !post.videoSourceUrl.includes('#') ? `${post.videoSourceUrl}#t=0.001` : (post.videoSourceUrl || '/videowarroom.mp4#t=0.001')}
-                            poster={post.mediaUrl}
-                            playsInline
-                            loop
-                            preload="auto"
-                            muted={isMuted}
-                            disablePictureInPicture
-                            controlsList="nodownload nofullscreen noremoteplayback noplaybackrate"
-                            onContextMenu={(e) => e.preventDefault()}
-                            className="w-full h-full object-cover"
-                          />
-
-                          {/* Play/Pause Overlay Button */}
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleTogglePlay(post.id);
-                            }}
-                            className={`absolute inset-0 m-auto w-14 h-14 rounded-full bg-black/60 backdrop-blur-sm border border-white/20 text-white flex items-center justify-center transition-all ${
-                              isPlaying ? 'opacity-0 hover:opacity-90' : 'opacity-90 scale-100'
-                            }`}
-                          >
-                            {isPlaying ? <Pause size={24} /> : <Play size={24} className="ml-1" />}
-                          </button>
-
-                          {/* Volume Toggle */}
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setIsMuted(!isMuted);
-                            }}
-                            className="absolute bottom-3 left-3 p-2 rounded-xl bg-black/60 backdrop-blur-sm border border-white/20 text-white hover:bg-black/80 transition"
-                          >
-                            {isMuted ? <VolumeX size={15} /> : <Volume2 size={15} />}
-                          </button>
-                        </>
+                        <TacticalVideoPlayer 
+                          src={post.videoSourceUrl || '/videowarroom.mp4'} 
+                          poster={post.mediaUrl}
+                          onDoubleTap={() => handleDoubleTap(post.id)}
+                          aspectRatioClass="w-full h-full"
+                          className="w-full h-full rounded-none border-0"
+                        />
                       ) : (
                         <img 
                           src={post.mediaUrl} 

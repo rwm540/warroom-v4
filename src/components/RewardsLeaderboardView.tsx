@@ -314,8 +314,8 @@ export default function RewardsLeaderboardView({
                 </div>
               </div>
 
-              <div className="space-y-2 max-h-96 overflow-y-auto pr-1">
-                {remainingList.map((item, index) => {
+              <div className="space-y-2.5 max-h-[85vh] overflow-y-auto pr-1">
+                {remainingList.slice(0, 20).map((item, index) => {
                   const rank = index + 4;
                   return (
                     <div

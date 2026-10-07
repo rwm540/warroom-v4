@@ -142,7 +142,12 @@ export default function JourneyView({
     setIsTimerExpired(checkInitialExpired());
   }, [siteSettings?.countdownTargetDate, siteSettings?.heroCountdown, siteSettings?.showCountdownTimer]);
 
-  const isGameLockedByTimer = !isTimerExpired && !isTimerDisabled;
+  const isGameLockedByTimer = false;
+
+  // بررسی وضعیت پایان مهلت مسابقه بر اساس تایمر معکوس یا ددلاین ادمین
+  const mapTimerDeadline = siteSettings?.gameMapTimerDeadline;
+  const isDeadlinePassed = mapTimerDeadline ? new Date(mapTimerDeadline).getTime() < Date.now() : false;
+  const isCompetitionEnded = isTimerExpired || isDeadlinePassed;
 
   const [selectedStage, setSelectedStage] = useState<JourneyStage | null>(null);
   const [activeTabSub, setActiveTabSub] = useState<'journey' | 'journal' | 'prayer'>('journey');
@@ -457,18 +462,24 @@ export default function JourneyView({
   };
 
   const handleStageClick = (stage: JourneyStage) => {
-    const mapTimerDeadline = siteSettings?.gameMapTimerDeadline;
-    if (mapTimerDeadline && new Date(mapTimerDeadline).getTime() > Date.now()) {
-      triggerAlert('⚠️ عملیات نقشه بازی هنوز آغاز نشده است! لطفاً تا پایان مهلت تعیین‌شده در تنظیمات ادمین منتظر بمانید.');
+    // اگر مرحله قفل است، از باز شدن مدال جلوگیری شده و پیغام هشدار نمایش داده می‌شود
+    if (stage.status === 'locked') {
+      if (isCompetitionEnded) {
+        triggerAlert('⚠️ مهلت زمانی مسابقه به پایان رسیده است! امکان ورود به مراحل جدید و بازگشایی قفل وجود ندارد.');
+        return;
+      }
+      const reqPts = stage.requiredPoints || 100;
+      if (userPoints < reqPts) {
+        triggerAlert(`🔒 این مرحله قفل است! برای بازگشایی به ${formatToPersianDigits(reqPts.toLocaleString('fa-IR'))} امتیاز نیاز دارید (امتیاز فعلی شما: ${formatToPersianDigits(userPoints.toLocaleString('fa-IR'))}).`);
+      } else {
+        triggerAlert('🔒 این مرحله هنوز قفل است! لطفاً ابتدا مراحل قبلی را با موفقیت تکمیل فرمایید.');
+      }
       return;
     }
-    if (isGameLockedByTimer) {
-      triggerAlert('⚠️ عملیات هنوز آغاز نشده است! لطفاً تا پایان زمان‌سنج و بازگشایی رسمی مراحل منتظر بمانید.');
-      return;
-    }
+
     const enforcePoints = siteSettings?.gameMapEnforcePoints !== false;
     if (enforcePoints && stage.requiredPoints && userPoints < stage.requiredPoints) {
-      triggerAlert(`⚠️ امتیاز کافی ندارید! برای باز شدن این مرحله به ${formatToPersianDigits(stage.requiredPoints.toLocaleString('fa-IR'))} امتیاز نیاز دارید (امتیاز فعلی شما: ${formatToPersianDigits(userPoints.toLocaleString('fa-IR'))}).`);
+      triggerAlert(`⚠️ امتیاز کافی ندارید! برای ورود به این مرحله به ${formatToPersianDigits(stage.requiredPoints.toLocaleString('fa-IR'))} امتیاز نیاز دارید (امتیاز فعلی شما: ${formatToPersianDigits(userPoints.toLocaleString('fa-IR'))}).`);
       return;
     }
     setSelectedStage(stage);
@@ -626,15 +637,13 @@ export default function JourneyView({
               setProfileSubTab('dossier');
               setShowProfileDrawer(true);
             }}
-            className={`w-10 h-10 sm:w-11 sm:h-11 rounded-full p-0.5 overflow-hidden border-2 shadow-md shrink-0 transition-transform hover:scale-105 active:scale-95 cursor-pointer ${
-              isGirls ? 'border-pink-400 shadow-[0_0_12px_rgba(255,19,137,0.5)]' : 'border-cyan-400 shadow-[0_0_12px_rgba(6,182,212,0.5)]'
-            }`}
+            className="w-10 h-10 sm:w-11 sm:h-11 rounded-full p-0 overflow-hidden border-0 bg-transparent shadow-none shrink-0 transition-transform hover:scale-105 active:scale-95 cursor-pointer"
             title="مشاهده و ویرایش پرونده رزمنده"
           >
             <img 
               src={currentUser?.avatar_url || (isGirls ? womanCommanderAvatar : maleCommanderAvatar)} 
               alt={currentUser?.first_name || 'کاربر'} 
-              className="w-full h-full object-cover object-top rounded-full"
+              className="w-full h-full object-cover object-top rounded-full border-0 bg-transparent"
             />
           </button>
         </div>
@@ -743,10 +752,10 @@ export default function JourneyView({
                 backgroundSize: siteSettings?.gameMapBgMode || 'cover',
                 backgroundRepeat: siteSettings?.gameMapBgMode === 'repeat' ? 'repeat' : 'no-repeat',
                 opacity: siteSettings?.gameMapBgOpacity !== undefined ? (siteSettings.gameMapBgOpacity / 100) : 1,
-                filter: siteSettings?.gameMapBlurLevel ? `blur(${siteSettings.gameMapBlurLevel}px)` : undefined,
+                filter: undefined,
               }}
             >
-              <div className="absolute inset-0 bg-slate-950/20 backdrop-blur-[1px]" />
+              <div className="absolute inset-0 bg-slate-950/10 pointer-events-none" />
               <div className={`absolute inset-0 ring-2 ring-inset rounded-3xl pointer-events-none ${
                 isGirls ? 'ring-fuchsia-400/40' : 'ring-amber-400/40'
               }`} />

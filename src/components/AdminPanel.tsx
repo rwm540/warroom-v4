@@ -2285,19 +2285,6 @@ export default function AdminPanel({
           <span>مدیریت آواتارهای کاربری</span>
         </button>
 
-        <button
-          onClick={() => setActiveAdminTab('game_journey_map')}
-          className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl whitespace-nowrap shrink-0 transition border relative ${
-            activeAdminTab === 'game_journey_map'
-              ? 'bg-gradient-to-r from-red-600 via-amber-500 to-yellow-400 text-slate-950 border-amber-400 font-black shadow-[0_0_20px_rgba(245,158,11,0.5)]'
-              : 'bg-[#080d21] text-amber-300 border-amber-500/40 hover:border-amber-400 hover:text-white'
-          }`}
-          id="btn-tab-game-journey-map"
-        >
-          <Compass size={15} className="text-amber-400" />
-          <span>نقشه بازی و مراحل</span>
-        </button>
-
       </div>
 
       <button

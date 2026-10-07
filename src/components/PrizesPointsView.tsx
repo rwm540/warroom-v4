@@ -105,31 +105,6 @@ export default function PrizesPointsView({
       {activeSubTab === 'prizes' && (
         <div className="space-y-4">
           
-          {/* Categories Bar */}
-          <div className="flex items-center gap-2 overflow-x-auto pb-1 text-xs">
-            {[
-              { id: 'all', label: effectivePrizes.length > 0 ? `همه جایزه‌ها (${formatToPersianDigits(effectivePrizes.length)})` : 'همه جایزه‌ها' },
-              { id: 'gaming', label: 'گیمینگ و کنسول' },
-              { id: 'digital', label: 'تبلت و دوربین' },
-              { id: 'gadgets', label: 'گجت‌های هوشمند' },
-              { id: 'gear', label: 'تجهیزات و رصد' }
-            ].map(cat => (
-              <button
-                key={cat.id}
-                onClick={() => setSelectedCategory(cat.id)}
-                className={`px-3 py-1.5 rounded-xl font-bold whitespace-nowrap transition border ${
-                  selectedCategory === cat.id
-                    ? isGirls 
-                      ? 'bg-pink-950 border-pink-500 text-pink-200' 
-                      : 'bg-cyan-950 border-cyan-400 text-cyan-200'
-                    : 'bg-slate-900/60 border-slate-800 text-slate-400 hover:text-white'
-                }`}
-              >
-                {cat.label}
-              </button>
-            ))}
-          </div>
-
           {/* Prizes Grid or Empty State */}
           {filteredPrizes.length === 0 ? (
             <div className="text-center py-16 px-4 bg-[#091126]/60 rounded-3xl border border-slate-800/80 space-y-3">

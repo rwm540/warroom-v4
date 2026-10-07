@@ -104,11 +104,11 @@ export const GameCharacterGuideModal: React.FC<GameCharacterGuideModalProps> = (
             <div className="absolute -bottom-2 w-36 h-6 bg-black/40 rounded-full blur-md" />
             
             {/* Character Image without any outer box/card */}
-            <div className="w-32 h-32 sm:w-44 sm:h-44 md:w-56 md:h-56 rounded-full overflow-hidden border-4 border-amber-400/90 shadow-[0_0_30px_rgba(251,191,36,0.5)] relative bg-slate-900">
+            <div className="w-32 h-32 sm:w-44 sm:h-44 md:w-56 md:h-56 rounded-full overflow-hidden border-0 bg-transparent shadow-none relative">
               <img 
                 src={characterImg} 
                 alt="راهنمای بازی" 
-                className="w-full h-full object-cover object-top hover:scale-105 transition-transform duration-300"
+                className="w-full h-full object-cover object-top hover:scale-105 transition-transform duration-300 border-0 bg-transparent"
               />
             </div>
             

@@ -750,13 +750,14 @@ export async function adminCreateUser(payload: Record<string, any>): Promise<
 export async function adminUpdateUser(id: string, patch: Record<string, any>): Promise<ApiResult<{ user: User }>> {
   if (isSupabaseEnabled && supabase) {
     try {
-      const { data } = await supabase.from('warroom_users').select('data').eq('id', id).single();
-      if (data?.data) {
-        const updated = { ...data.data, ...patch, id };
-        await supabase.from('warroom_users').upsert({ id, data: updated, updated_at: new Date().toISOString() });
-        return { ok: true, data: { user: updated } };
-      }
-    } catch {}
+      const { data } = await supabase.from('warroom_users').select('data').eq('id', id).maybeSingle();
+      const existing = data?.data || {};
+      const updated = { ...existing, ...patch, id };
+      await supabase.from('warroom_users').upsert({ id, data: updated, updated_at: new Date().toISOString() });
+      return { ok: true, data: { user: updated as User } };
+    } catch (e: any) {
+      console.warn('[WarRoom Admin] Exception in adminUpdateUser:', e?.message);
+    }
   }
   return { ok: true, data: { user: patch as User } };
 }

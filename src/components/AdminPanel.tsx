@@ -76,10 +76,11 @@ import {
 } from 'lucide-react';
 import AdminAvatarsPanel from './admin/AdminAvatarsPanel';
 import { AdminGameMapManager } from './admin/AdminGameMapManager';
+import { AdminGameMapTimerManager } from './admin/AdminGameMapTimerManager';
 import { PaginationControls } from './common/PaginationControls';
 import { defaultHomeButtons } from '../data/home';
 import { VitrinPost, buildVitrinPostFromSubmission } from '../data/vitrinData';
-import { uploadToStorage, isSupabaseEnabled, sha256Hex } from '../lib/supabaseData';
+import { uploadToStorage, isSupabaseEnabled, sha256Hex, saveUserProgressToSupabase } from '../lib/supabaseData';
 import {
   probeBackend,
   getBackendStatus,
@@ -266,7 +267,7 @@ export default function AdminPanel({
   onNavigate
 }: AdminPanelProps) {
   const [activeAdminTab, setActiveAdminTab] = useState<
-    'overview' | 'submissions' | 'users' | 'missions' | 'trainings' | 'medals' | 'tickets' | 'news' | 'site_editor' | 'enamad' | 'notifications' | 'chat_control' | 'soundtracks' | 'portals' | 'vitrins' | 'password_resets' | 'stage_builder' | 'prizes' | 'payments' | 'daily_challenges' | 'guide_tutorial' | 'avatars' | 'game_journey_map'
+    'overview' | 'submissions' | 'users' | 'missions' | 'trainings' | 'medals' | 'tickets' | 'news' | 'site_editor' | 'enamad' | 'notifications' | 'chat_control' | 'soundtracks' | 'portals' | 'vitrins' | 'password_resets' | 'stage_builder' | 'prizes' | 'payments' | 'daily_challenges' | 'guide_tutorial' | 'avatars' | 'game_journey_map' | 'game_map_timer'
   >('submissions');
 
   // 🛡️ وضعیت بک‌اند امن (برای مدیریت امن رمز کاربران)
@@ -1073,7 +1074,16 @@ export default function AdminPanel({
           triggerAlert(res.error?.message || 'ویرایش کاربر ناموفق بود.');
           return;
         }
-        const updatedUser = { ...editingUser, ...(res.data?.user || {}), password: '' };
+        const editedPoints = Number(userForm.points) ?? 0;
+        const editedLevel = Number(userForm.level) ?? 1;
+        const updatedUser = { 
+          ...editingUser, 
+          ...(res.data?.user || {}), 
+          points: editedPoints,
+          level: editedLevel,
+          password: '' 
+        };
+        await saveUserProgressToSupabase(updatedUser);
         setUsers(prev => prev.map(u => (u.id === editingUser.id ? updatedUser as User : u)));
 
         // اگر مدیر رمز جدیدی وارد کرده باشد، روی سرور تعیین می‌شود
@@ -1230,6 +1240,24 @@ export default function AdminPanel({
         triggerAlert(`کاربر «${user.first_name} ${user.last_name}» با موفقیت حذف گردید.`);
       }
     });
+  };
+
+  const handleQuickAddPoints = async (targetUser: User) => {
+    const currentPts = targetUser.points || 0;
+    const inputVal = window.prompt(`امتیاز فعلی کاربر «${targetUser.first_name} ${targetUser.last_name}»: ${currentPts}\nمیزان امتیازی که می‌خواهید اضافه یا تغییر دهید را وارد نمایید (مثال: 100 یا -50):`, '100');
+    if (inputVal === null) return;
+    const numAdd = parseInt(inputVal, 10);
+    if (isNaN(numAdd)) {
+      triggerAlert('خطا: عدد وارد شده معتبر نمی‌باشد.');
+      return;
+    }
+    const newPoints = Math.max(0, currentPts + numAdd);
+    const updatedUser: User = { ...targetUser, points: newPoints };
+    
+    // Save to Supabase and local state
+    await saveUserProgressToSupabase(updatedUser);
+    setUsers(prev => prev.map(u => u.id === targetUser.id ? updatedUser : u));
+    triggerAlert(`امتیاز کاربر «${targetUser.first_name} ${targetUser.last_name}» به‌صورت زنده به ${formatToPersianDigits(newPoints)} تغییر یافت.`);
   };
 
   // MISSION CRUD & EDIT STATES
@@ -2093,16 +2121,16 @@ export default function AdminPanel({
         </button>
 
         <button
-          onClick={() => setActiveAdminTab('stage_builder')}
+          onClick={() => setActiveAdminTab('game_map_timer')}
           className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl whitespace-nowrap shrink-0 transition border relative ${
-            activeAdminTab === 'stage_builder' 
-              ? 'bg-gradient-to-r from-cyan-500 via-amber-400 to-emerald-500 text-slate-950 border-amber-400 font-black shadow-[0_0_20px_rgba(6,182,212,0.5)]' 
-              : 'bg-[#080d21] text-cyan-300 border-cyan-500/40 hover:border-cyan-400 hover:text-white'
+            activeAdminTab === 'game_map_timer' 
+              ? 'bg-gradient-to-r from-amber-500 via-yellow-400 to-amber-500 text-slate-950 border-amber-400 font-black shadow-[0_0_20px_rgba(245,158,11,0.5)]' 
+              : 'bg-[#080d21] text-amber-300 border-amber-500/40 hover:border-amber-400 hover:text-white'
           }`}
-          id="btn-tab-stage-builder"
+          id="btn-tab-game-map-timer"
         >
-          <MapPin size={15} className="text-cyan-400" />
-          <span>ایجاد و مدیریت مسیر، چالش‌ها و مراحل ({stages.length})</span>
+          <Clock size={15} className="text-amber-400" />
+          <span>مدیریت تایمر مراحل و نقشه بازی</span>
         </button>
 
         <button
@@ -2643,6 +2671,11 @@ export default function AdminPanel({
                           کد اختصاصی: <strong className="text-amber-300">{u.personal_code}</strong>
                         </span>
 
+                        <span className="bg-amber-500/10 text-amber-300 border border-amber-500/40 text-[11px] font-black px-2.5 py-0.5 rounded-lg flex items-center gap-1">
+                          <Trophy size={13} className="text-amber-400" />
+                          <span>امتیاز: <strong className="text-amber-300 font-mono">{formatToPersianDigits(u.points || 0)}</strong></span>
+                        </span>
+
                         <span className={`px-2 py-0.5 rounded-lg text-[10px] font-bold border ${
                           u.gender === 'دختر'
                             ? 'bg-pink-950/60 text-pink-300 border-pink-800'
@@ -2708,6 +2741,16 @@ export default function AdminPanel({
                         title={u.is_blocked ? 'آزادکردن حساب رزمنده' : 'مسدود کردن کامل حساب رزمنده'}
                       >
                         {u.is_blocked ? 'رفع مسدودیت' : 'مسدود سازی کاربر'}
+                      </button>
+
+                      {/* Quick Add Points Button */}
+                      <button
+                        onClick={() => handleQuickAddPoints(u)}
+                        className="px-2.5 py-1.5 rounded-xl bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/40 text-amber-300 text-xs font-bold transition flex items-center gap-1 cursor-pointer"
+                        title="ویرایش/افزایش زنده امتیاز کاربر"
+                      >
+                        <Plus size={13} className="text-amber-400" />
+                        <span>+ امتیاز</span>
                       </button>
 
                       <button
@@ -5796,10 +5839,10 @@ export default function AdminPanel({
       )}
 
       {/* ==================================================================== */}
-      {/* 13.5 🗺️ GAME JOURNEY MAP MANAGER TAB — نقشه بازی و مراحل                 */}
+      {/* 13.5 ⏰ GAME MAP TIMER MANAGER TAB — مدیریت تایمر مراحل و نقشه بازی   */}
       {/* ==================================================================== */}
-      {activeAdminTab === 'game_journey_map' && (
-        <AdminGameMapManager
+      {(activeAdminTab === 'game_map_timer' || activeAdminTab === 'stage_builder' || activeAdminTab === 'game_journey_map') && (
+        <AdminGameMapTimerManager
           siteSettings={siteSettings}
           setSiteSettings={setSiteSettings}
           triggerAlert={triggerAlert}

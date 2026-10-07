@@ -35,6 +35,7 @@ interface StageQuizModalProps {
   currentUser: User | null;
   triggerAlert: (msg: string) => void;
   onStageCompleted?: (stageId: string, earnedPoints: number) => void;
+  isCompetitionEnded?: boolean;
 }
 
 export default function StageQuizModal({
@@ -43,7 +44,8 @@ export default function StageQuizModal({
   stage,
   currentUser,
   triggerAlert,
-  onStageCompleted
+  onStageCompleted,
+  isCompetitionEnded = false
 }: StageQuizModalProps) {
   const stageId = stage?.id || '';
   const hasQuizQuestions = Boolean(stage?.quizQuestions && stage.quizQuestions.length > 0);
@@ -160,6 +162,10 @@ export default function StageQuizModal({
   };
 
   const handleSubmitAnswer = () => {
+    if (isCompetitionEnded) {
+      triggerAlert('⚠️ مهلت مسابقه به پایان رسیده است! ثبت پاسخ جدید و صعود به مراحل بعدی امکان‌پذیر نیست.');
+      return;
+    }
     if (!currentQ) return;
     if (selectedOption === null) {
       triggerAlert('لطفاً یکی از ۴ گزینه را انتخاب فرمایید.');
@@ -183,6 +189,10 @@ export default function StageQuizModal({
   };
 
   const handleNextQuestion = () => {
+    if (isCompetitionEnded) {
+      triggerAlert('⚠️ مهلت مسابقه به پایان رسیده است! ثبت پاسخ جدید و صعود به مراحل بعدی امکان‌پذیر نیست.');
+      return;
+    }
     if (currentQIndex < questionsList.length - 1) {
       setCurrentQIndex((prev) => prev + 1);
     } else {

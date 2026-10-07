@@ -1542,7 +1542,10 @@ insert into public.warroom_site_settings (id, data) values (
     "siteTagline": "سامانه جامع مسابقات، مأموریت‌ها و ارزیابی هوشمند",
     "badgeText": "پرونده ماجراجویی هفت‌خوان",
     "heroTitle": "مأموریت اصلی: مسابقه بزرگ اتاق جنگ",
-    "showCountdownTimer": false,
+    "showCountdownTimer": true,
+    "gameMapTimerDeadline": "2026-11-01T23:59:59Z",
+    "countdownTargetDate": "2026-11-01T23:59:59Z",
+    "heroCountdown": "۰۲:۱۴:۳۹:۱۵",
     "customLogoUrl": "/images/logos/warroom_logo.webp",
     "homeSectionsOrder": ["hero", "prizes", "messengers", "about", "footer"]
   }$$::jsonb

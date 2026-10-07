@@ -1066,6 +1066,7 @@ export default function JourneyView({
         stage={selectedStage}
         currentUser={currentUser}
         triggerAlert={triggerAlert}
+        isCompetitionEnded={isCompetitionEnded}
         onStageCompleted={(stageId, earnedPoints) => {
           onStageCompleted?.(stageId, earnedPoints);
           triggerAlert(`مرحله با موفقیت فتح شد و ${formatToPersianDigits(earnedPoints)} کریستال پاداش به رزمنده تعلق گرفت.`);

@@ -1142,17 +1142,31 @@ export default function App() {
     }
   };
 
-  // Guard: Live Kick Out ONLY if explicitly Blocked
+  // Guard & Live Sync: Sync currentUser in real-time with users list changes (points, level, status)
   useEffect(() => {
-    if (currentUser && currentUser.role !== 'admin') {
+    if (currentUser) {
       const dbUser = users.find(u => u.id === currentUser.id);
       if (dbUser) {
-        if (dbUser.is_blocked) {
+        if (dbUser.is_blocked && currentUser.role !== 'admin') {
           setCurrentUser(null);
           localStorage.removeItem('warroom_current_user_id');
           localStorage.removeItem('warroom_current_user_data');
           setShowAuthScreen(true);
           triggerAlert('حساب کاربری شما توسط مدیریت مسدود شد.');
+          return;
+        }
+
+        // Live update currentUser when points, level, name, or role are modified in state/database
+        if (
+          dbUser.points !== currentUser.points ||
+          dbUser.level !== currentUser.level ||
+          dbUser.first_name !== currentUser.first_name ||
+          dbUser.last_name !== currentUser.last_name ||
+          dbUser.avatar_url !== currentUser.avatar_url ||
+          dbUser.role !== currentUser.role
+        ) {
+          setCurrentUser(dbUser);
+          localStorage.setItem('warroom_current_user_data', JSON.stringify(dbUser));
         }
       }
     }

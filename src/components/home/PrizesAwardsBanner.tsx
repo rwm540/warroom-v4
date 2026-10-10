@@ -1,5 +1,4 @@
 import React from 'react';
-import { motion } from 'motion/react';
 import { Gift, Trophy, Sparkles, Gem, ShoppingBag, Smartphone, Gamepad, Camera, Tablet, Award } from 'lucide-react';
 import { formatToPersianDigits } from '../../utils/jalali';
 import { PrizeItem } from '../../types';
@@ -239,9 +238,8 @@ export default function PrizesAwardsBanner({
               {prizeHighlights.map((item: any, idx: number) => {
                 const Icon = item.icon;
                 return (
-                  <motion.div 
+                  <div 
                     key={idx} 
-                    whileHover={{ scale: 1.02 }}
                     className={`flex items-center gap-2 p-2 rounded-xl text-[10px] border transition-colors ${
                       isGirls 
                         ? 'bg-[#150220]/70 border-fuchsia-900/40 hover:border-pink-500/50' 
@@ -257,7 +255,7 @@ export default function PrizesAwardsBanner({
                       <span className="text-white font-bold block">{item.title}</span>
                       <span className="text-slate-400 font-mono">{item.count}</span>
                     </div>
-                  </motion.div>
+                  </div>
                 );
               })}
             </div>

@@ -260,20 +260,17 @@ export default function TacticalVideoPlayer({
 
       {/* Central Big Tactical Play Button (When Video is Paused / Stopped) */}
       {!isPlaying && (
-        <div className="absolute inset-0 z-20 flex flex-col items-center justify-center bg-black/45 backdrop-blur-[2px] transition-all group-hover:bg-black/35 pointer-events-none">
+        <div className="absolute inset-0 z-20 flex flex-col items-center justify-center pointer-events-none">
           <div className="relative flex items-center justify-center">
-            <div className="absolute -inset-4 rounded-full bg-cyan-500/30 blur-lg animate-pulse" />
+            <div className="absolute -inset-4 rounded-full bg-cyan-500/20 blur-md animate-pulse" />
             <button
               type="button"
-              className="relative w-16 h-16 sm:w-20 sm:h-20 rounded-full bg-slate-950/85 border border-cyan-400/50 flex items-center justify-center text-cyan-300 shadow-[0_0_30px_rgba(6,182,212,0.6)] transform group-hover:scale-110 active:scale-95 transition-all"
+              className="relative w-16 h-16 sm:w-20 sm:h-20 rounded-full bg-slate-950/80 border border-cyan-400/50 flex items-center justify-center text-cyan-300 shadow-[0_0_30px_rgba(6,182,212,0.6)] transform group-hover:scale-110 active:scale-95 transition-all pointer-events-auto"
               title="شروع پخش ویدیو"
             >
               <Play size={32} className="fill-cyan-400 text-cyan-400 ml-1" />
             </button>
           </div>
-          <span className="mt-3 text-xs font-bold text-slate-200 bg-slate-950/80 px-3 py-1 rounded-full border border-slate-700/60 shadow">
-            {hasStarted ? 'برای ادامه کلیک کنید (استارت)' : 'برای شروع کلیک کنید (استارت)'}
-          </span>
         </div>
       )}
     </div>

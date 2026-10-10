@@ -528,6 +528,7 @@ export interface SiteSettings {
   customLogoUrl?: string; // تصویر لوگوی اول صفحه اصلی
   homeSectionsOrder?: string[]; // ترتیب سکشن‌های صفحه اصلی: ['hero', 'prizes', 'messengers', 'about', 'footer']
   adVideoUrl?: string;
+  adVideoPosterUrl?: string;
   adVideoTitle?: string;
   adVideoSubtitle?: string;
   adVideoBadge?: string;

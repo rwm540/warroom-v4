@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import { motion } from 'motion/react';
 import { 
   Shield, Swords, Flame, Target, Trophy, Flag, Compass, Heart, Star, Zap, Award, Radio, Film, Lock, Clock
 } from 'lucide-react';
@@ -199,17 +198,8 @@ export default function AdventureHeroSection({
           }`}>
             
             {/* Female Commander Image (تم دخترانه) */}
-            <motion.div 
+            <div 
               onClick={isBannersDisabled ? undefined : handleFemaleClick}
-              initial={{ opacity: 0, y: 15, scale: 0.96 }}
-              animate={{ opacity: 1, scale: 1, y: [0, -5, 0] }}
-              whileHover={isBannersDisabled ? {} : { scale: 1.03, y: -6 }}
-              whileTap={isBannersDisabled ? {} : { scale: 0.96 }}
-              transition={{
-                y: { duration: 3.2, repeat: Infinity, ease: 'easeInOut' },
-                scale: { duration: 0.2 },
-                opacity: { duration: 0.3 }
-              }}
               role={isBannersDisabled ? 'img' : 'button'}
               tabIndex={isBannersDisabled ? -1 : 0}
               className={`group relative rounded-2xl overflow-hidden transition-shadow duration-300 shadow-[0_0_20px_rgba(0,0,0,0.4)] aspect-[16/10] border-0 border-transparent select-none ${
@@ -241,20 +231,11 @@ export default function AdventureHeroSection({
                   <span>ثبت‌نام بسته است</span>
                 </div>
               )}
-            </motion.div>
+            </div>
 
             {/* Male Commander Image (تم مردانه/پسرانه) */}
-            <motion.div 
+            <div 
               onClick={isBannersDisabled ? undefined : handleMaleClick}
-              initial={{ opacity: 0, y: 15, scale: 0.96 }}
-              animate={{ opacity: 1, scale: 1, y: [0, -5, 0] }}
-              whileHover={isBannersDisabled ? {} : { scale: 1.03, y: -6 }}
-              whileTap={isBannersDisabled ? {} : { scale: 0.96 }}
-              transition={{
-                y: { duration: 3.2, repeat: Infinity, ease: 'easeInOut', delay: 0.2 },
-                scale: { duration: 0.2 },
-                opacity: { duration: 0.3 }
-              }}
               role={isBannersDisabled ? 'img' : 'button'}
               tabIndex={isBannersDisabled ? -1 : 0}
               className={`group relative rounded-2xl overflow-hidden transition-shadow duration-300 shadow-[0_0_20px_rgba(0,0,0,0.4)] aspect-[16/10] border-0 border-transparent select-none ${
@@ -286,7 +267,7 @@ export default function AdventureHeroSection({
                   <span>ثبت‌نام بسته است</span>
                 </div>
               )}
-            </motion.div>
+            </div>
 
           </div>
         </div>
@@ -296,10 +277,7 @@ export default function AdventureHeroSection({
       {/* 2. COMMERCIAL AD VIDEO (IF CONFIGURED IN VISUAL STUDIO)              */}
       {/* ==================================================================== */}
       {siteSettings?.adVideoUrl && (
-        <motion.div
-          initial={{ opacity: 0, y: 30 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true }}
+        <div
           className="w-full max-w-4xl mx-auto p-4 sm:p-5 rounded-3xl bg-gradient-to-r from-purple-950/40 via-slate-950 to-indigo-950/40 border border-purple-500/40 shadow-2xl space-y-3"
         >
           <div className="flex items-center justify-between">
@@ -324,25 +302,22 @@ export default function AdventureHeroSection({
           {siteSettings.adVideoSubtitle && (
             <p className="text-xs text-slate-300 leading-relaxed text-right">{siteSettings.adVideoSubtitle}</p>
           )}
-        </motion.div>
+        </div>
       )}
 
       {/* ==================================================================== */}
       {/* 3. PURE CLEAN VIDEO WITH SMOOTH SCROLL ANIMATION & ULTRA FAST PLAYER */}
       {/* ==================================================================== */}
-      <motion.div 
-        initial={{ opacity: 0, y: 50, scale: 0.95 }}
-        whileInView={{ opacity: 1, y: 0, scale: 1 }}
-        viewport={{ margin: "-40px", amount: 0.15 }}
-        transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
+      <div 
         className="w-full pt-2 sm:pt-4"
       >
         <TacticalVideoPlayer
           src={currentVideoUrl}
+          poster={siteSettings?.adVideoPosterUrl}
           aspectRatioClass="aspect-[16/9]"
           className="rounded-2xl sm:rounded-3xl border border-cyan-500/30 shadow-2xl"
         />
-      </motion.div>
+      </div>
 
     </div>
   );

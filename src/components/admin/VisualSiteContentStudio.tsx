@@ -130,6 +130,7 @@ export const VisualSiteContentStudio: React.FC<VisualSiteContentStudioProps> = (
     girlsBannerImage: siteSettings.girlsBannerImage || '/images/banners/girls_registration_banner.webp',
     boysBannerImage: siteSettings.boysBannerImage || '/images/banners/boys_registration_banner.webp',
     adVideoUrl: siteSettings.adVideoUrl || '',
+    adVideoPosterUrl: siteSettings.adVideoPosterUrl || '',
     adVideoTitle: siteSettings.adVideoTitle || 'تیزر حماسی معرفی مسابقات و جوایز قرارگاه',
     adVideoSubtitle: siteSettings.adVideoSubtitle || 'مشاهده مأموریت‌ها و جوایز میلیونی برای جوخه‌های برتر',
     adVideoBadge: siteSettings.adVideoBadge || 'ویژه و تبلیغاتی',
@@ -2739,6 +2740,35 @@ export const VisualSiteContentStudio: React.FC<VisualSiteContentStudioProps> = (
                   onChange={(e) => setForm(prev => ({ ...prev, adVideoUrl: e.target.value }))}
                   placeholder="یا لینک ویدئو: https://.../video.mp4"
                   className="w-full bg-slate-900 border border-slate-800 rounded-xl px-2.5 py-1.5 text-xs text-white font-mono dir-ltr mt-2"
+                />
+              </div>
+
+              {/* Poster / Thumbnail Image for Video */}
+              <div className="p-3 rounded-2xl bg-slate-950 border border-purple-500/30 space-y-2">
+                <span className="text-xs font-bold text-purple-300 block">تصویر نمایش اول (پوستر/Thumbnail) ویدیو:</span>
+                <div className="flex items-center gap-3">
+                  {form.adVideoPosterUrl && (
+                    <div className="w-16 h-12 rounded-lg overflow-hidden border border-purple-500/40 shrink-0 bg-black">
+                      <img src={form.adVideoPosterUrl} alt="پوستر" className="w-full h-full object-cover" />
+                    </div>
+                  )}
+                  <label className="flex-1 py-2 bg-slate-900 hover:bg-slate-800 text-purple-300 border border-purple-500/40 font-bold text-xs rounded-xl flex items-center justify-center gap-2 cursor-pointer shadow">
+                    <Upload size={14} />
+                    <span>آپلود عکس پوستر ویدیو</span>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={(e) => handleImageUpload('adVideoPosterUrl', e)}
+                    />
+                  </label>
+                </div>
+                <input
+                  type="text"
+                  value={form.adVideoPosterUrl || ''}
+                  onChange={(e) => setForm(prev => ({ ...prev, adVideoPosterUrl: e.target.value }))}
+                  placeholder="یا لینک تصویر پوستر: https://.../poster.jpg"
+                  className="w-full bg-slate-900 border border-slate-800 rounded-xl px-2.5 py-1.5 text-xs text-white font-mono dir-ltr mt-1"
                 />
               </div>
 

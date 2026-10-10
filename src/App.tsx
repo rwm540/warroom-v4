@@ -56,6 +56,7 @@ import {
 } from './data/home';
 
 import { supabase, isSupabaseEnabled } from './lib/supabaseClient';
+import { setRedisSession } from './lib/redisClient';
 // Supabase Data Sync Layer (falls back to localStorage automatically)
 import {
   useSyncedCollection,
@@ -89,29 +90,29 @@ import PersistentMusicBar from './components/PersistentMusicBar.tsx';
 import LiveNotificationToast from './components/LiveNotificationToast.tsx';
 import InternalDialogHost from './components/InternalDialogHost.tsx';
 import RadarLoading from './components/RadarLoading.tsx';
-import GroupChatPanel from './components/GroupChatPanel.tsx';
+// Code Splitting & Lazy Loaded Views & Modals
+const GroupChatPanel = lazy(() => import('./components/GroupChatPanel.tsx'));
+const AuthView = lazy(() => import('./components/AuthView.tsx'));
+const DashboardView = lazy(() => import('./components/DashboardView.tsx'));
+const JourneyView = lazy(() => import('./components/JourneyView.tsx'));
+const MissionsView = lazy(() => import('./components/MissionsView.tsx'));
+const TrainingsView = lazy(() => import('./components/TrainingsView.tsx'));
+const SupportView = lazy(() => import('./components/SupportView.tsx'));
+const ContactView = lazy(() => import('./components/ContactView.tsx'));
+const AboutView = lazy(() => import('./components/AboutView.tsx'));
+const RulesView = lazy(() => import('./components/RulesView.tsx'));
+const ProfileView = lazy(() => import('./components/ProfileView.tsx'));
+const PrizesPointsView = lazy(() => import('./components/PrizesPointsView.tsx'));
+const VitrinView = lazy(() => import('./components/VitrinView.tsx'));
+const WalletTransfersView = lazy(() => import('./components/WalletTransfersView.tsx'));
 
-import AuthView from './components/AuthView.tsx';
-import DashboardView from './components/DashboardView.tsx';
-import JourneyView from './components/JourneyView.tsx';
-import MissionsView from './components/MissionsView.tsx';
-import TrainingsView from './components/TrainingsView.tsx';
-import SupportView from './components/SupportView.tsx';
-import ContactView from './components/ContactView.tsx';
-import AboutView from './components/AboutView.tsx';
-import RulesView from './components/RulesView.tsx';
-import ProfileView from './components/ProfileView.tsx';
-import PrizesPointsView from './components/PrizesPointsView.tsx';
-import VitrinView from './components/VitrinView.tsx';
-import WalletTransfersView from './components/WalletTransfersView.tsx';
-
-import SquadManagementModal from './components/SquadManagementModal.tsx';
-import ProfileModal from './components/ProfileModal.tsx';
-import GameSelectionPortalModal from './components/GameSelectionPortalModal.tsx';
-import NotificationCenterModal from './components/NotificationCenterModal.tsx';
-import OnboardingCommanderTutorial from './components/OnboardingCommanderTutorial.tsx';
-import ForcePasswordChangeModal from './components/ForcePasswordChangeModal.tsx';
-import AdminPanel from './components/AdminPanel.tsx';
+const SquadManagementModal = lazy(() => import('./components/SquadManagementModal.tsx'));
+const ProfileModal = lazy(() => import('./components/ProfileModal.tsx'));
+const GameSelectionPortalModal = lazy(() => import('./components/GameSelectionPortalModal.tsx'));
+const NotificationCenterModal = lazy(() => import('./components/NotificationCenterModal.tsx'));
+const OnboardingCommanderTutorial = lazy(() => import('./components/OnboardingCommanderTutorial.tsx'));
+const ForcePasswordChangeModal = lazy(() => import('./components/ForcePasswordChangeModal.tsx'));
+const AdminPanel = lazy(() => import('./components/AdminPanel.tsx'));
 import { GuideTutorialConfig, defaultGuideConfig } from './components/AdminGuideTutorialManager';
 
 // Highly optimized Draggable Floating Chat Button component
@@ -374,7 +375,7 @@ export default function App() {
       bannerLayout: 'dual',
       iconAnimatedText: 'به بزرگترین رویداد رقابتی و استراتژیک اتاق جنگ خوش آمدید!',
       customLogoUrl: '/images/logos/warroom_logo.webp',
-      homeSectionsOrder: ['hero', 'prizes', 'messengers', 'about', 'footer'],
+      homeSectionsOrder: ['hero', 'prizes', 'messengers', 'footer'],
       prizesSectionTitle: 'ویترین جایزه‌ها',
       prizesSectionSubtitle: 'کریستال جمع کن و جوایز ویژه سامانه را بازگشایی کن',
       prizesBadgeText: 'جوایز کشوری و استانی',
@@ -1110,7 +1111,6 @@ export default function App() {
     localStorage.setItem('warroom_session_id', sessionId);
 
     try {
-      const { setRedisSession } = await import('./lib/redisClient');
       await setRedisSession(sessionId, sessionPayload, 7 * 24 * 60 * 60);
     } catch {
       // Redis is optional; session remains localStorage-backed for app-level persistence.
@@ -1519,17 +1519,19 @@ export default function App() {
             />
 
             {currentUser && currentUser.role !== 'admin' && !isAdminMode && isFloatingChatOpen && activeTab !== 'Chat' && (
-              <GroupChatPanel
-                currentUser={currentUser}
-                users={users}
-                setUsers={setUsers}
-                setGroups={setGroups}
-                groups={groups}
-                groupJoinRequests={groupJoinRequests}
-                setGroupJoinRequests={setGroupJoinRequests}
-                onOpenSquadModal={() => setShowSquadModal(true)}
-                onClose={handleCloseFloatingChat}
-              />
+              <Suspense fallback={null}>
+                <GroupChatPanel
+                  currentUser={currentUser}
+                  users={users}
+                  setUsers={setUsers}
+                  setGroups={setGroups}
+                  groups={groups}
+                  groupJoinRequests={groupJoinRequests}
+                  setGroupJoinRequests={setGroupJoinRequests}
+                  onOpenSquadModal={() => setShowSquadModal(true)}
+                  onClose={handleCloseFloatingChat}
+                />
+              </Suspense>
             )}
 
             {/* Floating Chat Room Toggle Button when chat is closed / inactive */}

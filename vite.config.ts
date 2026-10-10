@@ -63,12 +63,13 @@ export default defineConfig(() => {
       operationLogPlugin,
     ],
     optimizeDeps: {
-      force: true,
       include: [
         'react',
         'react-dom',
         'react-dom/client',
         'react/jsx-runtime',
+        'react/jsx-dev-runtime',
+        '@tanstack/react-query',
         'motion',
         'motion/react',
         'lucide-react',
@@ -76,7 +77,7 @@ export default defineConfig(() => {
       ],
     },
     resolve: {
-      dedupe: ['react', 'react-dom'],
+      dedupe: ['react', 'react-dom', 'react/jsx-runtime', 'react/jsx-dev-runtime'],
       extensions: ['.mjs', '.js', '.mts', '.ts', '.jsx', '.tsx', '.json'],
       alias: [
         { find: /^@\/(.*)/, replacement: path.resolve(rootDir, 'src/$1') },
@@ -87,6 +88,10 @@ export default defineConfig(() => {
       cssCodeSplit: true,
       minify: 'esbuild',
       chunkSizeWarningLimit: 1000,
+      assetsInlineLimit: 4096, // فشرده‌سازی و درون‌خط کردن فایل‌های زیر ۴ کیلوبایت برای کاهش تعداد ریکوئست‌ها
+      modulePreload: {
+        polyfill: false,
+      },
       rollupOptions: {
         output: {
           manualChunks(id) {
@@ -96,6 +101,9 @@ export default defineConfig(() => {
               id.includes('node_modules/scheduler')
             ) {
               return 'vendor-react';
+            }
+            if (id.includes('node_modules/@tanstack/react-query')) {
+              return 'vendor-query';
             }
             if (id.includes('node_modules/motion')) {
               return 'vendor-motion';

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, lazy, Suspense } from 'react';
 import { 
   SlidersHorizontal, 
   Users, 
@@ -15,6 +15,7 @@ import {
   Trash2, 
   Edit3, 
   FileText, 
+  Scale, 
   Send, 
   Filter, 
   ShieldAlert, 
@@ -97,9 +98,10 @@ import PasswordResetsAdmin from './PasswordResetsAdmin';
 import AdminPaymentsPanel from './AdminPaymentsPanel';
 import AdminGuideTutorialManager, { GuideTutorialConfig } from './AdminGuideTutorialManager';
 import AdminChatRoomsPanel from './AdminChatRoomsPanel';
-import DashboardView from './DashboardView';
+const DashboardView = lazy(() => import('./DashboardView'));
 import ElementorVisualEditorModal from './ElementorVisualEditorModal';
 import VisualSiteContentStudio from './admin/VisualSiteContentStudio';
+import AdminRulesStudio from './admin/AdminRulesStudio';
 import PersianDatePicker from './PersianDatePicker';
 import { 
   User, 
@@ -267,7 +269,7 @@ export default function AdminPanel({
   onNavigate
 }: AdminPanelProps) {
   const [activeAdminTab, setActiveAdminTab] = useState<
-    'overview' | 'submissions' | 'users' | 'missions' | 'trainings' | 'medals' | 'tickets' | 'news' | 'site_editor' | 'enamad' | 'notifications' | 'chat_control' | 'soundtracks' | 'portals' | 'vitrins' | 'password_resets' | 'stage_builder' | 'prizes' | 'payments' | 'daily_challenges' | 'guide_tutorial' | 'avatars' | 'game_journey_map' | 'game_map_timer'
+    'overview' | 'submissions' | 'users' | 'missions' | 'trainings' | 'medals' | 'tickets' | 'news' | 'site_editor' | 'rules_editor' | 'enamad' | 'notifications' | 'chat_control' | 'soundtracks' | 'portals' | 'vitrins' | 'password_resets' | 'stage_builder' | 'prizes' | 'payments' | 'daily_challenges' | 'guide_tutorial' | 'avatars' | 'game_journey_map' | 'game_map_timer'
   >('submissions');
 
   // 🛡️ وضعیت بک‌اند امن (برای مدیریت امن رمز کاربران)
@@ -2208,6 +2210,19 @@ export default function AdminPanel({
         </button>
 
         <button
+          onClick={() => setActiveAdminTab('rules_editor')}
+          className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl whitespace-nowrap shrink-0 transition border ${
+            activeAdminTab === 'rules_editor' 
+              ? 'bg-emerald-500 text-slate-950 border-emerald-400 font-black shadow-[0_0_15px_rgba(16,185,129,0.4)]' 
+              : 'bg-[#080d21] text-emerald-300 border-emerald-800/60 hover:text-white'
+          }`}
+          id="btn-tab-rules-editor"
+        >
+          <Scale size={15} />
+          <span>مدیریت صفحه قوانین</span>
+        </button>
+
+        <button
           onClick={() => setActiveAdminTab('enamad')}
           className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl whitespace-nowrap shrink-0 transition border ${
             activeAdminTab === 'enamad' 
@@ -2344,30 +2359,32 @@ export default function AdminPanel({
             </div>
           </div>
 
-          <DashboardView
-            currentUser={currentUser}
-            users={users}
-            groups={groups}
-            missions={missions}
-            submissions={submissions}
-            announcements={announcements}
-            news={news}
-            medals={medals}
-            userMedals={userMedals}
-            tickets={tickets}
-            setTickets={setTickets}
-            replies={replies}
-            setReplies={setReplies}
-            triggerAlert={triggerAlert}
-            onNavigate={(tab) => {
-              if (tab === 'submissions' || tab === 'users' || tab === 'missions' || tab === 'medals' || tab === 'tickets' || tab === 'soundtracks' || tab === 'notifications') {
-                setActiveAdminTab(tab as any);
-              } else if (onNavigate) {
-                onNavigate(tab);
-              }
-            }}
-            onOpenSquadModal={() => setActiveAdminTab('users')}
-          />
+          <Suspense fallback={<div className="p-8 text-center text-slate-400">در حال بارگذاری داشبورد...</div>}>
+            <DashboardView
+              currentUser={currentUser}
+              users={users}
+              groups={groups}
+              missions={missions}
+              submissions={submissions}
+              announcements={announcements}
+              news={news}
+              medals={medals}
+              userMedals={userMedals}
+              tickets={tickets}
+              setTickets={setTickets}
+              replies={replies}
+              setReplies={setReplies}
+              triggerAlert={triggerAlert}
+              onNavigate={(tab) => {
+                if (tab === 'submissions' || tab === 'users' || tab === 'missions' || tab === 'medals' || tab === 'tickets' || tab === 'soundtracks' || tab === 'notifications') {
+                  setActiveAdminTab(tab as any);
+                } else if (onNavigate) {
+                  onNavigate(tab);
+                }
+              }}
+              onOpenSquadModal={() => setActiveAdminTab('users')}
+            />
+          </Suspense>
         </div>
       )}
 
@@ -4846,6 +4863,21 @@ export default function AdminPanel({
             if (updated.boysBannerImage !== undefined) setBoysBannerImage(updated.boysBannerImage);
             if (updated.heroButtonText !== undefined) setGeneralBtnText(updated.heroButtonText);
             if (updated.aboutText !== undefined) setGeneralAboutText(updated.aboutText);
+          }}
+          triggerAlert={triggerAlert}
+        />
+      )}
+
+      {/* 7.5. RULES & REGULATIONS STUDIO TAB */}
+      {activeAdminTab === 'rules_editor' && (
+        <AdminRulesStudio
+          siteSettings={siteSettings}
+          onSaveSiteSettings={(updated) => {
+            const merged = { ...siteSettings, ...updated };
+            setSiteSettings(merged);
+            try {
+              localStorage.setItem('warroom_site_settings', JSON.stringify(merged));
+            } catch {}
           }}
           triggerAlert={triggerAlert}
         />

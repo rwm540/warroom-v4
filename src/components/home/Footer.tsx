@@ -45,19 +45,15 @@ export default function Footer({ onNavigate, onOpenAbout, themeMode = 'boys', si
           <div className="lg:col-span-7 space-y-4 flex flex-col justify-between">
             <div className="space-y-3">
               <div className="flex items-center gap-3">
-                <div className={`w-11 h-11 rounded-2xl border flex items-center justify-center shrink-0 shadow-lg overflow-hidden ${
-                  isGirls 
-                    ? 'bg-fuchsia-950/80 border-fuchsia-500/40 text-fuchsia-400' 
-                    : 'bg-cyan-950/80 border-cyan-500/40 text-cyan-400'
-                }`}>
+                <div className="w-11 h-11 flex items-center justify-center shrink-0 overflow-hidden bg-transparent border-0 shadow-none">
                   {siteSettings?.footerLogoIconUrl || siteSettings?.customLogoUrl ? (
                     <img 
                       src={siteSettings.footerLogoIconUrl || siteSettings.customLogoUrl} 
                       alt="لوگوی فوتر" 
-                      className="w-full h-full object-cover rounded-2xl" 
+                      className="w-full h-full object-contain" 
                     />
                   ) : (
-                    <Shield size={22} className="animate-pulse" />
+                    <Shield size={26} className={`animate-pulse ${isGirls ? 'text-fuchsia-400' : 'text-cyan-400'}`} />
                   )}
                 </div>
                 <div>
@@ -79,29 +75,11 @@ export default function Footer({ onNavigate, onOpenAbout, themeMode = 'boys', si
             <div className="flex flex-wrap items-center gap-3 sm:gap-4 text-xs font-bold pt-2 border-t border-slate-800/80">
               <button
                 type="button"
-                onClick={() => onNavigate('About')}
-                className="flex items-center gap-1.5 text-amber-300 hover:text-amber-200 transition cursor-pointer"
-              >
-                <Info size={15} />
-                <span>درباره ما</span>
-              </button>
-              <span className="text-slate-600">•</span>
-              <button
-                type="button"
                 onClick={() => onNavigate('Rules')}
                 className="flex items-center gap-1.5 text-emerald-300 hover:text-emerald-200 transition cursor-pointer"
               >
                 <Shield size={15} />
                 <span>قوانین و مقررات</span>
-              </button>
-              <span className="text-slate-600">•</span>
-              <button
-                type="button"
-                onClick={() => onNavigate('Contact')}
-                className="flex items-center gap-1.5 text-cyan-300 hover:text-cyan-200 transition cursor-pointer"
-              >
-                <Phone size={15} />
-                <span>پشتیبانی و ثبت تیکت</span>
               </button>
             </div>
           </div>
@@ -144,23 +122,6 @@ export default function Footer({ onNavigate, onOpenAbout, themeMode = 'boys', si
                 </li>
               </ul>
             </div>
-
-            {/* 24/7 Support Ticket Button */}
-            <button
-              type="button"
-              onClick={() => {
-                onNavigate('Contact');
-                triggerAlert?.('ورود به بخش پشتیبانی آنلاین ۲۴/۷');
-              }}
-              className={`w-full py-2.5 sm:py-3 rounded-xl font-black text-xs transition shadow-lg flex items-center justify-center gap-2 cursor-pointer ${
-                isGirls
-                  ? 'bg-gradient-to-r from-fuchsia-600 via-pink-600 to-purple-600 hover:from-fuchsia-500 hover:to-purple-500 text-white shadow-fuchsia-900/40'
-                  : 'bg-gradient-to-r from-blue-600 via-indigo-600 to-blue-700 hover:from-blue-500 hover:to-indigo-500 text-white shadow-blue-900/40'
-              }`}
-            >
-              <MessageCircle size={16} />
-              <span>ارسال تیکت پشتیبانی آنلاین ۲۴/۷</span>
-            </button>
           </div>
 
         </div>
@@ -172,58 +133,96 @@ export default function Footer({ onNavigate, onOpenAbout, themeMode = 'boys', si
         {/* Badges Row */}
         <div className="flex flex-wrap items-center justify-center gap-3">
           
-          {/* ZarinPal / Payment Gateway Badge */}
-          {(siteSettings?.gatewayTitle !== '' || siteSettings?.gatewayIconUrl) && (
-            siteSettings?.gatewayLinkUrl ? (
-              <a
-                href={siteSettings.gatewayLinkUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                onClick={() => triggerAlert?.('هدایت به درگاه پرداخت رسمی...')}
-                className="px-4 py-2 rounded-2xl bg-[#080d21]/90 border border-cyan-500/30 hover:border-cyan-400 flex items-center gap-2.5 text-right shadow-lg transition-all hover:scale-105 active:scale-95 group cursor-pointer no-underline"
-                title={`کلیک برای ورود به ${siteSettings?.gatewayTitle || 'درگاه پرداخت'}`}
-              >
-                <div className="w-8 h-8 rounded-xl bg-cyan-950/80 border border-cyan-500/30 group-hover:border-cyan-400 text-cyan-400 flex items-center justify-center shrink-0 overflow-hidden">
-                  {siteSettings?.gatewayIconUrl ? (
-                    <img src={siteSettings.gatewayIconUrl} alt={siteSettings?.gatewayTitle || 'درگاه'} className="w-full h-full object-contain" />
+          {/* Payment Gateways (Strictly Icon Only, No border/background) */}
+          {Array.isArray(siteSettings?.paymentGateways) && siteSettings.paymentGateways.length > 0 ? (
+            siteSettings.paymentGateways.filter((g: any) => g.isActive !== false).map((gateway: any) => (
+              gateway.linkUrl ? (
+                <a
+                  key={gateway.id}
+                  href={gateway.linkUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onClick={() => triggerAlert?.('هدایت به درگاه پرداخت رسمی...')}
+                  className="inline-flex items-center justify-center bg-transparent border-none shadow-none no-underline hover:scale-105 transition-transform cursor-pointer"
+                  title="درگاه پرداخت امن"
+                >
+                  {gateway.iconUrl ? (
+                    <img src={gateway.iconUrl} alt="درگاه پرداخت" className="max-h-12 w-auto object-contain bg-transparent border-none shadow-none" />
                   ) : (
-                    <CreditCard size={18} />
+                    <CreditCard size={28} className="text-cyan-400" />
+                  )}
+                </a>
+              ) : (
+                <div
+                  key={gateway.id}
+                  className="inline-flex items-center justify-center bg-transparent border-none shadow-none"
+                  title="درگاه پرداخت امن"
+                >
+                  {gateway.iconUrl ? (
+                    <img src={gateway.iconUrl} alt="درگاه پرداخت" className="max-h-12 w-auto object-contain bg-transparent border-none shadow-none" />
+                  ) : (
+                    <CreditCard size={28} className="text-cyan-400" />
                   )}
                 </div>
-                <div>
-                  <div className="text-[11px] font-black text-white group-hover:text-cyan-300 transition-colors flex items-center gap-1">
-                    <span>{siteSettings?.gatewayTitle || 'درگاه پرداخت زرین‌پال'}</span>
-                  </div>
-                  <div className="text-[9px] text-cyan-400 font-bold">
-                    {siteSettings?.gatewaySubtitle || 'پرداخت ایمن ۲۵۶ بیتی'}
-                  </div>
-                </div>
-              </a>
-            ) : (
-              <div 
-                className="px-4 py-2 rounded-2xl bg-[#080d21]/90 border border-cyan-500/30 flex items-center gap-2.5 text-right shadow-lg transition-all"
-              >
-                <div className="w-8 h-8 rounded-xl bg-cyan-950/80 border border-cyan-500/30 text-cyan-400 flex items-center justify-center shrink-0 overflow-hidden">
-                  {siteSettings?.gatewayIconUrl ? (
-                    <img src={siteSettings.gatewayIconUrl} alt="درگاه" className="w-full h-full object-contain" />
-                  ) : (
-                    <CreditCard size={18} />
-                  )}
-                </div>
-                <div>
-                  <div className="text-[11px] font-black text-white">
-                    {siteSettings?.gatewayTitle || 'درگاه پرداخت زرین‌پال'}
-                  </div>
-                  <div className="text-[9px] text-cyan-400 font-bold">
-                    {siteSettings?.gatewaySubtitle || 'پرداخت ایمن ۲۵۶ بیتی'}
-                  </div>
-                </div>
-              </div>
-            )
+              )
+            ))
+          ) : (siteSettings?.gatewayIconUrl || siteSettings?.gatewayTitle) && (
+            <a
+              href={siteSettings?.gatewayLinkUrl || '#'}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={() => triggerAlert?.('هدایت به درگاه پرداخت...')}
+              className="inline-flex items-center justify-center bg-transparent border-none shadow-none no-underline hover:scale-105 transition-transform cursor-pointer"
+              title="درگاه پرداخت"
+            >
+              {siteSettings?.gatewayIconUrl ? (
+                <img src={siteSettings.gatewayIconUrl} alt="درگاه" className="max-h-12 w-auto object-contain bg-transparent border-none shadow-none" />
+              ) : (
+                <CreditCard size={28} className="text-cyan-400" />
+              )}
+            </a>
           )}
 
-          {/* Official eNAMAD (نماد اعتماد الکترونیکی) */}
-          {siteSettings?.enamadEnabled !== false && (
+          {/* eNAMAD / Trust Seals (Strictly Icon Only, No border/background) */}
+          {Array.isArray(siteSettings?.enamadBadges) && siteSettings.enamadBadges.length > 0 ? (
+            siteSettings.enamadBadges.filter((e: any) => e.isActive !== false).map((enamad: any) => (
+              enamad.htmlCode ? (
+                <div
+                  key={enamad.id}
+                  className="inline-flex items-center justify-center bg-transparent border-none shadow-none [&_a]:inline-block [&_a]:cursor-pointer [&_a]:bg-transparent [&_a]:border-none [&_img]:max-h-14 [&_img]:w-auto [&_img]:object-contain [&_img]:border-none [&_img]:bg-transparent"
+                  dangerouslySetInnerHTML={{ __html: enamad.htmlCode }}
+                />
+              ) : enamad.linkUrl ? (
+                <a
+                  key={enamad.id}
+                  href={enamad.linkUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onClick={() => triggerAlert?.('هدایت به نماد اعتماد...')}
+                  className="inline-flex items-center justify-center bg-transparent border-none shadow-none no-underline hover:scale-105 transition-transform cursor-pointer"
+                  title="نماد اعتماد الکترونیکی"
+                >
+                  {enamad.iconUrl ? (
+                    <img src={enamad.iconUrl} alt="اینماد" className="max-h-14 w-auto object-contain bg-transparent border-none shadow-none" />
+                  ) : (
+                    <CheckCircle2 size={28} className="text-amber-400" />
+                  )}
+                </a>
+              ) : (
+                <div
+                  key={enamad.id}
+                  className="inline-flex items-center justify-center bg-transparent border-none shadow-none"
+                  title="نماد اعتماد الکترونیکی"
+                >
+                  {enamad.iconUrl ? (
+                    <img src={enamad.iconUrl} alt="اینماد" className="max-h-14 w-auto object-contain bg-transparent border-none shadow-none" />
+                  ) : (
+                    <CheckCircle2 size={28} className="text-amber-400" />
+                  )}
+                </div>
+              )
+            ))
+          ) : siteSettings?.enamadEnabled !== false && (
             <EnamadBadge 
               htmlCode={siteSettings?.enamadHtmlCode} 
               enabled={true} 

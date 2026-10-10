@@ -6,6 +6,7 @@
  */
 import { useState, useEffect, useRef, Dispatch, SetStateAction } from 'react';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
+import { queryClient } from './queryClient.ts';
 import {
   cacheTableData,
   getCachedTableData,
@@ -14,6 +15,7 @@ import {
   setOfflineKv,
   getOfflineKv,
 } from './offlineStorage.ts';
+
 
 /* ------------------------------------------------------------------ */
 /* اس‌یوپیابیس (Supabase) کلاینت — پلتفرم اتاق جنگ                       */
@@ -255,14 +257,22 @@ export function useSyncedCollection<T extends { id: string }>(options: {
 
     (async () => {
       try {
-        const { data, error } = await supabase!.from(table).select('data');
-        if (error) throw error;
-        if (cancelled) return;
-        const rows = ((data || []) as any[])
-          .map((r) => (r && typeof r === 'object' && 'data' in r ? (r.data as T) : null))
-          .filter((r): r is T => Boolean(r && typeof r === 'object'));
+        const rows = await queryClient.fetchQuery({
+          queryKey: ['supabase_table', table],
+          queryFn: async () => {
+            const { data, error } = await supabase!.from(table).select('data');
+            if (error) throw error;
+            const parsed = ((data || []) as any[])
+              .map((r) => (r && typeof r === 'object' && 'data' in r ? (r.data as T) : null))
+              .filter((r): r is T => Boolean(r && typeof r === 'object'));
+            return parsed;
+          },
+          staleTime: 1000 * 60 * 5, // ۵ دقیقه کش در حافظه برای جلوگیری از درخواست‌های مکرر
+        });
 
-        if (rows.length > 0) {
+        if (cancelled) return;
+
+        if (rows && rows.length > 0) {
           if (table === 'warroom_users') {
             rows.forEach((r: any) => {
               if (r && r.id && r.password && r.password !== EMPTY_STRING_HASH) {
@@ -303,6 +313,8 @@ export function useSyncedCollection<T extends { id: string }>(options: {
 
     // ذخیره فوری در حافظه کَش آفلاین برای حفظ تغییرات در صورت رفرش آفلاین
     void cacheTableData(table, value);
+    // به‌روزرسانی آنی حافظه موقت React Query بدون نیاز به درخواست مجدد شبکه
+    queryClient.setQueryData(['supabase_table', table], value);
 
     const prevMap = new Map(prev.map((r) => [r.id, r]));
     const nextIds = new Set(value.map((r) => r.id));
@@ -371,6 +383,8 @@ export function persistSavedPostsToDb(userId: string | undefined, ids?: string[]
   const key = `saved_posts_${userId}`;
   const list = ids || [];
   
+  queryClient.setQueryData(['supabase_saved_posts', userId], list);
+
   if (savedPostsTimers[key]) clearTimeout(savedPostsTimers[key]);
   savedPostsTimers[key] = setTimeout(() => {
     supabase!
@@ -386,15 +400,22 @@ export async function loadSavedPostsFromDb(userId: string | undefined): Promise<
   if (!isSupabaseEnabled || !supabase || !userId) return [];
 
   try {
-    const { data } = await supabase!
-      .from('warroom_kv')
-      .select('value')
-      .eq('id', `saved_posts_${userId}`)
-      .maybeSingle();
-    const remote: string[] = Array.isArray((data?.value as any)?.postIds)
-      ? ((data!.value as any).postIds as string[])
-      : [];
-    return remote;
+    return await queryClient.fetchQuery({
+      queryKey: ['supabase_saved_posts', userId],
+      queryFn: async () => {
+        const { data, error } = await supabase!
+          .from('warroom_kv')
+          .select('value')
+          .eq('id', `saved_posts_${userId}`)
+          .maybeSingle();
+        if (error) throw error;
+        const remote: string[] = Array.isArray((data?.value as any)?.postIds)
+          ? ((data!.value as any).postIds as string[])
+          : [];
+        return remote;
+      },
+      staleTime: 1000 * 60 * 5,
+    });
   } catch (err) {
     console.warn('[WarRoom Supabase] بارگذاری ذخیره‌ها از Supabase ناموفق بود:', err);
     return [];
@@ -438,17 +459,25 @@ export function useSyncedSetting<T extends Record<string, any>>(options: {
     let cancelled = false;
     (async () => {
       try {
-        const { data, error } = await supabase!
-          .from('warroom_kv')
-          .select('value')
-          .eq('id', settingKey)
-          .maybeSingle();
-        if (error) throw error;
+        const remoteValue = await queryClient.fetchQuery({
+          queryKey: ['supabase_kv', settingKey],
+          queryFn: async () => {
+            const { data, error } = await supabase!
+              .from('warroom_kv')
+              .select('value')
+              .eq('id', settingKey)
+              .maybeSingle();
+            if (error) throw error;
+            return (data?.value && typeof data.value === 'object') ? data.value : null;
+          },
+          staleTime: 1000 * 60 * 5,
+        });
+
         if (cancelled) return;
-        if (data?.value && typeof data.value === 'object') {
+        if (remoteValue) {
           pendingSkipRef.current = true;
           setValue(prev => {
-            const merged = { ...prev, ...data.value };
+            const merged = { ...prev, ...remoteValue };
             if (storageKey) {
               try {
                 localStorage.setItem(storageKey, JSON.stringify(merged));
@@ -460,6 +489,7 @@ export function useSyncedSetting<T extends Record<string, any>>(options: {
           // اگر مقدار در Supabase وجود نداشت، مقدار اولیه را در Supabase ثبت کن
           const initVal = typeof initial === 'function' ? (initial as () => T)() : initial;
           await supabase!.from('warroom_kv').upsert({ id: settingKey, value: initVal });
+          queryClient.setQueryData(['supabase_kv', settingKey], initVal);
         }
         dbLoadedRef.current = true;
       } catch (err) {
@@ -494,6 +524,7 @@ export function useSyncedSetting<T extends Record<string, any>>(options: {
 
     if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
     saveTimerRef.current = setTimeout(() => {
+      queryClient.setQueryData(['supabase_kv', settingKey], value);
       supabase!
         .from('warroom_kv')
         .upsert({ id: settingKey, value })
@@ -526,6 +557,17 @@ export async function saveUserProgressToSupabase(user: any): Promise<boolean> {
       console.warn('[WarRoom Supabase] خطا در ذخیره پیشرفت کاربر در دیتابیس:', error.message);
       return false;
     }
+    // همگام‌سازی آنی حافظه کش کاربران در React Query
+    queryClient.setQueryData(['supabase_table', 'warroom_users'], (prev: any[] | undefined) => {
+      if (!prev) return [user];
+      const index = prev.findIndex((u) => u?.id === user.id);
+      if (index >= 0) {
+        const next = [...prev];
+        next[index] = { ...next[index], ...user };
+        return next;
+      }
+      return [...prev, user];
+    });
     return true;
   } catch (err) {
     console.warn('[WarRoom Supabase] ذخیره وضعیت کاربر با استثنا مواجه شد:', err);

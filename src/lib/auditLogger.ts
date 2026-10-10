@@ -89,10 +89,9 @@ export async function logAudit(input: Omit<AuditEvent, 'id' | 'createdAt'>): Pro
 
   if (isSupabaseEnabled && supabase) {
     try {
-      const { error } = await supabase.from('warroom_audit_log').upsert({
+      const { error } = await supabase.from('warroom_audit_log').insert({
         id: event.id,
         data: event,
-        updated_at: event.createdAt,
       });
       if (error) console.warn('[WarRoom Audit] Supabase write failed:', error.message);
     } catch (error) {

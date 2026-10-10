@@ -242,7 +242,7 @@ export const VisualSiteContentStudio: React.FC<VisualSiteContentStudioProps> = (
   const [dragOverSectionIndex, setDragOverSectionIndex] = useState<number | null>(null);
 
   // Sidebar Tab state
-  const [sidebarTab, setSidebarTab] = useState<'prizes' | 'messengers' | 'about' | 'banners' | 'footer' | 'sections' | 'style' | 'video' | 'guide'>('prizes');
+  const [sidebarTab, setSidebarTab] = useState<'prizes' | 'messengers' | 'banners' | 'footer' | 'sections' | 'style' | 'video' | 'guide'>('prizes');
   const [previewDevice, setPreviewDevice] = useState<'desktop' | 'tablet' | 'mobile'>('desktop');
   const [isSavedRecently, setIsSavedRecently] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -252,15 +252,14 @@ export const VisualSiteContentStudio: React.FC<VisualSiteContentStudioProps> = (
     hero: { name: 'بخش ۱: بنرهای ثبت‌نام، لوگو و تیزر', desc: 'لوگو، متن انیمیشنی، بنر دختران و پسران و پلیر تیزر', icon: Swords },
     prizes: { name: 'بخش ۲: ویترین جایزه‌ها و هدایا', desc: 'کارت‌های جوایز، عنوان و کریستال‌های مورد نیاز', icon: Trophy },
     messengers: { name: 'بخش ۳: کانال‌های بله و ایتا و راهنما', desc: 'لینک‌های بله و ایتا و دکمه‌های مراحل و راهنما', icon: MessageCircle },
-    about: { name: 'بخش ۴: درباره ما و اهداف پروژه', desc: 'باکس معرفی و رسالت سامانه اتاق جنگ', icon: Info },
-    footer: { name: 'بخش ۵: دبیرخانه، تلفن، درگاه و اینماد', desc: 'شماره تلفن، آیکون‌های درگاه و اینماد با لینک هدایت', icon: Phone },
+    footer: { name: 'بخش ۴: دبیرخانه، تلفن، درگاه و اینماد', desc: 'شماره تلفن، آیکون‌های درگاه و اینماد با لینک هدایت', icon: Phone },
   };
 
   const currentSectionsOrder = (() => {
     const list = form.homeSectionsOrder && form.homeSectionsOrder.length > 0 
       ? form.homeSectionsOrder 
-      : ['hero', 'prizes', 'messengers', 'about', 'footer'];
-    return list.filter(s => s !== 'timer');
+      : ['hero', 'prizes', 'messengers', 'footer'];
+    return list.filter(s => s !== 'timer' && s !== 'about');
   })();
 
   // Handle reorder sections
@@ -486,13 +485,6 @@ export const VisualSiteContentStudio: React.FC<VisualSiteContentStudioProps> = (
             triggerAlert={() => {}}
           />
         );
-      case 'about':
-        return (
-          <AboutSection 
-            siteSettings={form}
-            onOpenMore={() => {}}
-          />
-        );
       case 'footer':
         return (
           <Footer 
@@ -585,7 +577,7 @@ export const VisualSiteContentStudio: React.FC<VisualSiteContentStudioProps> = (
             id="btn-save-customizer"
           >
             <Check size={16} />
-            <span>{isSavedRecently ? 'تغییرات ذخیره شد' : 'ذخیره و انتشار در سایت'}</span>
+            <span>{isSavedRecently ? 'تغییرات ذخیره شد' : 'ذخیره و انتشار'}</span>
           </button>
         </div>
       </div>
@@ -645,20 +637,7 @@ export const VisualSiteContentStudio: React.FC<VisualSiteContentStudioProps> = (
               <span>بله و ایتا</span>
             </button>
 
-            {/* 3. سامانه و درباره ما */}
-            <button
-              type="button"
-              onClick={() => setSidebarTab('about')}
-              className={`flex flex-col items-center justify-center gap-1 p-2 rounded-xl text-[10px] font-black transition cursor-pointer ${
-                sidebarTab === 'about'
-                  ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-400/60 shadow-[0_0_12px_rgba(16,185,129,0.3)] scale-[1.02]'
-                  : 'text-slate-400 hover:text-white bg-slate-950/60 border border-slate-800/60 hover:border-slate-700'
-              }`}
-              title="معرفی سامانه، عکس‌ها، عناوین، توضیحات و رسالت"
-            >
-              <Info size={16} className="text-emerald-400" />
-              <span>سامانه و درباره</span>
-            </button>
+
 
             {/* 4. بنرها و ثبت‌نام */}
             <button
@@ -2529,179 +2508,7 @@ export const VisualSiteContentStudio: React.FC<VisualSiteContentStudioProps> = (
             </div>
           )}
 
-          {/* ========================================================================= */}
-          {/* TAB 3: ABOUT US & SYSTEM MISSION (درباره سامانه و پروژه: عکس‌ها، عناوین و متون) */}
-          {/* ========================================================================= */}
-          {sidebarTab === 'about' && (
-            <div className="space-y-4 max-h-[75vh] overflow-y-auto pr-1 no-scrollbar pt-1">
-              <div className="p-2.5 rounded-xl bg-emerald-950/40 border border-emerald-500/30 text-[11px] text-emerald-200 leading-relaxed">
-                ℹ️ در این بخش می‌توانید <strong>لوگو/آیکون، تصویر بنر، عنوان‌ها، زیرنویس و متن کامل معرفی سامانه</strong> را به همراه ۳ کارت ارزش‌های کلیدی تغییر دهید.
-              </div>
 
-              {/* 1. System Icon & Banner Image Upload */}
-              <div className="p-3.5 rounded-2xl bg-slate-950 border border-emerald-500/30 space-y-3 shadow-lg">
-                <span className="text-xs font-black text-emerald-300 flex items-center gap-1.5">
-                  <Info size={14} className="text-emerald-400" />
-                  <span>عکس‌ها و نشان‌های بخش درباره سامانه:</span>
-                </span>
-
-                {/* Icon Upload */}
-                <div className="flex items-center gap-3 p-2 rounded-xl bg-slate-900 border border-slate-800">
-                  <div className="w-12 h-12 rounded-xl bg-emerald-950 border border-emerald-500/50 flex items-center justify-center shrink-0 overflow-hidden shadow">
-                    {form.aboutSectionIconUrl ? (
-                      <img src={form.aboutSectionIconUrl} alt="لوگو" className="w-full h-full object-cover" />
-                    ) : (
-                      <Info size={22} className="text-emerald-400" />
-                    )}
-                  </div>
-                  <div className="flex-1 space-y-1">
-                    <label className="w-full py-1.5 px-3 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-slate-950 font-black text-[11px] cursor-pointer transition flex items-center justify-center gap-1.5 shadow active:scale-95">
-                      <Upload size={13} />
-                      <span>آپلود آیکون/لوگوی سامانه</span>
-                      <input
-                        type="file"
-                        accept="image/*"
-                        onChange={(e) => handleImageUpload('aboutSectionIconUrl', e)}
-                        className="hidden"
-                      />
-                    </label>
-                    <input
-                      type="text"
-                      value={form.aboutSectionIconUrl || ''}
-                      onChange={(e) => setForm(prev => ({ ...prev, aboutSectionIconUrl: e.target.value }))}
-                      placeholder="یا لینک عکس (URL)..."
-                      className="w-full bg-slate-950 border border-slate-800 rounded-lg px-2 py-1 text-[10px] text-white"
-                    />
-                  </div>
-                </div>
-
-                {/* Optional Banner Image Upload */}
-                <div className="p-2.5 rounded-xl bg-slate-900 border border-slate-800 space-y-1.5">
-                  <div className="flex items-center justify-between">
-                    <span className="text-[11px] font-bold text-slate-300">تصویر بنر بالای بخش درباره سامانه (اختیاری):</span>
-                    {form.aboutSectionBannerImage && (
-                      <button
-                        type="button"
-                        onClick={() => setForm(prev => ({ ...prev, aboutSectionBannerImage: '' }))}
-                        className="text-[10px] text-rose-400 hover:underline"
-                      >
-                        حذف بنر
-                      </button>
-                    )}
-                  </div>
-                  <label className="w-full py-1.5 px-3 rounded-lg bg-slate-800 hover:bg-slate-750 text-white font-bold text-[11px] cursor-pointer transition flex items-center justify-center gap-1.5 border border-slate-700 active:scale-95">
-                    <Upload size={13} />
-                    <span>آپلود تصویر بنر درباره سامانه</span>
-                    <input
-                      type="file"
-                      accept="image/*"
-                      onChange={(e) => handleImageUpload('aboutSectionBannerImage', e)}
-                      className="hidden"
-                    />
-                  </label>
-                  <input
-                    type="text"
-                    value={form.aboutSectionBannerImage || ''}
-                    onChange={(e) => setForm(prev => ({ ...prev, aboutSectionBannerImage: e.target.value }))}
-                    placeholder="یا لینک تصویر بنر (URL)..."
-                    className="w-full bg-slate-950 border border-slate-800 rounded-lg px-2 py-1 text-[10px] text-white"
-                  />
-                </div>
-              </div>
-
-              {/* 2. Titles and Description */}
-              <div className="p-3.5 rounded-2xl bg-slate-950 border border-emerald-500/30 space-y-3 shadow-lg">
-                <span className="text-xs font-black text-emerald-300 block">عنوان‌ها و متن توضیحی سامانه:</span>
-
-                <div>
-                  <label className="text-[10px] text-slate-400 block mb-0.5">برچسب/تگ کوچک:</label>
-                  <input
-                    type="text"
-                    value={form.aboutSectionBadgeText || ''}
-                    onChange={(e) => setForm(prev => ({ ...prev, aboutSectionBadgeText: e.target.value }))}
-                    placeholder="معرفی سامانه"
-                    className="w-full bg-slate-900 border border-slate-800 rounded-lg px-2.5 py-1.5 text-xs text-white"
-                  />
-                </div>
-
-                <div>
-                  <label className="text-[10px] text-slate-400 block mb-0.5">عنوان اصلی بخش:</label>
-                  <input
-                    type="text"
-                    value={form.aboutSectionTitle || ''}
-                    onChange={(e) => setForm(prev => ({ ...prev, aboutSectionTitle: e.target.value }))}
-                    placeholder="درباره ما و پروژه اتاق جنگ"
-                    className="w-full bg-slate-900 border border-slate-800 rounded-lg px-2.5 py-1.5 text-xs text-white"
-                  />
-                </div>
-
-                <div>
-                  <label className="text-[10px] text-slate-400 block mb-0.5">زیرنویس کوتاه:</label>
-                  <input
-                    type="text"
-                    value={form.aboutSectionSubtitle || ''}
-                    onChange={(e) => setForm(prev => ({ ...prev, aboutSectionSubtitle: e.target.value }))}
-                    placeholder="معرفی اهداف، ساختار و رسالت سامانه"
-                    className="w-full bg-slate-900 border border-slate-800 rounded-lg px-2.5 py-1.5 text-xs text-white"
-                  />
-                </div>
-
-                <div>
-                  <div className="flex items-center justify-between mb-0.5">
-                    <label className="text-[10px] text-slate-400">متن کامل معرفی و رسالت سامانه:</label>
-                    {form.aboutSectionText && (
-                      <button
-                        type="button"
-                        onClick={() => handleClearField('aboutSectionText')}
-                        className="text-slate-400 hover:text-rose-400 p-0.5 rounded transition"
-                        title="پاک کردن متن"
-                      >
-                        <Trash2 size={12} />
-                      </button>
-                    )}
-                  </div>
-                  <textarea
-                    rows={4}
-                    value={form.aboutSectionText || ''}
-                    onChange={(e) => setForm(prev => ({ ...prev, aboutSectionText: e.target.value }))}
-                    placeholder="پلتفرم اتاق جنگ، سامانه جامع شبیه‌سازی تصمیم‌گیری استراتژیک، ارزیابی هوشمند و رقابت‌های گروهی دانش‌آموزی است..."
-                    className="w-full bg-slate-900 border border-slate-800 rounded-lg px-2.5 py-1.5 text-xs text-white leading-relaxed outline-none focus:border-emerald-400"
-                  />
-                </div>
-              </div>
-
-              {/* 3. Three Key Features Highlights */}
-              <div className="p-3.5 rounded-2xl bg-slate-950 border border-slate-800 space-y-3">
-                <span className="text-xs font-bold text-emerald-300 block">۳ ارزش و ویژگی کلیدی سامانه:</span>
-
-                {[
-                  { keyT: 'aboutFeature1Title', keyD: 'aboutFeature1Desc', defaultT: 'شبیه‌سازی استراتژیک', defaultD: 'تصمیم‌گیری در شرایط بحران نبرد', num: '۱' },
-                  { keyT: 'aboutFeature2Title', keyD: 'aboutFeature2Desc', defaultT: 'ارزیابی هوشمند', defaultD: 'سنجش تفکر تحلیلی و تاکتیکی', num: '۲' },
-                  { keyT: 'aboutFeature3Title', keyD: 'aboutFeature3Desc', defaultT: 'رقابت‌های تیمی', defaultD: 'هم‌افزایی جوخه‌ها و گردان‌ها', num: '۳' },
-                ].map((item, idx) => (
-                  <div key={idx} className="p-2.5 rounded-xl bg-slate-900/80 border border-slate-800 space-y-1.5">
-                    <span className="text-[11px] font-bold text-slate-300">ویژگی {item.num}:</span>
-                    <div className="grid grid-cols-2 gap-2">
-                      <input
-                        type="text"
-                        value={(form as any)[item.keyT] || ''}
-                        onChange={(e) => setForm(prev => ({ ...prev, [item.keyT]: e.target.value }))}
-                        placeholder={item.defaultT}
-                        className="w-full bg-slate-950 border border-slate-800 rounded-lg px-2 py-1 text-[11px] text-white"
-                      />
-                      <input
-                        type="text"
-                        value={(form as any)[item.keyD] || ''}
-                        onChange={(e) => setForm(prev => ({ ...prev, [item.keyD]: e.target.value }))}
-                        placeholder={item.defaultD}
-                        className="w-full bg-slate-950 border border-slate-800 rounded-lg px-2 py-1 text-[11px] text-slate-400"
-                      />
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
 
           {/* ========================================================================= */}
           {/* TAB: FONTS & TEXT COLORS (فونت و رنگ‌ها)                                 */}

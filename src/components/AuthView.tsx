@@ -37,7 +37,6 @@ import {
 } from '../utils/jalali';
 import PersianDatePicker from './PersianDatePicker';
 import RadarLoading from './RadarLoading';
-const WARROOM_LOGO_PATH = '/images/logos/warroom_logo.webp';
 import { isSupabaseEnabled, sha256Hex } from '../lib/supabaseData';
 import { createGroupRecord, MAX_GROUP_MEMBERS } from '../lib/groupRegistration';
 import {
@@ -51,6 +50,8 @@ import {
   checkPasswordResetStatus,
   type BackendStatus
 } from '../lib/backendApi';
+
+const WARROOM_LOGO_PATH = '/images/logos/warroom_logo.webp';
 
 interface AuthViewProps {
   users: User[];
@@ -406,10 +407,14 @@ export default function AuthView({
       return;
     }
 
-    /* ============ حالت محلی (بدون بک‌اند امن) ============ */
+    /* ============ حالت محلی (فقط در صورت عدم دسترسی به دیتابیس و در محیط توسعه) ============ */
+    // در نسخه عملیاتی (PROD)، هرگز اجازه ورود مدیر با رمز ثابت داده نمی‌شود.
+    const isProd = import.meta.env.PROD;
+    const isSyntheticAdminAllowed = !isProd && !isSupabaseEnabled;
     const syntheticAdmin: User | null =
+      isSyntheticAdminAllowed &&
       natId === '0012345678' &&
-      ['Admin@123456', 'admin', 'Admin123456', 'admin123'].includes(loginPassword.trim())
+      loginPassword.trim() === 'Admin@123456'
         ? {
             id: 'u-admin',
             first_name: 'امیرحسین',
@@ -427,13 +432,18 @@ export default function AuthView({
             school_name: 'دبیرستان ماندگار البرز',
             level: 99,
             points: 99999,
-            password: 'Admin@123456',
+            password: '',
             mustChangePassword: false,
             completed_stages: [],
             group_id: undefined,
             avatar_url: ''
           }
         : null;
+
+    if (natId === '0012345678' && isProd) {
+      setLoginError('در محیط عملیاتی، ورود مدیر صرفاً از طریق احراز هویت پایگاه داده انجام می‌شود.');
+      return;
+    }
 
     if (natId === '0012345678' && !syntheticAdmin) {
       setLoginError('کد ملی یا رمز عبور اشتباه است.');

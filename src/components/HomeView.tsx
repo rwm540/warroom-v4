@@ -173,7 +173,8 @@ export default function HomeView({
             
             {/* Dynamic Reorderable Sections from Site Settings */}
             {(() => {
-              const baseList = siteSettings?.homeSectionsOrder || ['hero', 'timer', 'prizes', 'messengers', 'about', 'footer'];
+              const rawList = siteSettings?.homeSectionsOrder || ['hero', 'prizes', 'messengers', 'footer'];
+              const baseList = rawList.filter((k: string) => k !== 'about' && k !== 'timer');
               const sectionsToRender = baseList.includes('footer') ? baseList : [...baseList, 'footer'];
               return sectionsToRender.map((secKey: string) => {
               if (secKey === 'hero') {
@@ -235,14 +236,7 @@ export default function HomeView({
               }
 
               if (secKey === 'about') {
-                return (
-                  <section key="sec-about" aria-label="درباره ما" className="transform-gpu">
-                    <AboutSection 
-                      onOpenMore={() => setActiveTab('About')} 
-                      siteSettings={siteSettings}
-                    />
-                  </section>
-                );
+                return null;
               }
 
               if (secKey === 'timer') {

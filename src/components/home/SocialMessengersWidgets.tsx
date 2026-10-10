@@ -1,5 +1,5 @@
 import React from 'react';
-import { Send, MessageSquare, ExternalLink, HelpCircle, Map as MapIcon, BookOpen, Sparkles, CheckCircle } from 'lucide-react';
+import { Send, MessageSquare } from 'lucide-react';
 
 interface SocialMessengersWidgetsProps {
   themeMode: 'girls' | 'boys';
@@ -12,8 +12,6 @@ interface SocialMessengersWidgetsProps {
 export default function SocialMessengersWidgets({
   themeMode,
   siteSettings,
-  onOpenStages,
-  onOpenGuide,
   triggerAlert
 }: SocialMessengersWidgetsProps) {
   const isGirls = themeMode === 'girls';
@@ -27,166 +25,54 @@ export default function SocialMessengersWidgets({
   };
 
   return (
-    <div className="w-full space-y-4">
-      
-      {/* 1. Messenger Channels Grid (2 Side-by-Side Widgets Matching Screenshot) */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
-        
-        {/* Messenger 1: ایتا (Eitaa) */}
-        <div 
-          className={`rounded-3xl p-4 sm:p-5 border transition-all duration-200 hover:-translate-y-0.5 flex flex-col justify-between ${
+    <div className="w-full flex justify-center py-2 px-3">
+      <div className="w-full max-w-xl grid grid-cols-2 gap-3">
+        {/* Eitaa Card */}
+        <button
+          onClick={() => handleOpenMessenger('ایتا (Eitaa)', 'https://eitaa.com/hisstory_official', siteSettings?.eitaaChannelUrl)}
+          title="ایتا"
+          className={`group flex items-center justify-center gap-2.5 p-3.5 rounded-2xl border shadow-lg transition-all duration-200 cursor-pointer text-center hover:scale-[1.02] active:scale-[0.98] ${
             isGirls
-              ? 'bg-gradient-to-br from-[#1d091b] to-[#0e040f] border-pink-500/40 shadow-[0_0_15px_rgba(255,19,137,0.12)]'
-              : 'bg-gradient-to-br from-[#0c162f] via-[#050b1a] to-[#140612] border-blue-900/50 hover:border-blue-500/60 shadow-[0_0_15px_rgba(37,99,235,0.12)]'
+              ? 'bg-[#1a0822]/90 border-fuchsia-500/30 hover:border-orange-500/50 shadow-[0_0_20px_rgba(255,19,137,0.1)]'
+              : 'bg-[#0b132b]/90 border-cyan-500/30 hover:border-orange-500/50 shadow-[0_0_20px_rgba(6,182,212,0.1)]'
           }`}
         >
-          <div className="space-y-2 mb-3">
-            <div className="flex items-center justify-between">
-              {/* Eitaa Logo Badge */}
-              <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-orange-950/80 border border-orange-500/50 text-orange-400 text-[10px] font-bold">
-                {siteSettings?.eitaaLogoUrl ? (
-                  <img src={siteSettings.eitaaLogoUrl} alt="" className="w-3.5 h-3.5 object-cover rounded-full" />
-                ) : (
-                  <span className="w-2 h-2 rounded-full bg-orange-500 inline-block" />
-                )}
-                <span>{siteSettings?.eitaaBadgeText || 'پیام‌رسان ایتا'}</span>
-              </div>
-              <span className="text-[10px] text-slate-400 font-mono">
-                {siteSettings?.eitaaHandle || '@hisstory_official'}
-              </span>
-            </div>
-
-            <h4 className="text-sm font-black text-white">
-              {siteSettings?.eitaaChannelTitle || 'روایت‌ها و پشت‌صحنه اتاق جنگ'}
-            </h4>
-            <p className="text-[11px] text-slate-300">
-              {siteSettings?.eitaaChannelSubtitle || 'روایت‌های اختصاصی کارآگاهان، سرنخ‌های مخفی مراحل و چالش‌های ویژه روزانه.'}
-            </p>
+          <div className="w-8 h-8 rounded-xl bg-orange-950/60 border border-orange-500/30 flex items-center justify-center text-orange-400 shrink-0 group-hover:scale-110 transition-transform">
+            {siteSettings?.eitaaLogoUrl ? (
+              <img src={siteSettings.eitaaLogoUrl} alt="ایتا" className="w-5 h-5 object-contain" />
+            ) : (
+              <Send size={18} />
+            )}
           </div>
+          <span className="text-xs sm:text-sm font-black text-white group-hover:text-orange-300 transition-colors">
+            {siteSettings?.eitaaBadgeText || 'ایتا'}
+          </span>
+        </button>
 
-          <button
-            onClick={() => handleOpenMessenger('ایتا (Eitaa)', 'https://eitaa.com/hisstory_official', siteSettings?.eitaaChannelUrl)}
-            className="w-full py-2.5 rounded-2xl bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 text-slate-950 font-black text-xs shadow-md flex items-center justify-center gap-2 transition-transform duration-150 active:scale-[0.98] cursor-pointer"
-          >
-            <span>{siteSettings?.eitaaButtonText || 'کانال اتاق جنگ در ایتا'}</span>
-            <ExternalLink size={13} />
-          </button>
-        </div>
-
-        {/* Messenger 2: بله (Bale) */}
-        <div 
-          className={`rounded-3xl p-4 sm:p-5 border transition-all duration-200 hover:-translate-y-0.5 flex flex-col justify-between ${
+        {/* Bale Card */}
+        <button
+          onClick={() => handleOpenMessenger('بله (Bale)', 'https://ble.ir/warroom_app', siteSettings?.baleChannelUrl)}
+          title="بله"
+          className={`group flex items-center justify-center gap-2.5 p-3.5 rounded-2xl border shadow-lg transition-all duration-200 cursor-pointer text-center hover:scale-[1.02] active:scale-[0.98] ${
             isGirls
-              ? 'bg-gradient-to-br from-[#1d091b] to-[#0e040f] border-pink-500/40 shadow-[0_0_15px_rgba(255,19,137,0.12)]'
-              : 'bg-gradient-to-br from-[#0c162f] via-[#050b1a] to-[#140612] border-blue-900/50 hover:border-blue-500/60 shadow-[0_0_15px_rgba(37,99,235,0.12)]'
+              ? 'bg-[#1a0822]/90 border-fuchsia-500/30 hover:border-emerald-500/50 shadow-[0_0_20px_rgba(255,19,137,0.1)]'
+              : 'bg-[#0b132b]/90 border-cyan-500/30 hover:border-emerald-500/50 shadow-[0_0_20px_rgba(6,182,212,0.1)]'
           }`}
         >
-          <div className="space-y-2 mb-3">
-            <div className="flex items-center justify-between">
-              {/* Bale Logo Badge */}
-              <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-emerald-950/80 border border-emerald-500/50 text-emerald-400 text-[10px] font-bold">
-                {siteSettings?.baleLogoUrl ? (
-                  <img src={siteSettings.baleLogoUrl} alt="" className="w-3.5 h-3.5 object-cover rounded-full" />
-                ) : (
-                  <span className="w-2 h-2 rounded-full bg-emerald-500 inline-block" />
-                )}
-                <span>{siteSettings?.baleBadgeText || 'پیام‌رسان بله'}</span>
-              </div>
-              <span className="text-[10px] text-slate-400 font-mono">
-                {siteSettings?.baleHandle || '@warroom_app'}
-              </span>
-            </div>
-
-            <h4 className="text-sm font-black text-white">
-              {siteSettings?.baleChannelTitle || 'اخبار و اطلاعیه‌های رسمی اتاق جنگ'}
-            </h4>
-            <p className="text-[11px] text-slate-300">
-              {siteSettings?.baleChannelSubtitle || 'اطلاعیه‌های فوری ستاد برگزاری، اعلام برندگان هفتگی و زمان‌بندی جوایز.'}
-            </p>
+          <div className="w-8 h-8 rounded-xl bg-emerald-950/60 border border-emerald-500/30 flex items-center justify-center text-emerald-400 shrink-0 group-hover:scale-110 transition-transform">
+            {siteSettings?.baleLogoUrl ? (
+              <img src={siteSettings.baleLogoUrl} alt="بله" className="w-5 h-5 object-contain" />
+            ) : (
+              <MessageSquare size={18} />
+            )}
           </div>
-
-          <button
-            onClick={() => handleOpenMessenger('بله (Bale)', 'https://ble.ir/warroom_app', siteSettings?.baleChannelUrl)}
-            className={`w-full py-2.5 rounded-2xl text-white font-black text-xs shadow-md flex items-center justify-center gap-2 transition-transform duration-150 active:scale-[0.98] cursor-pointer ${
-              isGirls 
-                ? 'bg-gradient-to-r from-emerald-500 to-teal-500 text-slate-950' 
-                : 'bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500'
-            }`}
-          >
-            <span>{siteSettings?.baleButtonText || 'کانال اتاق جنگ در بله'}</span>
-            <ExternalLink size={13} />
-          </button>
-        </div>
-
+          <span className="text-xs sm:text-sm font-black text-white group-hover:text-emerald-300 transition-colors">
+            {siteSettings?.baleBadgeText || 'بله'}
+          </span>
+        </button>
       </div>
-
-      {/* 2. Quick Navigation Guides (مراحل مسابقه / راهنمای مسابقه) */}
-      <div className="grid grid-cols-2 gap-3 sm:gap-4">
-        
-        {/* Card 1: مراحل مسابقه */}
-        <div 
-          onClick={onOpenStages}
-          className={`cursor-pointer rounded-2xl sm:rounded-3xl p-3.5 sm:p-4 border transition-all duration-200 hover:-translate-y-0.5 active:scale-[0.98] flex items-center justify-between group ${
-            isGirls
-              ? 'bg-[#150718] border-pink-900/50 hover:border-pink-500/70 shadow-md'
-              : 'bg-[#091228] border-blue-900/50 hover:border-blue-500/70 shadow-md'
-          }`}
-        >
-          <div className="flex items-center gap-3">
-            <div className={`w-10 h-10 rounded-xl flex items-center justify-center transition group-hover:scale-105 overflow-hidden ${
-              isGirls ? 'bg-pink-950/80 text-pink-400 border border-pink-800' : 'bg-blue-950/80 text-blue-400 border border-blue-800'
-            }`}>
-              {siteSettings?.stagesButtonIconUrl ? (
-                <img src={siteSettings.stagesButtonIconUrl} alt="" className="w-full h-full object-cover" />
-              ) : (
-                <MapIcon size={20} />
-              )}
-            </div>
-            <div className="text-right">
-              <h5 className={`text-xs sm:text-sm font-black text-white transition ${isGirls ? 'group-hover:text-pink-300' : 'group-hover:text-blue-300'}`}>
-                {siteSettings?.stagesButtonTitle || 'مراحل مسابقه'}
-              </h5>
-              <span className="text-[10px] text-slate-400">
-                {siteSettings?.stagesButtonSubtitle || 'نقشه ۷ مرحله ماجراجویی'}
-              </span>
-            </div>
-          </div>
-          <span className="text-xs text-slate-500 group-hover:text-white transition">←</span>
-        </div>
-
-        {/* Card 2: راهنمای مسابقه */}
-        <div 
-          onClick={onOpenGuide}
-          className={`cursor-pointer rounded-2xl sm:rounded-3xl p-3.5 sm:p-4 border transition-all duration-200 hover:-translate-y-0.5 active:scale-[0.98] flex items-center justify-between group ${
-            isGirls
-              ? 'bg-[#150718] border-pink-900/50 hover:border-pink-500/70 shadow-md'
-              : 'bg-[#091228] border-blue-900/50 hover:border-blue-500/70 shadow-md'
-          }`}
-        >
-          <div className="flex items-center gap-3">
-            <div className={`w-10 h-10 rounded-xl flex items-center justify-center transition group-hover:scale-105 overflow-hidden ${
-              isGirls ? 'bg-purple-950/80 text-purple-400 border border-purple-800' : 'bg-red-950/80 text-red-400 border border-red-800'
-            }`}>
-              {siteSettings?.guideButtonIconUrl ? (
-                <img src={siteSettings.guideButtonIconUrl} alt="" className="w-full h-full object-cover" />
-              ) : (
-                <BookOpen size={20} />
-              )}
-            </div>
-            <div className="text-right">
-              <h5 className={`text-xs sm:text-sm font-black text-white transition ${isGirls ? 'group-hover:text-purple-300' : 'group-hover:text-red-300'}`}>
-                {siteSettings?.guideButtonTitle || 'راهنمای مسابقه'}
-              </h5>
-              <span className="text-[10px] text-slate-400">
-                {siteSettings?.guideButtonSubtitle || 'قوانین و نحوه امتیازگیری'}
-              </span>
-            </div>
-          </div>
-          <span className="text-xs text-slate-500 group-hover:text-white transition">←</span>
-        </div>
-
-      </div>
-
     </div>
   );
 }
+
+

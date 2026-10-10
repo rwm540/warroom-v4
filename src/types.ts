@@ -478,6 +478,13 @@ export interface GuideStepConfig {
   highlight?: string;
 }
 
+export interface RuleCategoryItem {
+  id: string;
+  title: string;
+  badgeColor?: string;
+  items: string[];
+}
+
 export interface SiteSettings {
   siteName?: string;
   siteTagline?: string;
@@ -618,12 +625,27 @@ export interface SiteSettings {
   gatewaySubtitle?: string; // زیرنویس درگاه پرداخت
   gatewayIconUrl?: string; // تصویر یا آیکون آپلودشده درگاه پرداخت
   gatewayLinkUrl?: string; // لینک هدایت هنگام کلیک روی درگاه پرداخت
+  paymentGateways?: Array<{
+    id: string;
+    title?: string;
+    iconUrl: string;
+    linkUrl?: string;
+    isActive: boolean;
+  }>;
   enamadTitle?: string; // عنوان نماد اعتماد الکترونیکی
   enamadSubtitle?: string; // زیرنویس اینماد
   enamadIconUrl?: string; // تصویر یا آیکون آپلودشده نماد اینماد
   enamadLinkUrl?: string; // لینک هدایت هنگام کلیک روی نماد اینماد
   enamadEnabled?: boolean; // وضعیت فعال یا غیرفعال بودن نمایش نماد رسمی اینماد
   enamadHtmlCode?: string; // کد رسمی HTML اینماد (شامل تگ a و img رسمی)
+  enamadBadges?: Array<{
+    id: string;
+    title?: string;
+    iconUrl?: string;
+    linkUrl?: string;
+    htmlCode?: string;
+    isActive: boolean;
+  }>;
   customFooterBadges?: Array<{
     id: string;
     title: string;
@@ -633,6 +655,17 @@ export interface SiteSettings {
     isActive: boolean;
   }>;
   copyrightText?: string; // متن کپی‌رایت انتهای فوتر
+  // 📜 تنظیمات قابل ویرایش صفحه قوانین و مقررات رسمی
+  rulesHeaderTitle?: string;
+  rulesHeaderSubtitle?: string;
+  rulesNoticeTitle?: string;
+  rulesNoticeText?: string;
+  rulesSearchPlaceholder?: string;
+  rulesCategories?: RuleCategoryItem[];
+  rulesBottomCardTitle?: string;
+  rulesBottomCardText?: string;
+  rulesBottomSupportButtonText?: string;
+  rulesBottomHomeButtonText?: string;
   // 🧭 تنظیمات راهنمای تعاملی و کاراکترهای بازی
   guideSteps?: GuideStepConfig[];
   boysGuideImage?: string;

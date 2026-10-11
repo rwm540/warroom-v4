@@ -14,6 +14,8 @@ interface OTPVerificationModalProps {
   expiresIn: number;
   onChallengeToken: (token: string) => void;
   onExpiresIn: (seconds: number) => void;
+  /** Which server-side flow this challenge belongs to (controls resend semantics). */
+  purpose?: 'login' | 'registration';
   campaignTheme?: 'girls' | 'boys';
 }
 
@@ -43,6 +45,7 @@ export default function OTPVerificationModal({
   expiresIn,
   onChallengeToken,
   onExpiresIn,
+  purpose = 'registration',
   campaignTheme = 'boys'
 }: OTPVerificationModalProps) {
   const [otpDigits, setOtpDigits] = useState<string[]>(emptyOtpDigits);
@@ -126,7 +129,7 @@ export default function OTPVerificationModal({
         setError(result.error || result.message || 'کد تأیید نامعتبر است.');
         return;
       }
-      if (!result.user?.id || !result.user.otpProof) {
+      if (!result.user?.otpProof) {
         setError('پاسخ تأیید سرور ناقص است. دوباره کد را ارسال کنید.');
         return;
       }
@@ -144,7 +147,7 @@ export default function OTPVerificationModal({
     setIsResending(true);
     setError(null);
     try {
-      const result = await resendOtp(nationalCode);
+      const result = await resendOtp(nationalCode, purpose);
       if (!result.success) {
         setError(result.error || result.message || 'ارسال مجدد کد ناموفق بود.');
         return;

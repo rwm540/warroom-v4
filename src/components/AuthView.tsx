@@ -39,7 +39,7 @@ import RadarLoading from './RadarLoading';
 import OTPVerificationModal from './OTPVerificationModal';
 import { sendOtpByNationalCode } from '../lib/otpApi';
 import { createGroupRecord, MAX_GROUP_MEMBERS } from '../lib/groupRegistration';
-import { loginUser, registerUser } from '../lib/authApi';
+import { completeAuthentication, requestLoginChallenge, startRegistration } from '../lib/authApi';
 import {
   requestPasswordReset,
 } from '../lib/backendApi';
@@ -211,8 +211,15 @@ export default function AuthView({
   const [otpChallengeToken, setOtpChallengeToken] = useState('');
   const [otpMaskedPhone, setOtpMaskedPhone] = useState('');
   const [otpExpiresIn, setOtpExpiresIn] = useState<number | null>(null);
+  const [otpPurpose, setOtpPurpose] = useState<'login' | 'registration'>('registration');
+  const [pendingRegistration, setPendingRegistration] = useState<{ groupName: string } | null>(null);
 
-  const startOtpFlow = async (user: User, meta?: any): Promise<boolean> => {
+  const startOtpFlow = async (
+    user: User,
+    meta?: any,
+    options?: { purpose?: 'login' | 'registration'; password?: string }
+  ): Promise<boolean> => {
+    const purpose: 'login' | 'registration' = options?.purpose === 'login' ? 'login' : 'registration';
     setPendingUser(user);
     setPendingMeta(meta);
     const nationalCode = normalizeToEnglishDigits(user.national_code || user.nationalCode || '');
@@ -223,7 +230,7 @@ export default function AuthView({
       triggerAlert(message);
       return false;
     }
-    const result = await sendOtpByNationalCode(nationalCode);
+    const result = await sendOtpByNationalCode(nationalCode, { purpose, password: options?.password });
     if (!result.success || !result.challengeToken || !isValidOtpExpiry(result.expiresIn)) {
       const message = result.error || result.message || 'ارسال کد تأیید ناموفق بود یا زمان اعتبار از سرور دریافت نشد.';
       if (activeTab === 'register') setRegisterError(message);
@@ -234,6 +241,7 @@ export default function AuthView({
     setOtpChallengeToken(result.challengeToken);
     setOtpMaskedPhone(result.maskedPhone || 'شماره همراه ثبت‌شده');
     setOtpExpiresIn(result.expiresIn);
+    setOtpPurpose(purpose);
     setShowOtpModal(true);
     triggerAlert(result.maskedPhone
       ? `کد تأیید به شماره ${result.maskedPhone} ارسال شد.`
@@ -331,7 +339,9 @@ export default function AuthView({
       window.dispatchEvent(new Event('storage'));
     };
 
-    const res = await registerUser({
+    // The account is only created by the server once the OTP proof is exchanged for a
+    // session; until then nothing but an inactive pending registration exists.
+    const res = await startRegistration({
       firstName,
       lastName,
       nationalCode,
@@ -349,35 +359,30 @@ export default function AuthView({
     });
     setIsSubmitting(false);
 
-    if (!res.success || !res.user) {
+    if (!res.success) {
       setRegisterError(res.error || res.message || 'خطا در ثبت‌نام.');
       return;
     }
 
-    const serverUser: User = { ...(res.user as unknown as User), password: '' };
-    const group = (res.group as unknown as Group | undefined) || createGroupRecord({
-      leaderId: serverUser.id,
-      groupName,
-      leaderName: `${firstName} ${lastName}`,
-      membersCount: 1,
-      province: 'تهران',
-      city: 'تهران'
-    });
-    const leaderUser: User = { 
-      ...serverUser, 
-      group_id: group.id, 
-      is_group_member: false, 
-      squad_rank: 'commander',
-      is_active: true,
-      is_blocked: false 
-    };
-    setGroups(prev => [...prev.filter(item => item.id !== group.id), group]);
-    setUsers(prev => [...prev.filter(u => u.id !== leaderUser.id), leaderUser]);
     lockTheme();
 
-    const otpStarted = await startOtpFlow(leaderUser, { mustChangePassword: res.mustChangePassword, isNewRegistration: true });
+    const provisionalUser = {
+      id: `pending_${nationalCode}`,
+      national_code: nationalCode,
+      firstName,
+      lastName,
+      first_name: firstName,
+      last_name: lastName,
+      phone,
+      gender: selectedGender,
+      password: '',
+    } as unknown as User;
+
+    setPendingRegistration({ groupName });
+    const otpStarted = await startOtpFlow(provisionalUser, { isNewRegistration: true }, { purpose: 'registration' });
     if (!otpStarted) {
       setShowOtpModal(false);
+      setPendingRegistration(null);
     }
   };
 
@@ -393,19 +398,29 @@ export default function AuthView({
     }
 
     setIsSubmitting(true);
-    const result = await loginUser(natId, loginPassword);
+    // The server validates the password (uniform error for unknown accounts) and only then
+    // issues the SMS challenge; the identity is confirmed later by the session exchange.
+    const challenge = await requestLoginChallenge(natId, loginPassword);
     setIsSubmitting(false);
-    if (!result.success || !result.user) {
-      setLoginError(result.error || result.message || 'کد ملی یا رمز عبور اشتباه است.');
+    if (!challenge.success || !challenge.challengeToken || !isValidOtpExpiry(challenge.expiresIn)) {
+      setLoginError(challenge.error || challenge.message || 'کد ملی یا رمز عبور اشتباه است.');
       return;
     }
 
-    const serverUser = { ...(result.user as unknown as User), password: '' };
-    setUsers(prev => prev.some(user => user.id === serverUser.id)
-      ? prev.map(user => user.id === serverUser.id ? { ...user, ...serverUser } : user)
-      : [...prev, serverUser]);
-    setSelectedGender(serverUser.gender);
-    await startOtpFlow(serverUser, { mustChangePassword: result.mustChangePassword });
+    const knownUser = users.find(u =>
+      normalizeToEnglishDigits(u.national_code) === natId ||
+      normalizeToEnglishDigits(u.personal_code) === natId
+    ) || null;
+    const pending = (knownUser || { id: `login_${natId}`, national_code: natId, password: '' }) as unknown as User;
+    if (knownUser?.gender) setSelectedGender(knownUser.gender);
+
+    setPendingUser(pending);
+    setPendingMeta({});
+    setOtpChallengeToken(challenge.challengeToken);
+    setOtpMaskedPhone(challenge.maskedPhone || 'شماره همراه ثبت‌شده');
+    setOtpExpiresIn(challenge.expiresIn);
+    setOtpPurpose('login');
+    setShowOtpModal(true);
   };
 
   return (
@@ -919,16 +934,57 @@ export default function AuthView({
         userPhone={otpMaskedPhone}
         challengeToken={otpChallengeToken}
         expiresIn={otpExpiresIn ?? 0}
+        purpose={otpPurpose}
         onChallengeToken={setOtpChallengeToken}
         onExpiresIn={setOtpExpiresIn}
         campaignTheme={isGirls ? 'girls' : 'boys'}
-        onSuccess={(verifiedUser) => {
+        onSuccess={async (verifiedUser) => {
           setShowOtpModal(false);
-          if (pendingUser) {
-            const authenticatedUser = { ...pendingUser, ...verifiedUser, password: '' } as User;
-            triggerAlert(`احراز هویت پیامکی انجام شد. خوش آمدید ${authenticatedUser.first_name} ${authenticatedUser.last_name}`);
-            onLoginSuccess(authenticatedUser, { ...pendingMeta, otpProof: verifiedUser.otpProof });
+          setIsSubmitting(true);
+          // Exchange the one-time OTP proof for an HttpOnly server session. The profile used
+          // from here on is the one returned by the server.
+          const auth = await completeAuthentication(verifiedUser.otpProof);
+          setIsSubmitting(false);
+          if (!auth.success || !auth.user) {
+            const message = auth.error || 'ایجاد نشست امن ممکن نشد.';
+            if (otpPurpose === 'registration' || pendingRegistration) setRegisterError(message);
+            else setLoginError(message);
+            triggerAlert(message);
+            return;
           }
+
+          const serverUser = { ...(auth.user as unknown as User), password: '' } as User;
+
+          if (pendingRegistration) {
+            const group = createGroupRecord({
+              leaderId: serverUser.id,
+              groupName: pendingRegistration.groupName,
+              leaderName: `${serverUser.first_name} ${serverUser.last_name}`,
+              membersCount: 1,
+              province: 'تهران',
+              city: 'تهران'
+            });
+            const leaderUser: User = {
+              ...serverUser,
+              group_id: group.id,
+              is_group_member: false,
+              squad_rank: 'commander',
+              is_active: true,
+              is_blocked: false
+            };
+            setGroups(prev => [...prev.filter(item => item.id !== group.id), group]);
+            setUsers(prev => [...prev.filter(u => u.id !== leaderUser.id), leaderUser]);
+            setPendingRegistration(null);
+            triggerAlert(`ثبت‌نام با موفقیت انجام شد. خوش آمدید ${leaderUser.first_name} ${leaderUser.last_name}`);
+            onLoginSuccess(leaderUser, { mustChangePassword: auth.mustChangePassword, isNewRegistration: true });
+            return;
+          }
+
+          setUsers(prev => prev.some(user => user.id === serverUser.id)
+            ? prev.map(user => user.id === serverUser.id ? { ...user, ...serverUser } : user)
+            : [...prev, serverUser]);
+          triggerAlert(`احراز هویت پیامکی انجام شد. خوش آمدید ${serverUser.first_name} ${serverUser.last_name}`);
+          onLoginSuccess(serverUser, { mustChangePassword: auth.mustChangePassword });
         }}
       />
 

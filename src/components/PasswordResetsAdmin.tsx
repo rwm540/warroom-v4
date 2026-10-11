@@ -20,6 +20,7 @@ import {
 import type { PasswordResetRequest, User } from '../types';
 import { formatToPersianDigits, normalizeToEnglishDigits } from '../utils/jalali';
 import { sha256Hex } from '../lib/supabaseData';
+import AdminOtpGate from './AdminOtpGate';
 import {
   probeBackend,
   adminListPasswordResets,
@@ -327,6 +328,8 @@ export default function PasswordResetsAdmin({
           <span className="text-lg font-black text-rose-300">{formatToPersianDigits(counts.rejected)}</span>
         </div>
       </div>
+
+      <AdminOtpGate currentUser={currentUser} triggerAlert={triggerAlert} />
 
       {/* فیلترها و جست‌وجو */}
       <div className="p-3 rounded-2xl bg-[#080d21] border border-slate-800 space-y-3">

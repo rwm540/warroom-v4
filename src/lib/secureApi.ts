@@ -1,5 +1,6 @@
 /**
- * Secure API client for registration and password reset - uses Node server, not direct Supabase
+ * Secure API client for registration, password reset, and session - uses Node server, not direct Supabase
+ * Session uses HttpOnly cookies, not localStorage
  */
 
 interface ApiEnvelope {
@@ -12,7 +13,7 @@ async function postJson<T extends ApiEnvelope>(path: string, body: unknown): Pro
   try {
     const response = await fetch(path, {
       method: 'POST',
-      credentials: 'same-origin',
+      credentials: 'include', // Important for HttpOnly cookies
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
     });
@@ -84,4 +85,34 @@ export interface PasswordResetStatusResponse extends ApiEnvelope {
 
 export async function checkPasswordResetStatusSecure(nationalCode: string, trackingCode: string): Promise<PasswordResetStatusResponse> {
   return postJson<PasswordResetStatusResponse>('/api/password-reset/status', { nationalCode, trackingCode });
+}
+
+// Session management with HttpOnly cookies
+export interface SessionCreateResponse extends ApiEnvelope {
+  success: boolean;
+  sessionId?: string;
+  user?: {
+    id: string;
+    first_name?: string;
+    last_name?: string;
+    role?: string;
+  };
+}
+
+export async function createSessionSecure(otpProof: string, nationalCode: string): Promise<SessionCreateResponse> {
+  return postJson<SessionCreateResponse>('/api/session/create', { otpProof, nationalCode });
+}
+
+export interface SessionValidateResponse extends ApiEnvelope {
+  success: boolean;
+  userId?: string;
+  expiresAt?: string;
+}
+
+export async function validateSessionSecure(): Promise<SessionValidateResponse> {
+  return postJson<SessionValidateResponse>('/api/session/validate', {});
+}
+
+export async function logoutSecure(): Promise<ApiEnvelope> {
+  return postJson<ApiEnvelope>('/api/session/logout', {});
 }

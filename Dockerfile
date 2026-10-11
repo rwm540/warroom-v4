@@ -1,5 +1,4 @@
 # Legacy Dockerfile kept for backward compatibility - delegates to Dockerfile.web logic
-# Prefer using Dockerfile.web explicitly via docker-compose
 FROM node:22-alpine AS build
 WORKDIR /app
 
@@ -27,14 +26,16 @@ COPY docker/nginx.conf /etc/nginx/conf.d/default.conf
 COPY --from=build /app/dist /usr/share/nginx/html
 
 RUN addgroup -S warroom && adduser -S warroom -G warroom && \
+    mkdir -p /var/cache/nginx /var/run /var/log/nginx && \
     chown -R warroom:warroom /usr/share/nginx/html && \
     chown -R warroom:warroom /var/cache/nginx && \
     chown -R warroom:warroom /var/log/nginx && \
     chown -R warroom:warroom /etc/nginx/conf.d && \
+    chown -R warroom:warroom /var/run && \
     touch /var/run/nginx.pid && \
-    chown -R warroom:warroom /var/run/nginx.pid
+    chown warroom:warroom /var/run/nginx.pid
 
-EXPOSE 80
-HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 CMD wget -q -O /dev/null http://127.0.0.1/ || exit 1
+EXPOSE 8080
+HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 CMD wget -q -O /dev/null http://127.0.0.1:8080/ || exit 1
 USER warroom
 CMD ["nginx", "-g", "daemon off;"]

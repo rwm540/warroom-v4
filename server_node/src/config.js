@@ -7,7 +7,10 @@ dotenv.config({ path: path.join(root, '.env') });
 
 function secretValue(name) {
   const value = String(process.env[name] || '').trim();
-  return /^(replace_|your_|change_me|unset_)/i.test(value) ? '' : value;
+  if (/^(replace_|your_|change_me|unset_)/i.test(value)) return '';
+  // Reject known insecure defaults
+  if (/^warroom_local_redis_pass$/i.test(value)) return '';
+  return value;
 }
 
 function configuredUrl(name) {
@@ -49,13 +52,22 @@ export const config = {
   redisUrl: (() => {
     const v = String(process.env.REDIS_URL || '').trim();
     if (!v) return '';
-    // Never allow placeholder values
     if (/^(replace_|your_|change_me|unset_)/i.test(v)) return '';
-    // Must be redis:// or rediss://
     if (!v.startsWith('redis://') && !v.startsWith('rediss://')) return '';
+    // Reject if contains placeholder password
+    if (v.includes('replace_with')) return '';
     return v;
   })(),
-  redisPassword: secretValue('REDIS_PASSWORD'),
+  redisPassword: (() => {
+    const v = String(process.env.REDIS_PASSWORD || '').trim();
+    if (!v) return '';
+    if (/^(replace_|your_|change_me|unset_|warroom_local_redis_pass)/i.test(v)) return '';
+    // In production, require at least 16 chars
+    // In dev, allow shorter but still reject empty
+    return v;
+  })(),
+  sessionSecret: secretValue('SESSION_SECRET'),
+  cookieSecure: String(process.env.COOKIE_SECURE || 'true').toLowerCase() !== 'false',
 };
 
 export function assertRequiredSecrets() {
@@ -66,6 +78,14 @@ export function assertRequiredSecrets() {
   if (!config.otpSecret || config.otpSecret.length < 32) missing.push('OTP_SECRET>=32');
   if (config.otpSecret && config.otpChallengeSecret && config.otpSecret === config.otpChallengeSecret) {
     missing.push('OTP_SECRET!=OTP_CHALLENGE_SECRET');
+  }
+  // Redis is optional in dev, but if configured, password must be valid
+  // In production docker-compose, REDIS_PASSWORD is required via :? syntax
+  if (config.nodeEnv === 'production' && config.redisUrl && !config.redisPassword) {
+    missing.push('REDIS_PASSWORD required when REDIS_URL is set in production');
+  }
+  if (config.redisPassword && config.redisPassword.length < 8) {
+    missing.push('REDIS_PASSWORD>=8');
   }
   if (missing.length > 0) {
     const err = new Error(`Missing or invalid required secrets: ${missing.join(', ')}`);

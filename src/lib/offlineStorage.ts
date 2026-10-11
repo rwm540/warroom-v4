@@ -130,10 +130,32 @@ function containsSensitiveData(rows: any[]): boolean {
   return false;
 }
 
+const OLD_DB_NAMES = ['warroom_offline', 'warroom_offline_v1', 'warroom_offline_v2_old', 'warroom_cache', 'warroom_db'];
+
+// Delete old IndexedDB databases that may contain sensitive data (controlled deletion on upgrade)
+function deleteOldDatabases(): void {
+  if (typeof window === 'undefined' || !window.indexedDB) return;
+  try {
+    // Delete known old DB names
+    OLD_DB_NAMES.forEach(oldName => {
+      if (oldName === DB_NAME) return;
+      try {
+        const delReq = window.indexedDB.deleteDatabase(oldName);
+        delReq.onsuccess = () => console.info(`[WarRoom Offline] Deleted old DB: ${oldName}`);
+        delReq.onerror = () => {};
+        delReq.onblocked = () => {};
+      } catch {}
+    });
+  } catch {}
+}
+
 /** باز کردن یا ایجاد پایگاه داده IndexedDB */
 export function openOfflineDb(): Promise<IDBDatabase> {
   if (dbInstance) return Promise.resolve(dbInstance);
   if (dbPromise) return dbPromise;
+
+  // Clean old DBs on first open
+  deleteOldDatabases();
 
   dbPromise = new Promise((resolve, reject) => {
     if (typeof window === 'undefined' || !window.indexedDB) {
@@ -145,6 +167,40 @@ export function openOfflineDb(): Promise<IDBDatabase> {
 
     request.onupgradeneeded = (event) => {
       const db = (event.target as IDBOpenDBRequest).result;
+      const oldVersion = (event as any).oldVersion || 0;
+      
+      // On upgrade from old version, clear all stores to remove potentially sensitive data
+      if (oldVersion > 0 && oldVersion < DB_VERSION) {
+        console.info(`[WarRoom Offline] Upgrading DB from v${oldVersion} to v${DB_VERSION}, clearing old sensitive caches`);
+        // Delete existing stores to force recreation without sensitive data
+        if (db.objectStoreNames.contains(STORE_TABLES)) {
+          db.deleteObjectStore(STORE_TABLES);
+        }
+        if (db.objectStoreNames.contains(STORE_MUTATIONS)) {
+          db.deleteObjectStore(STORE_MUTATIONS);
+        }
+        if (db.objectStoreNames.contains(STORE_KV)) {
+          db.deleteObjectStore(STORE_KV);
+        }
+        // Also clear localStorage sensitive keys on upgrade
+        try {
+          const sensitiveKeys = [
+            'warroom_offline_tbl_warroom_users',
+            'warroom_offline_tbl_warroom_credentials',
+            'warroom_offline_tbl_warroom_otp_codes',
+            'warroom_offline_tbl_warroom_password_reset_requests',
+            'warroom_offline_tbl_warroom_wallet_transactions',
+            'warroom_offline_tbl_warroom_payment_transactions',
+            'warroom_current_user_data',
+            'warroom_current_user_id',
+            'warroom_session_id',
+          ];
+          sensitiveKeys.forEach(k => {
+            try { localStorage.removeItem(k); } catch {}
+          });
+        } catch {}
+      }
+
       if (!db.objectStoreNames.contains(STORE_TABLES)) {
         db.createObjectStore(STORE_TABLES, { keyPath: 'table' });
       }

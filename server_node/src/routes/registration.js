@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { randomUUID } from 'node:crypto';
 import { config } from '../config.js';
 import { assertDb } from '../lib/supabase.js';
-import { isValidNationalCode, hashValue, clientIp, toE164Iran, normalizeDigits } from '../lib/identity.js';
+import { isValidNationalCode, hashValue, clientIp, toE164Iran } from '../lib/identity.js';
 import { validatePhone, sanitizeText, validateGroupName, isValidIranianNationalCodeChecksum } from '../lib/validators.js';
 import { validatePasswordStrength } from '../lib/password.js';
 
@@ -45,8 +45,9 @@ async function hitRateLimit(key, max, windowSeconds) {
   throw publicError('RATE_LIMIT_STORE_FAILED', 'محدودیت امنیتی موقتاً در دسترس نیست.', 503);
 }
 
-// Registration pending table: warroom_pending_registrations (id, national_code, phone_e164, phone_local, user_data, password_hash_pending, expires_at, verified, created_at)
-// If table does not exist, fallback to direct registration with is_active=false
+// Registration pending flow - secure, no fallback to direct user creation
+// Pending table warroom_pending_registrations must exist (created in migration 20261012000000)
+// Password hash stored via bcrypt via RPC warroom_set_pending_password (service_role only)
 
 router.post('/start', async (req, res, next) => {
   try {
@@ -93,22 +94,36 @@ router.post('/start', async (req, res, next) => {
 
     const db = assertDb();
 
-    // Check duplicate national code
+    // Check duplicate national code in users
     const { data: existing, error: existError } = await db.from('warroom_users').select('id').eq('data->>national_code', nationalCode).limit(1).maybeSingle();
     if (existError) throw publicError('DB_ERROR', 'بررسی حساب موجود ممکن نشد.', 503);
     if (existing) {
       throw publicError('DUPLICATE_USER', 'این کد ملی قبلاً ثبت شده است.', 409);
     }
 
-    // Check duplicate phone (optional)
-    const { data: existingPhone } = await db.from('warroom_users').select('id').eq('data->>phone', phoneLocal).limit(1).maybeSingle();
+    // Check duplicate phone
+    const { data: existingPhone, error: phoneError } = await db.from('warroom_users').select('id').eq('data->>phone', phoneLocal).limit(1).maybeSingle();
+    if (phoneError) throw publicError('DB_ERROR', 'بررسی شماره ممکن نشد.', 503);
     if (existingPhone) {
       throw publicError('DUPLICATE_PHONE', 'این شماره موبایل قبلاً ثبت شده است.', 409);
     }
 
-    // Create pending registration record if table exists, otherwise create inactive user directly
+    // Check duplicate in pending registrations (not expired)
+    try {
+      const { data: pendingExists } = await db.from('warroom_pending_registrations').select('id').eq('national_code', nationalCode).gt('expires_at', new Date().toISOString()).limit(1).maybeSingle();
+      if (pendingExists) {
+        throw publicError('PENDING_EXISTS', 'درخواست ثبت‌نام معلق برای این کد ملی وجود دارد. لطفاً کد تأیید را وارد کنید یا بعد از انقضا مجدد تلاش کنید.', 409);
+      }
+    } catch (e) {
+      if (e.code === 'PENDING_EXISTS') throw e;
+      // If table doesn't exist, fail securely - migration must be applied
+      if (e.message && e.message.includes('does not exist')) {
+        throw publicError('REGISTRATION_TABLE_MISSING', 'سامانه ثبت‌نام موقتاً در دسترس نیست. Migration مورد نیاز اعمال نشده است.', 503);
+      }
+    }
+
     const pendingId = randomUUID();
-    const expiresAt = new Date(Date.now() + 15 * 60 * 1000).toISOString(); // 15 min
+    const expiresAt = new Date(Date.now() + 15 * 60 * 1000).toISOString();
     const userData = {
       first_name: firstName,
       last_name: lastName,
@@ -123,70 +138,60 @@ router.post('/start', async (req, res, next) => {
       school_name: sanitizeText(body.schoolName || body.school_name, 100) || '',
     };
 
-    // Try pending table
-    let pendingCreated = false;
-    try {
-      const { error: pendingError } = await db.from('warroom_pending_registrations').insert({
-        id: pendingId,
-        national_code: nationalCode,
-        phone: phoneLocal,
-        phone_e164: phoneE164.e164,
-        user_data: userData,
-        // Store only hash of password using bcrypt via RPC? For pending, store hash via pgcrypto in DB
-        // We will use RPC to hash, but for now store via crypt in DB using SQL
-        // Instead, we will call RPC warroom_hash_password_pending if exists, fallback to plain insert with password_hash placeholder and let trigger hash
-        expires_at: expiresAt,
-        is_verified: false,
-        attempt_count: 0,
-      });
-      if (!pendingError) pendingCreated = true;
-    } catch (e) {
-      // Table may not exist, ignore
-      pendingCreated = false;
+    // Create pending registration - no fallback to direct user creation (secure flow)
+    const { error: pendingError } = await db.from('warroom_pending_registrations').insert({
+      id: pendingId,
+      national_code: nationalCode,
+      phone: phoneLocal,
+      phone_e164: phoneE164.e164,
+      user_data: userData,
+      expires_at: expiresAt,
+      is_verified: false,
+      attempt_count: 0,
+      ip_hash: ipKey,
+    });
+
+    if (pendingError) {
+      console.error('[registration] pending insert failed:', pendingError.message);
+      if (pendingError.message.includes('does not exist')) {
+        throw publicError('REGISTRATION_TABLE_MISSING', 'جدول ثبت‌نام معلق وجود ندارد. Migration باید اعمال شود.', 503);
+      }
+      throw publicError('REGISTRATION_FAILED', 'ثبت‌نام موقتاً ممکن نشد.', 503);
     }
 
-    if (!pendingCreated) {
-      // Fallback: create user with is_active=false via RPC
-      const userId = `user_${randomUUID()}`;
-      const profile = {
-        ...userData,
-        id: userId,
-        role: 'user',
-        level: 1,
-        points: 0,
-        is_active: false,
-        is_blocked: false,
-      };
-      const { data, error } = await db.rpc('warroom_register_user', {
-        p_user_id: userId,
-        p_user_data: profile,
+    // Store password hash securely via RPC (service_role only, bcrypt)
+    try {
+      const { data: pwdData, error: pwdError } = await db.rpc('warroom_set_pending_password', {
+        p_pending_id: pendingId,
         p_password: password,
       });
-      if (error) throw publicError('REGISTRATION_FAILED', 'ثبت‌نام موقتاً ممکن نشد.', 503);
-      if (!data?.success) {
-        const code = data?.error || 'REGISTRATION_FAILED';
-        if (code === 'DUPLICATE_USER') throw publicError('DUPLICATE_USER', 'این کد ملی قبلاً ثبت شده است.', 409);
-        throw publicError(code, 'ثبت‌نام ناموفق بود.');
+      if (pwdError) {
+        console.error('[registration] set pending password failed:', pwdError.message);
+        // Cleanup pending on failure
+        try {
+          await db.from('warroom_pending_registrations').delete().eq('id', pendingId);
+        } catch {}
+        throw publicError('REGISTRATION_FAILED', 'ذخیره رمز عبور ممکن نشد.', 503);
       }
-      // Mark inactive explicitly if RPC set active true (we need to update)
-      await db.from('warroom_users').update({ data: { ...profile, is_active: false } }).eq('id', userId);
-    } else {
-      // Store password hash securely via RPC or direct crypt
+      if (pwdData && pwdData.success === false) {
+        try {
+          await db.from('warroom_pending_registrations').delete().eq('id', pendingId);
+        } catch {}
+        throw publicError(pwdData.error || 'WEAK_PASSWORD', pwdData.error === 'WEAK_PASSWORD' ? 'رمز عبور ضعیف است.' : 'ثبت‌نام ناموفق بود.');
+      }
+    } catch (e) {
+      if (e.status) throw e;
+      console.error('[registration] set password exception:', e.message);
       try {
-        await db.rpc('warroom_set_pending_password', {
-          p_pending_id: pendingId,
-          p_password: password,
-        });
-      } catch {
-        // If RPC not exists, try direct update with crypt via SQL? Skip for now - will be handled by verification step
-        // Store hash placeholder via raw SQL using supabase rpc? We'll just leave and hash on verification
-      }
+        await db.from('warroom_pending_registrations').delete().eq('id', pendingId);
+      } catch {}
+      throw publicError('REGISTRATION_FAILED', 'ذخیره رمز عبور ممکن نشد.', 503);
     }
 
     return res.json({
       success: true,
       message: 'اطلاعات ثبت‌نام اعتبارسنجی شد. برای تکمیل ثبت‌نام، کد تأیید پیامکی را دریافت کنید.',
-      pendingId: pendingCreated ? pendingId : null,
+      pendingId,
       nationalCode,
       maskedPhone: `${phoneLocal.slice(0,4)}***${phoneLocal.slice(-2)}`,
       expiresAt,
@@ -198,6 +203,12 @@ router.post('/start', async (req, res, next) => {
 
 router.post('/check-national', async (req, res, next) => {
   try {
+    const ip = clientIp(req);
+    const allowed = await hitRateLimit(`reg:check:${hashValue(ip)}`, 20, 15 * 60);
+    if (!allowed) {
+      throw publicError('RATE_LIMITED', 'تعداد استعلام زیاد است.', 429);
+    }
+
     const nationalCodeRaw = String(req.body?.nationalCode || req.body?.national_code || '').trim();
     const nationalCode = isValidNationalCode(nationalCodeRaw);
     if (!nationalCode) {
@@ -206,7 +217,9 @@ router.post('/check-national', async (req, res, next) => {
     const db = assertDb();
     const { data, error } = await db.from('warroom_users').select('id').eq('data->>national_code', nationalCode).limit(1).maybeSingle();
     if (error) throw publicError('DB_ERROR', 'بررسی ممکن نشد.', 503);
-    // Generic response to avoid enumeration? For registration we need to know duplicate, but we can still return exists
+    // Note: This endpoint leaks existence but is needed for UX.
+    // Rate limited per IP to mitigate enumeration.
+    // Alternative secure design would require generic response, but current UI needs duplicate check.
     return res.json({ success: true, exists: Boolean(data) });
   } catch (e) {
     next(e);

@@ -7,11 +7,24 @@ let redisAvailable = null; // null = unknown, true/false = checked
 let lastHealthCheck = 0;
 const HEALTH_CHECK_TTL_MS = 15000;
 
+// Lua script for atomic INCR + EXPIRE
+// Returns current counter after increment
+// Only sets EXPIRE if key was newly created (current == 1)
+// This prevents race where EXPIRE is lost and key lives forever
+const RATE_LIMIT_LUA = `
+local current = redis.call('INCR', KEYS[1])
+if current == 1 then
+  redis.call('EXPIRE', KEYS[1], ARGV[1])
+end
+return current
+`;
+
 function getRedisUrl() {
   // Only server-side env, never VITE_
+  // Validation is done in config.js, but double-check here
   const url = String(process.env.REDIS_URL || '').trim();
   if (!url) return null;
-  // Basic validation - must start with redis:// or rediss://
+  if (/^(replace_|your_|change_me|unset_)/i.test(url)) return null;
   if (!url.startsWith('redis://') && !url.startsWith('rediss://')) {
     console.warn('[redis] Invalid REDIS_URL format, expected redis:// or rediss://');
     return null;
@@ -19,12 +32,27 @@ function getRedisUrl() {
   return url;
 }
 
+function getRedisPassword() {
+  const pwd = String(process.env.REDIS_PASSWORD || '').trim();
+  if (!pwd) return null;
+  if (/^(replace_|your_|change_me|unset_|warroom_local_redis_pass)/i.test(pwd)) {
+    // Reject placeholder/default insecure passwords in production
+    if (config.nodeEnv === 'production') {
+      console.error('[redis] Insecure REDIS_PASSWORD placeholder rejected in production');
+      return null;
+    }
+  }
+  return pwd;
+}
+
 function hashKey(value) {
   // Use OTP_SECRET as keyed hash for PII (national code, phone) to avoid raw storage in Redis
+  // Separate secret for HMAC would be ideal, but OTP_SECRET is server-only and >=32 chars
   const secret = config.otpSecret || config.otpChallengeSecret;
   if (!secret || secret.length < 16) {
     // Fallback to simple hash if secret not configured (should not happen in prod)
-    return `fallback_${String(value).slice(0, 8)}`;
+    // This still avoids raw PII but less secure
+    return `fallback_${createHmac('sha256', 'fallback-not-secure').update(String(value)).digest('hex').slice(0, 16)}`;
   }
   return createHmac('sha256', secret).update(`redis-key:${String(value)}`).digest('hex').slice(0, 32);
 }
@@ -69,6 +97,7 @@ export async function getRedisClient() {
       });
 
       client.on('error', (err) => {
+        // Never log URL or password
         console.error('[redis] Client error:', err.message);
         redisAvailable = false;
       });
@@ -94,6 +123,7 @@ export async function getRedisClient() {
       console.info('[redis] Connected successfully');
       return client;
     } catch (e) {
+      // Never log URL or password in error
       console.error('[redis] Failed to connect:', e.message);
       redisAvailable = false;
       lastHealthCheck = Date.now();
@@ -140,9 +170,10 @@ export async function checkRedisHealth() {
 }
 
 /**
- * Atomic rate limit using Redis INCR + EXPIRE
+ * Atomic rate limit using Redis Lua script: INCR + EXPIRE in one atomic operation
  * Returns true if allowed, false if rate limited
  * If Redis unavailable, returns null to indicate fallback needed
+ * Key format: warroom:rl:{key} with TTL
  */
 export async function redisRateLimit(key, max, windowSeconds) {
   const client = await getRedisClient();
@@ -152,10 +183,35 @@ export async function redisRateLimit(key, max, windowSeconds) {
 
   try {
     const fullKey = `warroom:rl:${key}`;
-    const current = await client.incr(fullKey);
-    if (current === 1) {
-      await client.expire(fullKey, windowSeconds);
+    // Use Lua script for atomic INCR+EXPIRE
+    // This prevents race where INCR succeeds but EXPIRE fails and key lives forever
+    let current;
+    try {
+      // Try EVAL first (atomic)
+      current = await client.eval(RATE_LIMIT_LUA, {
+        keys: [fullKey],
+        arguments: [String(windowSeconds)],
+      });
+    } catch (evalErr) {
+      // Fallback to INCR+EXPIRE if EVAL not supported (should not happen in Redis 7)
+      // But keep atomicity via MULTI if possible
+      console.warn('[redis] EVAL failed, falling back to MULTI:', evalErr.message);
+      const multi = client.multi();
+      multi.incr(fullKey);
+      multi.expire(fullKey, windowSeconds, 'NX'); // Only set expire if not exists, but we need conditional
+      // Actually need to check current ==1 then expire, so we do separate
+      // For fallback, we do incr then expire only if current==1
+      const results = await multi.exec();
+      // This fallback is not perfectly atomic but better than nothing
+      current = results?.[0];
+      // If this is first increment, ensure TTL
+      if (current === 1) {
+        try {
+          await client.expire(fullKey, windowSeconds);
+        } catch {}
+      }
     }
+
     // If current > max, rate limited
     return current <= max;
   } catch (e) {
@@ -177,16 +233,21 @@ export async function secureRedisRateLimit({ type, identifier, max, windowSecond
 
 /**
  * Combined rate limiter: tries Redis first, falls back to DB, fails closed if both unavailable
+ * This ensures no silent bypass when both stores down
+ * 
+ * Redis role: fast, ephemeral, high-throughput counters with TTL (in-memory)
+ * DB role: persistent, slower, fallback for rate limit when Redis unavailable
+ * Both must agree to allow - if both unavailable, deny (fail-closed)
  */
 export async function combinedRateLimit({ redisKey, dbKey, max, windowSeconds, dbRateLimitFn }) {
-  // Try Redis first
+  // Try Redis first (fast path)
   const redisResult = await redisRateLimit(redisKey, max, windowSeconds);
   if (redisResult !== null) {
-    // Redis succeeded
+    // Redis succeeded (allowed or denied)
     return redisResult;
   }
 
-  // Redis unavailable, try DB fallback
+  // Redis unavailable, try DB fallback (persistent)
   if (dbRateLimitFn) {
     try {
       const dbResult = await dbRateLimitFn(dbKey, max, windowSeconds);
@@ -199,10 +260,7 @@ export async function combinedRateLimit({ redisKey, dbKey, max, windowSeconds, d
   }
 
   // Both Redis and DB unavailable - fail closed (deny request) for security
-  // Except for health check or non-critical paths
   console.error('[rate-limit] Both Redis and DB unavailable, failing closed for key:', redisKey);
-  // For critical security paths, we should deny. Return false to indicate rate limited.
-  // This prevents bypass when both stores down.
   return false;
 }
 
@@ -231,4 +289,4 @@ if (typeof process !== 'undefined') {
   process.on('SIGTERM', shutdown);
 }
 
-export { hashKey };
+export { hashKey, RATE_LIMIT_LUA };

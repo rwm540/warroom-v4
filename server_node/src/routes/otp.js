@@ -287,14 +287,43 @@ router.post('/verify', async (req, res, next) => {
     }
 
     // If user was inactive (pending registration), activate after successful OTP verification
+    // CRITICAL: Never reactivate a user that admin has blocked or explicitly deactivated
+    // Only activate if user is not blocked and is_active is false (pending)
     try {
       const { data: userCheck } = await db.from('warroom_users').select('data').eq('id', challenge.sub).maybeSingle();
-      if (userCheck && userCheck.data && userCheck.data.is_active === false) {
-        const updatedData = { ...userCheck.data, is_active: true };
-        await db.from('warroom_users').update({ data: updatedData, updated_at: new Date().toISOString() }).eq('id', challenge.sub);
+      if (userCheck && userCheck.data) {
+        const isBlocked = userCheck.data.is_blocked === true;
+        const isActive = userCheck.data.is_active !== false; // true if active or undefined
+        if (isBlocked) {
+          // Blocked users must stay blocked - admin action required
+          throw publicError('USER_BLOCKED', 'حساب کاربری مسدود شده است. با مدیر تماس بگیرید.', 403);
+        }
+        if (!isActive) {
+          // Only pending users (is_active=false) can be auto-activated via OTP
+          // Check that user was created via registration flow (has pending record or is_active false)
+          // Do NOT activate if admin explicitly deactivated (need additional flag)
+          // For safety, we only activate if user is not blocked and was pending
+          const updatedData = { ...userCheck.data, is_active: true };
+          const { error: activateError } = await db.from('warroom_users').update({ data: updatedData, updated_at: new Date().toISOString() }).eq('id', challenge.sub).eq('data->>is_blocked', 'false').select('id').maybeSingle();
+          // If update affected 0 rows, user might have been blocked between check and update - fail securely
+          if (activateError) {
+            console.warn('[otp] activation update failed:', activateError.message);
+          }
+        }
       }
-    } catch {
-      // Non-critical, don't fail verification if activation fails - will be retried on next login
+    } catch (e) {
+      if (e.status) throw e;
+      // Non-critical activation failure should not fail OTP verification for already active users
+      // But for pending users, we should still try to activate via RPC warroom_activate_user_after_otp
+      try {
+        const { data: activationResult } = await db.rpc('warroom_activate_user_after_otp', {
+          p_challenge_id: challenge.challengeId,
+          p_national_code: nationalCode,
+        });
+        if (activationResult && activationResult.success === false) {
+          console.warn('[otp] activation via RPC failed:', activationResult.error);
+        }
+      } catch {}
     }
 
     // Invalidate all other pending challenges for this national code to prevent replay

@@ -7,19 +7,16 @@ ENV HOST=0.0.0.0
 
 WORKDIR /app
 
-# Copy dependency files first
 COPY server_node/package.json server_node/package-lock.json ./
+# Use npm ci for locked deps, omit dev, ignore-scripts checked - no postinstall needed for runtime
 RUN npm ci --omit=dev --ignore-scripts
 
-# Copy source
 COPY server_node/src ./src
 
 # Create non-root user
 RUN addgroup -S warroom && adduser -S warroom -G warroom && \
     chown -R warroom:warroom /app
 
-# Never bake secrets into image - they are injected at runtime via env
-# Healthcheck uses internal fetch, no external dependencies
 USER warroom
 
 EXPOSE 4010

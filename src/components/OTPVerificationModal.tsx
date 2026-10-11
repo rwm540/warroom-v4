@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Shield, X, CheckCircle, AlertCircle, RefreshCw, Clock } from 'lucide-react';
 import { verifyOtp, resendOtp } from '../lib/otpApi';
@@ -9,6 +9,8 @@ interface OTPVerificationModalProps {
   onSuccess: (token: string, user: any) => void;
   userPhone: string;
   nationalCode: string;
+  challengeToken?: string;
+  onChallengeToken?: (token: string) => void;
   campaignTheme?: 'girls' | 'boys';
 }
 
@@ -22,6 +24,8 @@ export default function OTPVerificationModal({
   onSuccess,
   userPhone,
   nationalCode,
+  challengeToken = '',
+  onChallengeToken,
   campaignTheme = 'boys'
 }: OTPVerificationModalProps) {
   const [otpCode, setOtpCode] = useState('');
@@ -30,8 +34,14 @@ export default function OTPVerificationModal({
   const [timeLeft, setTimeLeft] = useState(120); // 120 ثانیه
   const [canResend, setCanResend] = useState(false);
   const [isResending, setIsResending] = useState(false);
+  const [activeChallengeToken, setActiveChallengeToken] = useState(challengeToken);
+  const inputRefs = useRef<Array<HTMLInputElement | null>>([]);
 
   const isGirls = campaignTheme === 'girls';
+
+  useEffect(() => {
+    setActiveChallengeToken(challengeToken);
+  }, [challengeToken]);
 
   // تایمر شمارش معکوس
   useEffect(() => {
@@ -71,24 +81,32 @@ export default function OTPVerificationModal({
     const cleanCode = otpCode.trim();
 
     // بررسی طول کد
-    if (cleanCode.length !== 6) {
-      setError('کد تایید باید 6 رقم باشد');
+    if (cleanCode.length !== 4) {
+      setError('کد تایید باید ۴ رقم باشد');
+      setIsVerifying(false);
+      return;
+    }
+
+    if (!activeChallengeToken) {
+      setError('نشست اعتبارسنجی کد تایید نامعتبر است؛ لطفاً دوباره کد را ارسال کنید.');
       setIsVerifying(false);
       return;
     }
 
     try {
-      const result = await verifyOtp(nationalCode, cleanCode);
+      const result = await verifyOtp(nationalCode, cleanCode, activeChallengeToken);
 
       if (!result.success) {
-        setError(result.error || result.message);
+        setError(result.error || result.message || 'کد تایید نامعتبر است.');
         setIsVerifying(false);
         return;
       }
 
-      // موفقیت
-      if (result.token && result.user) {
-        onSuccess(result.token, result.user);
+      const token = result.accessToken || result.token || '';
+      const user = result.user || {};
+
+      if (token || user) {
+        onSuccess(token, user);
       } else {
         setError('خطا در دریافت اطلاعات کاربر');
       }
@@ -114,6 +132,11 @@ export default function OTPVerificationModal({
       const result = await resendOtp(nationalCode);
 
       if (result.success) {
+        const nextToken = result.challengeToken || '';
+        if (nextToken) {
+          setActiveChallengeToken(nextToken);
+          onChallengeToken?.(nextToken);
+        }
         setOtpCode('');
         setTimeLeft(120);
         setCanResend(false);
@@ -201,7 +224,7 @@ export default function OTPVerificationModal({
           <p className={`text-center text-sm mb-6 ${
             isGirls ? 'text-pink-700' : 'text-blue-700'
           }`}>
-            کد تایید 6 رقمی به شماره <span className="font-bold">{userPhone}</span> ارسال شد
+            کد تایید ۴ رقمی به شماره <span className="font-bold">{userPhone}</span> ارسال شد
           </p>
 
           {/* تایمر */}
@@ -218,36 +241,60 @@ export default function OTPVerificationModal({
             </span>
           </div>
 
-          {/* فیلد ورود کد */}
+          {/* فیلدهای چهارخانه ورود کد */}
           <div className="mb-6">
-            <input
-              type="text"
-              inputMode="numeric"
-              maxLength={6}
-              value={otpCode}
-              onChange={(e) => {
-                const value = e.target.value.replace(/\D/g, '');
-                setOtpCode(value);
-                setError(null);
-              }}
-              onKeyPress={(e) => {
-                if (e.key === 'Enter' && otpCode.length === 6) {
-                  handleVerifyOTP();
-                }
-              }}
-              placeholder="۱۲۳۴۵۶"
-              disabled={isVerifying || timeLeft === 0}
-              className={`w-full text-center text-3xl font-bold tracking-[0.5em] px-4 py-4 rounded-2xl border-2 transition-all
-                ${error 
-                  ? 'border-red-400 bg-red-50 text-red-700' 
-                  : isGirls
-                    ? 'border-pink-300 bg-white/50 text-pink-900 focus:border-pink-500 focus:ring-4 focus:ring-pink-200'
-                    : 'border-blue-300 bg-white/50 text-blue-900 focus:border-blue-500 focus:ring-4 focus:ring-blue-200'
-                }
-                focus:outline-none
-                disabled:opacity-50 disabled:cursor-not-allowed
-              `}
-            />
+            <div className="flex justify-center gap-3" dir="ltr" onPaste={(event) => {
+              const pasted = event.clipboardData.getData('text').replace(/[^0-9۰-۹٠-٩]/g, '')
+                .replace(/[۰-۹]/g, digit => String('۰۱۲۳۴۵۶۷۸۹'.indexOf(digit)))
+                .replace(/[٠-٩]/g, digit => String('٠١٢٣٤٥٦٧٨٩'.indexOf(digit)))
+                .slice(0, 4);
+              if (!pasted) return;
+              event.preventDefault();
+              setOtpCode(pasted);
+              setError(null);
+              inputRefs.current[Math.min(pasted.length, 3)]?.focus();
+            }}>
+              {Array.from({ length: 4 }, (_, index) => (
+                <input
+                  key={index}
+                  ref={(element) => { inputRefs.current[index] = element; }}
+                  type="text"
+                  inputMode="numeric"
+                  autoComplete={index === 0 ? 'one-time-code' : 'off'}
+                  autoFocus={index === 0}
+                  maxLength={1}
+                  aria-label={`رقم ${index + 1} کد تایید`}
+                  value={otpCode[index] || ''}
+                  onChange={(event) => {
+                    const digit = event.target.value.replace(/[^0-9۰-۹٠-٩]/g, '')
+                      .replace(/[۰-۹]/g, value => String('۰۱۲۳۴۵۶۷۸۹'.indexOf(value)))
+                      .replace(/[٠-٩]/g, value => String('٠١٢٣٤٥٦٧٨٩'.indexOf(value)))
+                      .slice(-1);
+                    const nextCode = otpCode.padEnd(4, ' ').split('');
+                    nextCode[index] = digit;
+                    setOtpCode(nextCode.join('').replace(/\s/g, ''));
+                    setError(null);
+                    if (digit && index < 3) inputRefs.current[index + 1]?.focus();
+                  }}
+                  onKeyDown={(event) => {
+                    if (event.key === 'Backspace' && !otpCode[index] && index > 0) {
+                      inputRefs.current[index - 1]?.focus();
+                    }
+                    if (event.key === 'Enter' && otpCode.length === 4) handleVerifyOTP();
+                  }}
+                  disabled={isVerifying || timeLeft === 0}
+                  className={`h-14 w-14 rounded-xl border-2 text-center text-2xl font-black transition focus:outline-none focus:ring-4
+                    ${error
+                      ? 'border-red-400 bg-red-50 text-red-700 focus:ring-red-200'
+                      : isGirls
+                        ? 'border-pink-300 bg-white/70 text-pink-900 focus:border-pink-500 focus:ring-pink-200'
+                        : 'border-blue-300 bg-white/70 text-blue-900 focus:border-blue-500 focus:ring-blue-200'
+                    }
+                    disabled:opacity-50 disabled:cursor-not-allowed
+                  `}
+                />
+              ))}
+            </div>
             {error && (
               <motion.div
                 initial={{ opacity: 0, y: -10 }}
@@ -263,9 +310,9 @@ export default function OTPVerificationModal({
           {/* دکمه تایید */}
           <button
             onClick={handleVerifyOTP}
-            disabled={otpCode.length !== 6 || isVerifying || timeLeft === 0}
+            disabled={otpCode.length !== 4 || isVerifying || timeLeft === 0}
             className={`w-full py-4 rounded-2xl font-black text-white text-lg transition-all transform
-              ${(isVerifying || otpCode.length !== 6 || timeLeft === 0)
+              ${(isVerifying || otpCode.length !== 4 || timeLeft === 0)
                 ? 'opacity-50 cursor-not-allowed'
                 : 'hover:scale-105 active:scale-95'
               }

@@ -437,7 +437,20 @@ export async function apiRegister(payload: Record<string, any>): Promise<ApiResu
         data: newUser,
         updated_at: new Date().toISOString(),
       });
-      if (!error) {
+      if (error) {
+        const message = String(error.message || '');
+        const accessDenied = /permission denied|401|Unauthorized|row level security|RLS/i.test(message);
+        if (accessDenied) {
+          return {
+            ok: false,
+            error: {
+              code: 'DB_PERMISSION_DENIED',
+              message: 'ثبت‌نام متوقف شد: دسترسی به جدول‌های Supabase مجاز نیست. مجوزهای RLS و جدول‌ها را در Supabase فعال کنید.'
+            }
+          };
+        }
+        console.warn('[WarRoom Supabase Auth] ذخیره آنلاین با خطا مواجه شد؛ انتقال به صف آفلاین:', error);
+      } else {
         savedToRemote = true;
         try {
           await supabase.from('warroom_credentials').upsert({

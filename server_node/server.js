@@ -8,14 +8,11 @@ const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
 const otpRoutes = require('./routes/otpRoutes');
+const authRoutes = require('./routes/authRoutes');
 const { apiLimiter } = require('./middleware/rateLimiter');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
-
-// Routes
-const otpRoutes = require('./routes/otpRoutes');
-const authRoutes = require('./routes/authRoutes');
 
 // ===== امنیت و Middleware =====
 

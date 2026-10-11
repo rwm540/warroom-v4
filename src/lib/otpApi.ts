@@ -9,6 +9,8 @@ export interface OTPSendResponse {
   message: string;
   phone?: string;
   expiresIn?: number;
+  maskedPhone?: string;
+  challengeToken?: string;
   error?: string;
 }
 
@@ -16,10 +18,18 @@ export interface OTPVerifyResponse {
   success: boolean;
   message: string;
   token?: string;
+  accessToken?: string;
+  refreshToken?: string;
+  tokenType?: string;
+  expiresIn?: number;
   user?: {
     id: string;
-    firstName: string;
-    lastName: string;
+    first_name?: string;
+    last_name?: string;
+    firstName?: string;
+    lastName?: string;
+    national_code?: string;
+    role?: string;
   };
   error?: string;
 }
@@ -53,14 +63,14 @@ export async function sendOtpByNationalCode(nationalCode: string): Promise<OTPSe
 /**
  * تایید کد OTP وارد شده توسط کاربر
  */
-export async function verifyOtp(nationalCode: string, code: string): Promise<OTPVerifyResponse> {
+export async function verifyOtp(nationalCode: string, code: string, challengeToken?: string): Promise<OTPVerifyResponse> {
   try {
     const response = await fetch(`${OTP_API_BASE}/verify`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json'
       },
-      body: JSON.stringify({ nationalCode, code })
+      body: JSON.stringify({ nationalCode, code, challengeToken: challengeToken || '' })
     });
 
     const data = await response.json();

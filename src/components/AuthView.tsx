@@ -183,18 +183,17 @@ export default function AuthView({
     return null;
   });
 
-  // 🚀 ورود خودکار به پنل کاربری یا پنل ادمین در صورت وجود نشست ذخیره‌شده (بدون نیاز به کلیک مجدد)
+  // � در صفحه احراز هویت، ورود خودکار فقط پس از تأیید OTP و ارائه‌ی صریح کاربر مجاز است.
+  // اگر نشست ذخیره‌شده وجود داشته باشد، آن را فقط برای بررسی وضعیت نگه می‌داریم و
+  // از پرش ناخواسته به صفحه‌ی اصلی / پنل جلوگیری می‌کنیم.
   useEffect(() => {
-    if (activeSessionUser) {
-      if (activeSessionUser.is_blocked) {
-        localStorage.removeItem('warroom_current_user_id');
-        localStorage.removeItem('warroom_current_user_data');
-        setActiveSessionUser(null);
-        return;
-      }
-      onLoginSuccess(activeSessionUser);
+    if (!activeSessionUser) return;
+    if (activeSessionUser.is_blocked) {
+      localStorage.removeItem('warroom_current_user_id');
+      localStorage.removeItem('warroom_current_user_data');
+      setActiveSessionUser(null);
     }
-  }, [activeSessionUser, onLoginSuccess]);
+  }, [activeSessionUser]);
 
   // Auto-detect registered user profile gender upon entering National ID or Personal Code
   useEffect(() => {
@@ -228,14 +227,24 @@ export default function AuthView({
   const [otpChallengeToken, setOtpChallengeToken] = useState('');
   const [otpMaskedPhone, setOtpMaskedPhone] = useState('');
 
-  const startOtpFlow = async (user: User, meta?: any) => {
+  const startOtpFlow = async (user: User, meta?: any): Promise<boolean> => {
     setPendingUser(user);
     setPendingMeta(meta);
     const nationalCode = normalizeToEnglishDigits(user.national_code || user.nationalCode || '');
+    if (!nationalCode) {
+      const message = 'کد ملی کاربر نامعتبر است. لطفاً دوباره تلاش کنید.';
+      if (activeTab === 'register') setRegisterError(message);
+      else setLoginError(message);
+      triggerAlert(message);
+      return false;
+    }
     const result = await sendOtpByNationalCode(nationalCode);
     if (!result.success) {
-      triggerAlert(result.error || 'ارسال کد تأیید ناموفق بود.');
-      return;
+      const message = result.error || 'ارسال کد تأیید ناموفق بود.';
+      if (activeTab === 'register') setRegisterError(message);
+      else setLoginError(message);
+      triggerAlert(message);
+      return false;
     }
     setOtpChallengeToken(result.challengeToken || '');
     setOtpMaskedPhone(result.maskedPhone || user.phone || '');
@@ -243,6 +252,7 @@ export default function AuthView({
     triggerAlert(result.maskedPhone
       ? `کد تأیید به شماره ${result.maskedPhone} ارسال شد.`
       : 'در صورت وجود حساب، کد تأیید ارسال شد.');
+    return true;
   };
 
   // Forgot Password States (Mobile number validation & synthetic password generation)
@@ -419,8 +429,10 @@ export default function AuthView({
     setUsers(prev => [...prev.filter(u => u.id !== leaderUser.id), leaderUser]);
     lockTheme();
 
-    triggerAlert(`ثبت‌نام با موفقیت انجام شد! گروه «${group.name}» ساخته شد. خوش آمدید ${firstName} ${lastName}`);
-    startOtpFlow(leaderUser, { mustChangePassword: res.data.mustChangePassword, isNewRegistration: true });
+    const otpStarted = await startOtpFlow(leaderUser, { mustChangePassword: res.data.mustChangePassword, isNewRegistration: true });
+    if (!otpStarted) {
+      setShowOtpModal(false);
+    }
   };
 
   // Handle Login Submission
@@ -461,8 +473,10 @@ export default function AuthView({
       const targetTheme = serverUser.gender === 'دختر' ? 'girls' : 'boys';
       setSelectedGender(serverUser.gender);
 
-      triggerAlert(`خوش آمدید ${serverUser.first_name} ${serverUser.last_name}`);
-      startOtpFlow(serverUser, { mustChangePassword: res.data.mustChangePassword });
+      const otpStarted = await startOtpFlow(serverUser, { mustChangePassword: res.data.mustChangePassword });
+      if (!otpStarted) {
+        setShowOtpModal(false);
+      }
       return;
     }
 

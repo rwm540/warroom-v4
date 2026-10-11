@@ -4,11 +4,11 @@
 const crypto = require('crypto');
 
 /**
- * تولید کد OTP شش رقمی امن
- * @returns {string} کد ۶ رقمی
+ * تولید کد OTP چهار رقمی امن
+ * @returns {string} کد ۴ رقمی
  */
 function generateOTP() {
-  return crypto.randomInt(100000, 1000000).toString();
+  return crypto.randomInt(1000, 10000).toString();
 }
 
 /**

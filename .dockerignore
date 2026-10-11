@@ -1,10 +1,16 @@
 node_modules
+**/node_modules
 dist
 .git
 .gitignore
 .env
 .env.*
 !.env.example
+**/.env
+**/.env.*
+!**/.env.example
 npm-debug.log*
 Dockerfile
 docker-compose.yml
+coverage
+*.log

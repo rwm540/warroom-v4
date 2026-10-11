@@ -1,5 +1,7 @@
 # 🔗 راهنمای یکپارچه‌سازی فرانت‌اند React با سرور OTP
 
+> نمونه‌های مستقیم localhost در این راهنمای تاریخی برای Production مناسب نیستند. فرانت‌اند فعلی از مسیرهای same-origin `/api/auth` و `/api/otp` استفاده می‌کند؛ مرجع: [../../docs/deployment-auth.md](../../docs/deployment-auth.md).
+
 این راهنما نحوه اتصال کامپوننت `AuthView.tsx` به سرور Node.js OTP را توضیح می‌دهد.
 
 ---
@@ -25,7 +27,7 @@ const handleLoginSubmit = async (e: React.FormEvent) => {
   try {
     setIsSubmitting(true);
     
-    const otpResponse = await fetch('http://localhost:5000/api/otp/send', {
+    const otpResponse = await fetch('http://localhost:4010/api/otp/send', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json'
@@ -74,7 +76,7 @@ const handleVerifyOtpSubmit = async (e: React.FormEvent) => {
   try {
     setIsSubmitting(true);
 
-    const verifyResponse = await fetch('http://localhost:5000/api/otp/verify', {
+    const verifyResponse = await fetch('http://localhost:4010/api/otp/verify', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json'
@@ -175,7 +177,7 @@ return (
 ### فایل `src/services/otpService.ts`
 
 ```typescript
-const OTP_API_BASE = 'http://localhost:5000/api/otp';
+const OTP_API_BASE = '/api/otp';
 
 export interface OTPSendResponse {
   success: boolean;
@@ -344,13 +346,12 @@ const handleVerifyOTP = async () => {
 ### فایل `.env` در ریشه پروژه React
 
 ```env
-VITE_OTP_API_URL=http://localhost:5000/api/otp
-```
+# Current frontend uses same-origin /api routes; do not set an OTP API URL.```
 
 ### استفاده در کد
 
 ```typescript
-const OTP_API_BASE = import.meta.env.VITE_OTP_API_URL || 'http://localhost:5000/api/otp';
+const OTP_API_BASE = '/api/otp';
 ```
 
 ---
@@ -508,7 +509,7 @@ const testOTPFlow = async () => {
 ```typescript
 const API_BASE_URL = process.env.NODE_ENV === 'production'
   ? 'https://api.warroom-game.ir'
-  : 'http://localhost:5000';
+  : 'http://localhost:4010';
 ```
 
 ### CORS در Production

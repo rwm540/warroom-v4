@@ -20,12 +20,9 @@ import {
 /* ------------------------------------------------------------------ */
 /* اس‌یوپیابیس (Supabase) کلاینت — پلتفرم اتاق جنگ                       */
 /* ------------------------------------------------------------------ */
-const defaultUrl = 'https://dewfcjxlfolwvxqofocc.supabase.co';
-const defaultAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRld2ZjanhsZm9sd3Z4cW9mb2NjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODkzNzA5OTAsImV4cCI6MjEwNDk0Njk5MH0.FeF-fQOxTovo9glRr_qnE6NkSVTKVwuBKP2oDxKQPnY';
-const defaultPublishableKey = 'sb_publishable_lKVXnauR3xtIlsqmKWuVog_HOtRK97j';
 const runtimeEnv = (import.meta as ImportMeta & { env?: Record<string, string | undefined> }).env;
 
-const supabaseUrl = runtimeEnv?.VITE_SUPABASE_URL?.trim() || defaultUrl;
+const supabaseUrl = runtimeEnv?.VITE_SUPABASE_URL?.trim() || '';
 const supabasePublishableKey = runtimeEnv?.VITE_SUPABASE_PUBLISHABLE_KEY?.trim();
 const supabasePublicKey = runtimeEnv?.VITE_SUPABASE_PUBLIC_KEY?.trim();
 const supabaseAnonKey = runtimeEnv?.VITE_SUPABASE_ANON_KEY?.trim();
@@ -34,7 +31,7 @@ function pickActiveKey(): string {
   if (supabaseAnonKey && supabaseAnonKey.length > 15) return supabaseAnonKey;
   if (supabasePublishableKey && supabasePublishableKey.length > 15) return supabasePublishableKey;
   if (supabasePublicKey && supabasePublicKey.length > 15) return supabasePublicKey;
-  return defaultAnonKey;
+  return '';
 }
 
 const activeKey = pickActiveKey();
@@ -90,7 +87,7 @@ export async function checkSupabaseHealth(): Promise<{ ok: boolean; message: str
     const { error } = await supabase.from('warroom_kv').select('id').limit(1);
     if (error) {
       const hint = error.code === '42P01'
-        ? ' ⚠️ جدول‌های سرور وجود ندارند — فایل Query.sql را در ویرایشگر SQL اجرا کنید.'
+        ? ' ⚠️ جدول‌های سرور وجود ندارند — migrationهای Supabase را بررسی و دستی اجرا کنید.'
         : error.message?.includes('JWT') || error.code?.startsWith('401')
           ? ' ⚠️ کلید API نامعتبر است — تنظیمات دسترسی API را بررسی کنید.'
           : '';

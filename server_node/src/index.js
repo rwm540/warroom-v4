@@ -4,7 +4,6 @@ import cors from 'cors';
 import rateLimit from 'express-rate-limit';
 import { config } from './config.js';
 import otpRouter from './routes/otp.js';
-import authRouter from './routes/auth.js';
 
 const app = express();
 app.disable('x-powered-by');
@@ -24,7 +23,7 @@ app.use(cors({
     callback(new Error('CORS_DENIED'));
   },
   credentials: false,
-  methods: ['GET', 'POST', 'OPTIONS'],
+  methods: ['GET', 'POST', 'PATCH', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization'],
   maxAge: 600,
 }));
@@ -39,17 +38,18 @@ app.use(rateLimit({
   message: { error: 'RATE_LIMITED', message: 'درخواست‌های زیادی ارسال شده است.' },
 }));
 
-app.get('/health', (_req, res) => {
+const healthHandler = (_req, res) => {
   res.json({
     ok: true,
     service: 'warroom-server-node',
-    smsConfigured: Boolean(config.ippanelKey),
-    dbConfigured: Boolean(config.supabaseUrl && (config.supabaseServiceRoleKey || config.supabaseAnonKey)),
+    smsConfigured: Boolean(config.ippanelKey && config.ippanelFrom),
+    dbConfigured: Boolean(config.supabaseUrl && config.supabaseServiceRoleKey),
   });
-});
+};
+app.get('/health', healthHandler);
+app.get('/api/health', healthHandler);
 
 app.use('/api/otp', otpRouter);
-app.use('/api/auth', authRouter);
 
 app.use((err, _req, res, _next) => {
   const status = Number(err.status || (err.message === 'CORS_DENIED' ? 403 : 500));
@@ -62,6 +62,6 @@ app.use((err, _req, res, _next) => {
   });
 });
 
-app.listen(config.port, '127.0.0.1', () => {
-  console.info(`[warroom-server-node] listening on 127.0.0.1:${config.port}`);
+app.listen(config.port, config.host, () => {
+  console.info(`[warroom-server-node] listening on ${config.host}:${config.port}`);
 });

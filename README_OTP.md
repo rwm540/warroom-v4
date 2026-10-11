@@ -1,5 +1,7 @@
 # 🛡️ سیستم OTP اتاق جنگ
 
+> برای معماری فعلی، تنظیمات محیطی، اجرای محلی و استقرار Docker به [docs/deployment-auth.md](docs/deployment-auth.md) مراجعه کنید.
+
 ## ⚡ راه‌اندازی سریع (5 دقیقه)
 
 ### 1. نصب وابستگی‌ها
@@ -18,7 +20,7 @@ npm install
 
 1. به پنل Supabase بروید: https://dewfcjxlfolwvxqofocc.supabase.co
 2. SQL Editor را باز کنید
-3. فایل `query.sql` را اجرا کنید
+3. فایل `supabase/migrations/20261011000000_warroom_schema.sql` را اجرا کنید
 
 ### 3. راه‌اندازی سرور
 
@@ -37,7 +39,7 @@ npm run dev
 
 ```bash
 # سلامت سرور
-curl http://localhost:5000/health
+curl http://localhost:4010/health
 
 # باید این پاسخ را ببینید:
 # {"status":"OK","service":"WarRoom OTP Server"}

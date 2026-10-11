@@ -1,5 +1,7 @@
 # 📋 خلاصه تغییرات پروژه اتاق جنگ
 
+> این سند تاریخی است؛ جزئیات اجرایی فعلی و روند استقرار در [docs/deployment-auth.md](docs/deployment-auth.md) نگهداری می‌شود.
+
 ## 🎯 هدف
 
 پیاده‌سازی سیستم امن OTP (کد تایید یکبار مصرف) با ارسال پیامک از طریق IPPanel و اتصال به Supabase
@@ -17,7 +19,7 @@
 #### تنظیمات:
 ```env
 VITE_SUPABASE_URL=https://dewfcjxlfolwvxqofocc.supabase.co
-VITE_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+VITE_SUPABASE_PUBLISHABLE_KEY=your_supabase_publishable_key
 ```
 
 **✅ اتصال به Supabase قبلاً در کد پروژه وجود داشت و فعال است**
@@ -42,7 +44,7 @@ VITE_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
 
 ### 3. **جدول OTP در Supabase** ✅
 
-#### تغییرات در `query.sql`:
+#### تغییرات در `supabase/migrations/20261011000000_warroom_schema.sql`:
 ```sql
 -- جدول اصلی OTP (قبلاً وجود داشت و کامل است)
 create table if not exists public.warroom_otp_codes (
@@ -72,7 +74,7 @@ create table warroom_otp_failed_attempts (
 );
 ```
 
-**⚠️ توجه:** جدول OTP با امنیت بالا قبلاً در `query.sql` وجود دارد!
+**⚠️ توجه:** جدول OTP با امنیت بالا قبلاً در `supabase/migrations/20261011000000_warroom_schema.sql` وجود دارد!
 
 ---
 
@@ -203,7 +205,7 @@ Content-Type: application/json
 ### 7. **تنظیمات IPPanel** ✅
 
 ```javascript
-IPPANEL_API_KEY=YTJmMzJjMGEtMDcyZi00YmZkLWE4NTUtNDc3ZDM1NGUwNzY0...
+IPPANEL_API_KEY=<configure-in-private-environment>
 IPPANEL_FROM_NUMBER=+9890004939
 ```
 
@@ -241,7 +243,7 @@ npm install
 
 1. به Supabase Dashboard بروید
 2. SQL Editor را باز کنید
-3. محتوای فایل `query.sql` را کپی و اجرا کنید
+3. محتوای فایل `supabase/migrations/20261011000000_warroom_schema.sql` را کپی و اجرا کنید
 
 ### مرحله 3: راه‌اندازی سرور Node.js
 
@@ -249,7 +251,7 @@ npm install
 npm start
 ```
 
-سرور روی `http://localhost:5000` راه‌اندازی می‌شود.
+سرور روی `http://localhost:4010` راه‌اندازی می‌شود.
 
 ### مرحله 4: راه‌اندازی React
 
@@ -267,7 +269,7 @@ npm run dev
 ### تست 1: ارسال OTP
 
 ```bash
-curl -X POST http://localhost:5000/api/otp/send \
+curl -X POST http://localhost:4010/api/otp/send \
   -H "Content-Type: application/json" \
   -d '{"nationalCode":"0123456789"}'
 ```
@@ -275,7 +277,7 @@ curl -X POST http://localhost:5000/api/otp/send \
 ### تست 2: تایید OTP
 
 ```bash
-curl -X POST http://localhost:5000/api/otp/verify \
+curl -X POST http://localhost:4010/api/otp/verify \
   -H "Content-Type: application/json" \
   -d '{"nationalCode":"0123456789","code":"123456"}'
 ```
@@ -283,7 +285,7 @@ curl -X POST http://localhost:5000/api/otp/verify \
 ### تست 3: Health Check
 
 ```bash
-curl http://localhost:5000/health
+curl http://localhost:4010/health
 ```
 
 ---

@@ -1,5 +1,7 @@
 # 🛡️ سرور OTP اتاق جنگ
 
+> این README شامل نمونه‌های تاریخی است. پیکربندی و روش اجرای جاری در [../docs/deployment-auth.md](../docs/deployment-auth.md) آمده است.
+
 سرور امن Node.js + Express برای ارسال و اعتبارسنجی کد تایید (OTP) با IPPanel و Supabase
 
 ---
@@ -21,7 +23,7 @@
 - Node.js v16 یا بالاتر
 - حساب فعال IPPanel با خط اختصاصی
 - دیتابیس Supabase راه‌اندازی شده
-- اجرای فایل `query.sql` در Supabase SQL Editor
+- اجرای فایل `supabase/migrations/20261011000000_warroom_schema.sql` در Supabase SQL Editor
 
 ---
 
@@ -39,15 +41,15 @@ npm install
 فایل `.env` را بسازید (از `.env.example` کپی کنید):
 
 ```bash
-PORT=5000
+PORT=4010
 
-IPPANEL_API_KEY=YTJmMzJjMGEtMDcyZi00YmZkLWE4NTUtNDc3ZDM1NGUwNzY0MjhkZGIwZWY0ZmI4MGQ5Njc4NTkxNGJhMDFkY2VhODc=
+IPPANEL_API_KEY=<configure-in-private-environment>
 IPPANEL_FROM_NUMBER=+9890004939
 
 SUPABASE_URL=https://dewfcjxlfolwvxqofocc.supabase.co
-SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+SUPABASE_ANON_KEY=<configure-in-private-environment>
 
-JWT_SECRET=warroom_super_secure_jwt_secret_key_2026
+JWT_SECRET=<configure-in-private-environment>
 
 NODE_ENV=production
 ```
@@ -66,7 +68,7 @@ npm run dev
 
 سرور روی پورت 5000 راه‌اندازی می‌شود:
 ```
-http://localhost:5000
+http://localhost:4010
 ```
 
 ---
@@ -198,14 +200,14 @@ Content-Type: application/json
 
 ### تست ارسال OTP:
 ```bash
-curl -X POST http://localhost:5000/api/otp/send \
+curl -X POST http://localhost:4010/api/otp/send \
   -H "Content-Type: application/json" \
   -d "{\"nationalCode\":\"0123456789\"}"
 ```
 
 ### تست تایید OTP:
 ```bash
-curl -X POST http://localhost:5000/api/otp/verify \
+curl -X POST http://localhost:4010/api/otp/verify \
   -H "Content-Type: application/json" \
   -d "{\"nationalCode\":\"0123456789\",\"code\":\"123456\"}"
 ```
@@ -257,10 +259,10 @@ curl -X POST http://localhost:5000/api/otp/verify \
 
 ```bash
 # بررسی متغیرهای محیطی
-node -e "require('dotenv').config(); console.log(process.env.IPPANEL_API_KEY)"
+node -e "require('dotenv').config(); console.log(Boolean(process.env.IPPANEL_API_KEY))"
 
 # بررسی پورت
-netstat -ano | findstr :5000
+netstat -ano | findstr :4010
 ```
 
 ### پیامک ارسال نمی‌شود
@@ -306,7 +308,7 @@ SELECT data->>'phone' FROM warroom_users WHERE id = '0123456789';
 ```javascript
 // ارسال کد
 const sendOTP = async (nationalCode) => {
-  const response = await fetch('http://localhost:5000/api/otp/send', {
+  const response = await fetch('http://localhost:4010/api/otp/send', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ nationalCode })
@@ -316,7 +318,7 @@ const sendOTP = async (nationalCode) => {
 
 // تایید کد
 const verifyOTP = async (nationalCode, code) => {
-  const response = await fetch('http://localhost:5000/api/otp/verify', {
+  const response = await fetch('http://localhost:4010/api/otp/verify', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ nationalCode, code })

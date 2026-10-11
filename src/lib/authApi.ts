@@ -2,7 +2,7 @@
  * API برای ثبت‌نام و ورود کاربر
  */
 
-const AUTH_API_BASE = import.meta.env.VITE_OTP_API_URL?.replace('/otp', '/auth') || 'http://localhost:5000/api/auth';
+import { apiCheckNationalCodeExists, apiLogin, apiRegister } from './backendApi';
 
 export interface RegisterData {
   firstName: string;
@@ -13,6 +13,12 @@ export interface RegisterData {
   gender: 'دختر' | 'پسر';
   password: string;
   groupName?: string;
+  personalCode?: string;
+  educationLevel?: string;
+  grade?: string;
+  province?: string;
+  city?: string;
+  schoolName?: string;
 }
 
 export interface RegisterResponse {
@@ -24,7 +30,12 @@ export interface RegisterResponse {
     lastName: string;
     phone: string;
     gender: string;
+    national_code?: string;
+    [field: string]: unknown;
   };
+  group?: Record<string, unknown>;
+  mustChangePassword?: boolean;
+  otpProof?: string;
   error?: string;
 }
 
@@ -32,44 +43,35 @@ export interface RegisterResponse {
  * ثبت‌نام کاربر جدید
  */
 export async function registerUser(data: RegisterData): Promise<RegisterResponse> {
-  try {
-    const response = await fetch(`${AUTH_API_BASE}/register`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify(data)
-    });
+  const result = await apiRegister({
+    first_name: data.firstName,
+    last_name: data.lastName,
+    national_code: data.nationalCode,
+    phone: data.phone,
+    birth_date: data.birthDate,
+    gender: data.gender,
+    password: data.password,
+    group_name: data.groupName,
+    personal_code: data.personalCode,
+    education_level: data.educationLevel,
+    grade: data.grade,
+    province: data.province,
+    city: data.city,
+    school_name: data.schoolName,
+  });
+  if (!result.ok || !result.data) return { success: false, error: result.error?.message || 'ثبت‌نام در Supabase ناموفق بود.' };
+  return { success: true, message: 'پروفایل در Supabase ذخیره شد.', user: result.data.user as RegisterResponse['user'], mustChangePassword: result.data.mustChangePassword };
+}
 
-    const result = await response.json();
-    return result;
-  } catch (error) {
-    console.error('خطا در ثبت‌نام:', error);
-    return {
-      success: false,
-      message: 'خطا در ارتباط با سرور',
-      error: error instanceof Error ? error.message : 'Unknown error'
-    };
-  }
+export async function loginUser(nationalCode: string, password: string): Promise<RegisterResponse> {
+  const result = await apiLogin(nationalCode, password);
+  if (!result.ok || !result.data) return { success: false, error: result.error?.message || 'ورود ناموفق بود.' };
+  return { success: true, message: 'رمز عبور در Supabase تأیید شد.', user: result.data.user as RegisterResponse['user'], mustChangePassword: result.data.mustChangePassword };
 }
 
 /**
  * بررسی وجود کد ملی
  */
 export async function checkNationalCodeExists(nationalCode: string): Promise<boolean> {
-  try {
-    const response = await fetch(`${AUTH_API_BASE}/check-national-code`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({ nationalCode })
-    });
-
-    const result = await response.json();
-    return result.exists === true;
-  } catch (error) {
-    console.error('خطا در بررسی کد ملی:', error);
-    return false;
-  }
+  return apiCheckNationalCodeExists(nationalCode);
 }

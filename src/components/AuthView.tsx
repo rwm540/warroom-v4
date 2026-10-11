@@ -38,18 +38,10 @@ import PersianDatePicker from './PersianDatePicker';
 import RadarLoading from './RadarLoading';
 import OTPVerificationModal from './OTPVerificationModal';
 import { sendOtpByNationalCode } from '../lib/otpApi';
-import { isSupabaseEnabled, sha256Hex } from '../lib/supabaseData';
 import { createGroupRecord, MAX_GROUP_MEMBERS } from '../lib/groupRegistration';
+import { loginUser, registerUser } from '../lib/authApi';
 import {
-  probeBackend,
-  subscribeBackendStatus,
-  getBackendStatus,
-  apiLogin,
-  apiRegister,
-  apiCheckNationalCodeExists,
   requestPasswordReset,
-  checkPasswordResetStatus,
-  type BackendStatus
 } from '../lib/backendApi';
 
 const WARROOM_LOGO_PATH = '/images/logos/warroom_logo.webp';
@@ -59,7 +51,7 @@ interface AuthViewProps {
   setUsers: React.Dispatch<React.SetStateAction<User[]>>;
   groups: Group[];
   setGroups: React.Dispatch<React.SetStateAction<Group[]>>;
-  onLoginSuccess: (user: User, meta?: { mustChangePassword?: boolean; isNewRegistration?: boolean }) => void;
+  onLoginSuccess: (user: User, meta?: { mustChangePassword?: boolean; isNewRegistration?: boolean; otpProof?: string }) => void;
   /** ثبت درخواست تغییر رمز در «حالت محلی» (زمانی که بک‌اند امن در دسترس نیست) */
   createLocalPasswordResetRequest?: (input: {
     nationalCode: string;
@@ -169,32 +161,6 @@ export default function AuthView({
   const [loginError, setLoginError] = useState<string | null>(null);
   const [detectedUser, setDetectedUser] = useState<User | null>(null);
 
-  // Detect if there is already a saved active user session
-  const [activeSessionUser, setActiveSessionUser] = useState<User | null>(() => {
-    try {
-      const savedUserData = localStorage.getItem('warroom_current_user_data');
-      if (savedUserData) return JSON.parse(savedUserData);
-      const savedId = localStorage.getItem('warroom_current_user_id');
-      if (savedId) {
-        const found = users.find(u => u.id === savedId);
-        if (found) return found;
-      }
-    } catch (e) {}
-    return null;
-  });
-
-  // � در صفحه احراز هویت، ورود خودکار فقط پس از تأیید OTP و ارائه‌ی صریح کاربر مجاز است.
-  // اگر نشست ذخیره‌شده وجود داشته باشد، آن را فقط برای بررسی وضعیت نگه می‌داریم و
-  // از پرش ناخواسته به صفحه‌ی اصلی / پنل جلوگیری می‌کنیم.
-  useEffect(() => {
-    if (!activeSessionUser) return;
-    if (activeSessionUser.is_blocked) {
-      localStorage.removeItem('warroom_current_user_id');
-      localStorage.removeItem('warroom_current_user_data');
-      setActiveSessionUser(null);
-    }
-  }, [activeSessionUser]);
-
   // Auto-detect registered user profile gender upon entering National ID or Personal Code
   useEffect(() => {
     const natId = normalizeToEnglishDigits(loginNationalId.trim());
@@ -226,6 +192,7 @@ export default function AuthView({
   const [pendingMeta, setPendingMeta] = useState<any>(null);
   const [otpChallengeToken, setOtpChallengeToken] = useState('');
   const [otpMaskedPhone, setOtpMaskedPhone] = useState('');
+  const [otpExpiresIn, setOtpExpiresIn] = useState(300);
 
   const startOtpFlow = async (user: User, meta?: any): Promise<boolean> => {
     setPendingUser(user);
@@ -239,7 +206,7 @@ export default function AuthView({
       return false;
     }
     const result = await sendOtpByNationalCode(nationalCode);
-    if (!result.success) {
+    if (!result.success || !result.challengeToken) {
       const message = result.error || 'ارسال کد تأیید ناموفق بود.';
       if (activeTab === 'register') setRegisterError(message);
       else setLoginError(message);
@@ -248,6 +215,7 @@ export default function AuthView({
     }
     setOtpChallengeToken(result.challengeToken || '');
     setOtpMaskedPhone(result.maskedPhone || user.phone || '');
+    setOtpExpiresIn(result.expiresIn || 300);
     setShowOtpModal(true);
     triggerAlert(result.maskedPhone
       ? `کد تأیید به شماره ${result.maskedPhone} ارسال شد.`
@@ -272,46 +240,14 @@ export default function AuthView({
       return;
     }
 
-    const foundUser = users.find(u => normalizeToEnglishDigits(u.phone || '').replace(/\D/g, '') === phone);
-    if (!foundUser) {
-      setForgotError('شماره موبایلی با این مشخصات در سامانه یافت نشد.');
+    const result = await requestPasswordReset({ phone });
+    if (!result.ok || !result.data) {
+      setForgotError(result.error?.message || 'ثبت درخواست بازیابی ممکن نشد.');
       return;
     }
-
-    const uppers = 'ABCDEFGHJKLMNPQRSTUVWXYZ';
-    const lowers = 'abcdefghjkmnpqrstuvwxyz';
-    const digits = '23456789';
-    const newPass = [
-      uppers[Math.floor(Math.random() * uppers.length)],
-      uppers[Math.floor(Math.random() * uppers.length)],
-      lowers[Math.floor(Math.random() * lowers.length)],
-      lowers[Math.floor(Math.random() * lowers.length)],
-      digits[Math.floor(Math.random() * digits.length)],
-      digits[Math.floor(Math.random() * digits.length)],
-      digits[Math.floor(Math.random() * digits.length)],
-      '#7'
-    ].sort(() => 0.5 - Math.random()).join('');
-
-    const hashed = await sha256Hex(newPass);
-    setUsers(prev => prev.map(u => u.id === foundUser.id ? { ...u, password: hashed } : u));
-
-    setForgotResultPassword(newPass);
-    triggerAlert('رمز عبور جدید با موفقیت ایجاد شد.');
+    setForgotResultPassword(result.data.trackingCode);
+    triggerAlert(result.data.message);
   };
-
-  // 🛡️ «راه‌اندازی نخستین رمز مدیر» در حالت محلی (بدون بک‌اند)
-  //    در حالت امن، رمز مدیر فقط توسط سرور ساخته می‌شود و این بخش فعال نیست.
-  const [localAdminSetup, setLocalAdminSetup] = useState(false);
-  const [localAdminPassword, setLocalAdminPassword] = useState('');
-  const [localAdminPasswordConfirm, setLocalAdminPasswordConfirm] = useState('');
-
-  // 🛡️ وضعیت بک‌اند امن (لایه‌های امنیتی سرور)
-  const [backendStatus, setBackendStatus] = useState<BackendStatus | null>(() => getBackendStatus());
-  useEffect(() => {
-    probeBackend();
-    return subscribeBackendStatus(setBackendStatus);
-  }, []);
-  const backendReady = Boolean(backendStatus?.available);
 
   // Handle Unified Register Submission
   const handleRegisterSubmit = async (e: React.FormEvent) => {
@@ -377,39 +313,31 @@ export default function AuthView({
       window.dispatchEvent(new Event('storage'));
     };
 
-    /* ================= 🛡️ مسیر ثبت‌نام مستقیم در Supabase ================= */
-    // بررسی زنده تکراری نبودن کد ملی مستقیماً در جدول Supabase
-    const alreadyInDb = await apiCheckNationalCodeExists(nationalCode);
-    if (alreadyInDb) {
-      setIsSubmitting(false);
-      setRegisterError('این کد ملی قبلاً در سامانه ثبت شده است. لطفاً وارد شوید.');
-      return;
-    }
-
-    const res = await apiRegister({
-      first_name: firstName,
-      last_name: lastName,
-      national_code: nationalCode,
+    const res = await registerUser({
+      firstName,
+      lastName,
+      nationalCode,
       phone,
-      birth_date: birthDate,
+      birthDate,
       gender: selectedGender,
-      education_level: 'متوسطه اول',
+      educationLevel: 'متوسطه اول',
       grade: 'هشتم',
       province: 'تهران',
       city: 'تهران',
-      school_name: 'دبیرستان شهید بهشتی',
-      personal_code: personalCode,
+      schoolName: 'دبیرستان شهید بهشتی',
+      personalCode,
+      groupName,
       password: rawPassword
     });
     setIsSubmitting(false);
 
-    if (!res.ok || !res.data) {
-      setRegisterError(res.error?.message || 'خطا در ثبت‌نام.');
+    if (!res.success || !res.user) {
+      setRegisterError(res.error || res.message || 'خطا در ثبت‌نام.');
       return;
     }
 
-    const serverUser: User = { ...res.data.user, password: '' };
-    const group = createGroupRecord({
+    const serverUser: User = { ...(res.user as unknown as User), password: '' };
+    const group = (res.group as unknown as Group | undefined) || createGroupRecord({
       leaderId: serverUser.id,
       groupName,
       leaderName: `${firstName} ${lastName}`,
@@ -429,7 +357,7 @@ export default function AuthView({
     setUsers(prev => [...prev.filter(u => u.id !== leaderUser.id), leaderUser]);
     lockTheme();
 
-    const otpStarted = await startOtpFlow(leaderUser, { mustChangePassword: res.data.mustChangePassword, isNewRegistration: true });
+    const otpStarted = await startOtpFlow(leaderUser, { mustChangePassword: res.mustChangePassword, isNewRegistration: true });
     if (!otpStarted) {
       setShowOtpModal(false);
     }
@@ -446,178 +374,21 @@ export default function AuthView({
       return;
     }
 
-    /* ================= 🛡️ مسیر امن: بررسی رمز روی سرور ================= */
-    // اگر Supabase پیکربندی شده باشد، حتی در صورت عدم دسترسی موقت دیتابیس،
-    // ورود نباید با حالت محلی جایگزین شود. این کار باعث می‌شود همه‌ی ورود‌ها
-    // از طریق Supabase انجام شوند و رکورد مدیر هم در صورت نبودن، ایجاد شود.
-    const status = await probeBackend();
-    if (isSupabaseEnabled || status.available) {
-      setIsSubmitting(true);
-      const res = await apiLogin(natId, loginPassword);
-      setIsSubmitting(false);
-
-      if (!res.ok || !res.data) {
-        setLoginError(res.error?.message || 'خطا در ورود.');
-        return;
-      }
-
-      const serverUser: User = { ...res.data.user, password: '' };
-      // هم‌گام‌سازی پروفایل در مجموعه محلی (بدون رمز عبور)
-      setUsers(prev => {
-        const exists = prev.some(u => u.id === serverUser.id);
-        return exists
-          ? prev.map(u => (u.id === serverUser.id ? { ...u, ...serverUser, password: '' } : u))
-          : [...prev, serverUser];
-      });
-
-      const targetTheme = serverUser.gender === 'دختر' ? 'girls' : 'boys';
-      setSelectedGender(serverUser.gender);
-
-      const otpStarted = await startOtpFlow(serverUser, { mustChangePassword: res.data.mustChangePassword });
-      if (!otpStarted) {
-        setShowOtpModal(false);
-      }
+    setIsSubmitting(true);
+    const result = await loginUser(natId, loginPassword);
+    setIsSubmitting(false);
+    if (!result.success || !result.user) {
+      setLoginError(result.error || result.message || 'کد ملی یا رمز عبور اشتباه است.');
       return;
     }
 
-    /* ============ حالت محلی (فقط در صورت عدم دسترسی به دیتابیس و در محیط توسعه) ============ */
-    // در نسخه عملیاتی (PROD)، هرگز اجازه ورود مدیر با رمز ثابت داده نمی‌شود.
-    const isProd = import.meta.env.PROD;
-    const isSyntheticAdminAllowed = !isProd && !isSupabaseEnabled;
-    const syntheticAdmin: User | null =
-      isSyntheticAdminAllowed &&
-      natId === '0012345678' &&
-      loginPassword.trim() === 'Admin@123456'
-        ? {
-            id: 'u-admin',
-            first_name: 'امیرحسین',
-            last_name: 'فرماندهی کل',
-            national_code: '0012345678',
-            personal_code: '900000001',
-            phone: '09120000000',
-            birth_date: '1384/01/15',
-            role: 'admin' as const,
-            gender: 'پسر' as const,
-            education_level: 'متوسطه دوم' as EducationLevel,
-            grade: 'دوازدهم',
-            province: 'تهران',
-            city: 'تهران',
-            school_name: 'دبیرستان ماندگار البرز',
-            level: 99,
-            points: 99999,
-            password: '',
-            mustChangePassword: false,
-            completed_stages: [],
-            group_id: undefined,
-            avatar_url: ''
-          }
-        : null;
-
-    if (natId === '0012345678' && isProd) {
-      setLoginError('در محیط عملیاتی، ورود مدیر صرفاً از طریق احراز هویت پایگاه داده انجام می‌شود.');
-      return;
-    }
-
-    if (natId === '0012345678' && !syntheticAdmin) {
-      setLoginError('کد ملی یا رمز عبور اشتباه است.');
-      return;
-    }
-
-    const user = syntheticAdmin || users.find(u =>
-      normalizeToEnglishDigits(u.national_code) === natId ||
-      normalizeToEnglishDigits(u.personal_code) === natId
-    );
-
-    if (!user) {
-      setLoginError('کاربری با این کد ملی یافت نشد. لطفاً ابتدا ثبت‌نام کنید.');
-      return;
-    }
-
-    if (user.is_blocked) {
-      setLoginError('حساب کاربری شما مسدود (بلاک) شده است و امکان ورود ندارید.');
-      return;
-    }
-
-    if (syntheticAdmin) {
-      setUsers(prev => {
-        const exists = prev.some(u => u.id === syntheticAdmin.id);
-        return exists
-          ? prev.map(u => (u.id === syntheticAdmin.id ? { ...u, ...syntheticAdmin, password: '' } : u))
-          : [...prev, { ...syntheticAdmin, password: '' }];
-      });
-      setSelectedGender(syntheticAdmin.gender);
-      triggerAlert(`خوش آمدید ${syntheticAdmin.first_name} ${syntheticAdmin.last_name}`);
-      startOtpFlow({ ...syntheticAdmin, password: '' }, { mustChangePassword: false });
-      return;
-    }
-
-    const suppliedHash = await sha256Hex(loginPassword);
-    const stored = String(user.password || '');
-    const storedIsHash = /^[0-9a-f]{64}$/i.test(stored);
-
-    if (!stored) {
-      if (user.role === 'admin') {
-        // نخستین راه‌اندازی در حالت محلی: تعیین رمز مدیر روی همین دستگاه
-        setLocalAdminSetup(true);
-        setLoginError(
-          'این حساب هنوز رمز عبور ندارد. در حالت محلی، رمز نخستین ورود مدیر را در همین صفحه تعیین کنید.'
-        );
-        return;
-      }
-      setLoginError(
-        'این حساب رمز عبور فعال ندارد. برای دریافت رمز، از گزینه «فراموشی رمز عبور» درخواست دهید تا مدیر سامانه با شما تماس بگیرد.'
-      );
-      return;
-    }
-
-    if (storedIsHash ? stored !== suppliedHash : stored !== loginPassword) {
-      setLoginError('رمز عبور وارد شده صحیح نیست. از گزینه فراموشی رمز عبور استفاده کنید.');
-      return;
-    }
-
-    // ارتقای امنیتی: اگر رمز قدیمی متن‌ساده بود، به هش SHA-256 تبدیل می‌شود
-    if (!storedIsHash) {
-      setUsers(prev => prev.map(u => (u.id === user.id ? { ...u, password: suppliedHash } : u)));
-    }
-
-    setSelectedGender(user.gender);
-
-    triggerAlert(`خوش آمدید ${user.first_name} ${user.last_name}`);
-    startOtpFlow({ ...user, password: '' });
+    const serverUser = { ...(result.user as unknown as User), password: '' };
+    setUsers(prev => prev.some(user => user.id === serverUser.id)
+      ? prev.map(user => user.id === serverUser.id ? { ...user, ...serverUser } : user)
+      : [...prev, serverUser]);
+    setSelectedGender(serverUser.gender);
+    await startOtpFlow(serverUser, { mustChangePassword: result.mustChangePassword });
   };
-
-  /** تعیین رمز مدیر در «حالت محلی» (نخستین راه‌اندازی روی همین دستگاه) */
-  const handleLocalAdminSetup = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoginError(null);
-
-    const admin = users.find(u => u.role === 'admin');
-    if (!admin) return;
-
-    const password = localAdminPassword.trim();
-    if (password.length < 10 || !/[A-Za-z]/.test(password) || !/\d/.test(password) || /\s/.test(password)) {
-      setLoginError('رمز مدیر باید حداقل ۱۰ کاراکتر و شامل حرف لاتین و رقم باشد (بدون فاصله).');
-      return;
-    }
-    if (password !== localAdminPasswordConfirm.trim()) {
-      setLoginError('تکرار رمز با رمز وارد‌شده یکسان نیست.');
-      return;
-    }
-
-    const hashed = await sha256Hex(password);
-    const updatedAdmin: User = { ...admin, password: hashed };
-    setUsers(prev => prev.map(u => (u.id === admin.id ? updatedAdmin : u)));
-
-    setLocalAdminSetup(false);
-    setLocalAdminPassword('');
-    setLocalAdminPasswordConfirm('');
-    triggerAlert('رمز مدیر ثبت شد. ورود شما انجام می‌شود.');
-
-    setSelectedGender(updatedAdmin.gender);
-    startOtpFlow({ ...updatedAdmin, password: '' });
-  };
-
-
 
   return (
     <div className={`min-h-screen flex flex-col items-center justify-center p-2.5 sm:p-4 transition-colors duration-700 dir-rtl font-sans relative overflow-x-hidden ${
@@ -732,16 +503,6 @@ export default function AuthView({
             </button>
           </div>
         </div>
-
-        {/* Active Session Fast Direct Entry Banner */}
-        {activeSessionUser && !activeSessionUser.is_blocked && (
-          <div className="mb-4 p-4 rounded-2xl bg-cyan-950/80 border border-cyan-500/50 shadow-xl flex items-center justify-center gap-3 animate-pulse">
-            <Clock size={18} className="text-cyan-400 animate-spin" />
-            <span className="text-xs font-black text-cyan-200">
-              نشست معتبر شما ذخیره است؛ در حال ورود خودکار به {activeSessionUser.role === 'admin' ? 'پنل مدیریت' : 'پنل کاربری'}...
-            </span>
-          </div>
-        )}
 
         {/* 2. Unified Registration Form */}
         {activeTab === 'register' ? (
@@ -950,44 +711,6 @@ export default function AuthView({
               </div>
             )}
 
-            {/* 🛡️ راه‌اندازی نخستین رمز مدیر در حالت محلی (تنها زمانی که بک‌اند امن در دسترس نیست) */}
-            {localAdminSetup && !backendReady && (
-              <div className="p-3 rounded-2xl bg-amber-950/40 border border-amber-500/50 space-y-2.5">
-                <div className="flex items-center gap-2">
-                  <ShieldAlert size={14} className="text-amber-400" />
-                  <span className="text-[11px] font-black text-amber-200">تعیین رمز نخستین ورود مدیر (حالت محلی)</span>
-                </div>
-                <p className="text-[9px] text-amber-100/90 leading-relaxed">
-                  بک‌اند امن فعال نیست؛ رمز شما فقط روی همین دستگاه (هش‌شده) ذخیره می‌شود. برای امنیت کامل،
-                  بک‌اند را با دستور <code className="font-mono">npm run dev</code> اجرا کنید.
-                </p>
-                <form onSubmit={handleLocalAdminSetup} className="space-y-2">
-                  <input
-                    type="password"
-                    autoComplete="new-password"
-                    placeholder="رمز جدید مدیر (حداقل ۱۰ کاراکتر شامل حرف و رقم)"
-                    value={localAdminPassword}
-                    onChange={(e) => setLocalAdminPassword(e.target.value)}
-                    className="w-full py-2 px-3 rounded-xl bg-slate-950 border border-amber-600/50 text-xs text-white font-mono focus:outline-none focus:border-amber-400"
-                  />
-                  <input
-                    type="password"
-                    autoComplete="new-password"
-                    placeholder="تکرار رمز جدید"
-                    value={localAdminPasswordConfirm}
-                    onChange={(e) => setLocalAdminPasswordConfirm(e.target.value)}
-                    className="w-full py-2 px-3 rounded-xl bg-slate-950 border border-amber-600/50 text-xs text-white font-mono focus:outline-none focus:border-amber-400"
-                  />
-                  <button
-                    type="submit"
-                    className="w-full py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-[11px] transition"
-                  >
-                    ثبت رمز و ورود به پنل مدیریت
-                  </button>
-                </form>
-              </div>
-            )}
-
             <div className="space-y-1">
               <label className="text-[11px] font-bold text-slate-300 block">
                 کد ملی (نام کاربری):
@@ -1143,13 +866,13 @@ export default function AuthView({
             ) : (
               <div className="space-y-3">
                 <div className="p-3.5 rounded-xl bg-emerald-950/80 border border-emerald-500/50 space-y-2 text-center">
-                  <span className="text-xs font-bold text-emerald-200 block">شماره موبایل با موفقیت اعتبارسنجی شد!</span>
-                  <span className="text-[10px] text-slate-300 block">رمز عبور ساختگی جدید شما:</span>
+                  <span className="text-xs font-bold text-emerald-200 block">درخواست بازیابی برای بررسی ثبت شد.</span>
+                  <span className="text-[10px] text-slate-300 block">کد پیگیری درخواست:</span>
                   <code className="block w-full py-2.5 rounded-lg bg-black/70 border border-emerald-500/40 text-emerald-300 font-mono text-base tracking-wider font-black select-all" dir="ltr">
                     {forgotResultPassword}
                   </code>
                   <p className="text-[10px] text-emerald-300 leading-relaxed">
-                    این رمز جدید برای حساب شما ثبت شد. آن را یادداشت کنید و با آن وارد شوید.
+                    این کد فقط برای پیگیری درخواست است و رمز عبور نیست.
                   </p>
                 </div>
 
@@ -1177,13 +900,15 @@ export default function AuthView({
         nationalCode={normalizeToEnglishDigits(pendingUser?.national_code || pendingUser?.nationalCode || '')}
         userPhone={otpMaskedPhone}
         challengeToken={otpChallengeToken}
+        expiresIn={otpExpiresIn}
         onChallengeToken={setOtpChallengeToken}
         campaignTheme={isGirls ? 'girls' : 'boys'}
-        onSuccess={() => {
+        onSuccess={(_token, verifiedUser) => {
           setShowOtpModal(false);
           if (pendingUser) {
-            triggerAlert(`احراز هویت پیامکی انجام شد. خوش آمدید ${pendingUser.first_name} ${pendingUser.last_name}`);
-            onLoginSuccess(pendingUser, pendingMeta);
+            const authenticatedUser = { ...pendingUser, ...verifiedUser, password: '' } as User;
+            triggerAlert(`احراز هویت پیامکی انجام شد. خوش آمدید ${authenticatedUser.first_name} ${authenticatedUser.last_name}`);
+            onLoginSuccess(authenticatedUser, { ...pendingMeta, otpProof: verifiedUser.otpProof });
           }
         }}
       />

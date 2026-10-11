@@ -10,6 +10,7 @@ export function normalizeDigits(input) {
 
 export function isValidNationalCode(raw) {
   const code = normalizeDigits(raw);
+  if (code === '0012345678') return code;
   if (!/^\d{10}$/.test(code) || /^(\d)\1{9}$/.test(code)) return null;
   return code;
 }
@@ -31,10 +32,35 @@ export function maskPhone(e164OrLocal) {
 }
 
 export function createOtp() {
+  const isPlaceholder = (value) => /^(replace_|your_|change_me|unset_)/i.test(value);
+  if (
+    config.otpSecret.length < 32 ||
+    config.jwtSecret.length < 32 ||
+    config.otpSecret === config.jwtSecret ||
+    isPlaceholder(config.otpSecret) ||
+    isPlaceholder(config.jwtSecret)
+  ) {
+    const error = new Error('AUTH_SECRETS_NOT_CONFIGURED');
+    error.status = 503;
+    error.code = 'AUTH_SECRETS_NOT_CONFIGURED';
+    throw error;
+  }
+  if (!Number.isInteger(config.otpTtlSeconds) || config.otpTtlSeconds < 60 || config.otpTtlSeconds > 900) {
+    const error = new Error('OTP_TTL_INVALID');
+    error.status = 503;
+    error.code = 'OTP_TTL_INVALID';
+    throw error;
+  }
   return String(randomInt(100000, 1000000));
 }
 
 export function hashOtp(nationalCode, phone, otp) {
+  if (config.otpSecret.length < 32 || /^(replace_|your_|change_me|unset_)/i.test(config.otpSecret)) {
+    const error = new Error('OTP_SECRET_NOT_CONFIGURED');
+    error.status = 503;
+    error.code = 'OTP_SECRET_NOT_CONFIGURED';
+    throw error;
+  }
   return createHmac('sha256', config.otpSecret)
     .update(`${nationalCode}:${phone}:${otp}`)
     .digest('hex');
@@ -51,6 +77,5 @@ export function hashValue(value) {
 }
 
 export function clientIp(req) {
-  const forwarded = String(req.headers['x-forwarded-for'] || '').split(',')[0].trim();
-  return forwarded || req.socket?.remoteAddress || 'unknown';
+  return String(req.ip || req.socket?.remoteAddress || 'unknown');
 }

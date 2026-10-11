@@ -1,5 +1,7 @@
 # ⚡ راه‌اندازی سریع سرور OTP
 
+> راهنمای جاری و تنظیمات same-origin/Docker در [../docs/deployment-auth.md](../docs/deployment-auth.md) است.
+
 ## نصب و راه‌اندازی در 5 دقیقه
 
 ### 📦 مرحله 1: نصب
@@ -27,7 +29,7 @@ cat .env
 
 2. SQL Editor را باز کنید
 
-3. محتوای فایل `query.sql` را کپی و Run کنید
+3. محتوای فایل `supabase/migrations/20261011000000_warroom_schema.sql` را کپی و Run کنید
 
 ### 🚀 مرحله 4: راه‌اندازی سرور
 
@@ -37,7 +39,7 @@ npm start
 
 سرور روی پورت 5000 راه‌اندازی می‌شود:
 ```
-http://localhost:5000
+http://localhost:4010
 ```
 
 ---
@@ -45,7 +47,7 @@ http://localhost:5000
 ## ✅ بررسی سلامت سرور
 
 ```bash
-curl http://localhost:5000/health
+curl http://localhost:4010/health
 ```
 
 باید پاسخ زیر را ببینید:
@@ -64,7 +66,7 @@ curl http://localhost:5000/health
 ### با شماره تست (09919901583):
 
 ```bash
-curl -X POST http://localhost:5000/api/otp/send \
+curl -X POST http://localhost:4010/api/otp/send \
   -H "Content-Type: application/json" \
   -d "{\"nationalCode\":\"0123456789\"}"
 ```
@@ -96,7 +98,7 @@ curl -X POST http://localhost:5000/api/otp/send \
 
 ```bash
 # بررسی پورت 5000
-netstat -ano | findstr :5000
+netstat -ano | findstr :4010
 
 # Kill کردن پروسه قبلی
 taskkill /PID [PID_NUMBER] /F

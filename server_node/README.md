@@ -1,365 +1,69 @@
-# 🛡️ سرور OTP اتاق جنگ
+# WarRoom Node OTP API
 
-> این README شامل نمونه‌های تاریخی است. پیکربندی و روش اجرای جاری در [../docs/deployment-auth.md](../docs/deployment-auth.md) آمده است.
+این سرویس فقط برای challengeهای OTP، محدودسازی درخواست‌ها، تأیید امن کد و ارسال SMS از طریق IPPanel است. مسیر فعال Production در `src/index.js` است؛ `npm start` و `server_node/Dockerfile` هر دو همین entry point را اجرا می‌کنند. پیاده‌سازی فعال OTP در `src/routes/otp.js` است و درخت فعلی شامل route قدیمی `routes/otpRoutes.js` نیست.
 
-سرور امن Node.js + Express برای ارسال و اعتبارسنجی کد تایید (OTP) با IPPanel و Supabase
+## API
 
----
+### `GET /api/health`
 
-## ✨ ویژگی‌ها
+پاسخ لایونِس فرایند و وضعیت پیکربندی را می‌دهد. `connectivity: "not_checked"` یعنی این endpoint به Supabase یا IPPanel وصل نمی‌شود و دسترس‌پذیری آن‌ها را ادعا نمی‌کند.
 
-- ✅ **ارسال پیامک OTP** از طریق IPPanel
-- ✅ **اعتبارسنجی کد ملی** و دریافت شماره موبایل از Supabase
-- ✅ **ذخیره امن کد OTP** به‌صورت HMAC-SHA256
-- ✅ **JWT Authentication** برای مدیریت نشست کاربران
-- ✅ **Rate Limiting** برای جلوگیری از حملات Brute Force
-- ✅ **امنیت بالا** با Helmet و CORS
-- ✅ **لاگ و پایش** تلاش‌های ناموفق
+### `POST /api/otp/send`
 
----
-
-## 📋 پیش‌نیازها
-
-- Node.js v16 یا بالاتر
-- حساب فعال IPPanel با خط اختصاصی
-- دیتابیس Supabase راه‌اندازی شده
-- اجرای فایل `supabase/migrations/20261011000000_warroom_schema.sql` در Supabase SQL Editor
-
----
-
-## 🚀 نصب و راه‌اندازی
-
-### 1. نصب پکیج‌ها
-
-```bash
-cd server_node
-npm install
-```
-
-### 2. تنظیم متغیرهای محیطی
-
-فایل `.env` را بسازید (از `.env.example` کپی کنید):
-
-```bash
-PORT=4010
-
-IPPANEL_API_KEY=<configure-in-private-environment>
-IPPANEL_FROM_NUMBER=+9890004939
-
-SUPABASE_URL=https://dewfcjxlfolwvxqofocc.supabase.co
-SUPABASE_ANON_KEY=<configure-in-private-environment>
-
-JWT_SECRET=<configure-in-private-environment>
-
-NODE_ENV=production
-```
-
-### 3. اجرای سرور
-
-**حالت عادی:**
-```bash
-npm start
-```
-
-**حالت توسعه (با Hot Reload):**
-```bash
-npm run dev
-```
-
-سرور روی پورت 5000 راه‌اندازی می‌شود:
-```
-http://localhost:4010
-```
-
----
-
-## 📡 API Endpoints
-
-### 1. **Health Check**
-```http
-GET /health
-```
-
-**Response:**
 ```json
-{
-  "status": "OK",
-  "uptime": 123.45,
-  "timestamp": "2026-10-11T05:30:00.000Z",
-  "service": "WarRoom OTP Server",
-  "version": "1.0.0"
-}
+{ "nationalCode": "0123456789" }
 ```
 
----
+در صورت وجود حساب معتبر و پذیرش پیامک، پاسخ شامل `success`, `expiresIn`, `maskedPhone` و `challengeToken` است. `expiresIn` زمان باقی‌مانده برحسب ثانیه است؛ کد ملی و شماره کامل در پاسخ ارسال نمی‌شوند. کد ناموجود پاسخ عمومی می‌گیرد و پیامک/چالش ندارد؛ بااین‌حال، وجود challenge و شماره نیمه‌ماسک‌شده در پاسخ موفق یعنی این تفاوت پاسخ افشای وجود حساب را کاملاً منتفی نمی‌کند. محدودیت نرخ فقط کاهش‌دهنده ریسک است.
 
-### 2. **ارسال کد OTP**
-```http
-POST /api/otp/send
-Content-Type: application/json
+### `POST /api/otp/resend`
 
-{
-  "nationalCode": "0123456789"
-}
-```
-
-**Response موفق:**
 ```json
-{
-  "success": true,
-  "message": "کد تایید به شماره موبایل شما ارسال شد",
-  "phone": "+98****1583",
-  "expiresIn": 300
-}
+{ "nationalCode": "0123456789" }
 ```
 
-**توضیحات:**
-- سرور کاربر را با کد ملی در Supabase جستجو می‌کند
-- شماره موبایل را از پروفایل کاربر می‌گیرد
-- کد 6 رقمی تولید و به‌صورت HMAC-SHA256 هش می‌شود
-- پیامک از طریق IPPanel ارسال می‌شود
-- کد به مدت 5 دقیقه معتبر است
+پس از محدودیت ارسال، چالش فعال قبلی باطل می‌شود و در صورت موفقیت چالش و مهلت جدید برمی‌گردد.
 
----
+### `POST /api/otp/verify`
 
-### 3. **تایید کد OTP**
-```http
-POST /api/otp/verify
-Content-Type: application/json
-
+```json
 {
   "nationalCode": "0123456789",
-  "code": "123456"
+  "code": "123456",
+  "challengeToken": "<challenge-from-send-response>"
 }
 ```
 
-**Response موفق:**
-```json
-{
-  "success": true,
-  "message": "کد تایید با موفقیت تایید شد",
-  "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
-  "user": {
-    "id": "0123456789",
-    "firstName": "علی",
-    "lastName": "احمدی"
-  }
-}
-```
+کد باید دقیقاً شش رقم باشد. پاسخ موفق فقط شناسه کاربر و `otpProof` را برمی‌گرداند؛ خود OTP در API پاسخ داده نمی‌شود. توکن challenge فقط در پاسخ send/resend به مرورگر فرستاده می‌شود و نباید Log یا ذخیره شود.
 
-**توضیحات:**
-- کد وارد شده را با هش ذخیره‌شده مقایسه می‌کند
-- در صورت صحت، JWT با اعتبار 7 روزه صادر می‌شود
-- کد پس از استفاده یکبار، غیرفعال می‌شود
+همه پاسخ‌های خطا safe هستند و شامل payload Provider، کلید محرمانه، OTP، کد ملی یا شماره کامل نیستند.
 
----
+## تنظیمات خصوصی
 
-### 4. **ارسال مجدد کد**
-```http
-POST /api/otp/resend
-Content-Type: application/json
+- `SUPABASE_URL`
+- `SUPABASE_SERVICE_ROLE_KEY` — فقط در محیط خصوصی Node؛ هرگز `VITE_*` نکنید.
+- `OTP_CHALLENGE_SECRET` و `OTP_SECRET` — دو مقدار تصادفی مستقل، هرکدام حداقل ۳۲ نویسه.
+- `OTP_TTL_SECONDS` — پیش‌فرض ۳۰۰؛ بازه مجاز ۶۰ تا ۹۰۰ ثانیه.
+- `OTP_MAX_SEND_PER_15MIN` — پیش‌فرض ۳.
+- `OTP_RESEND_COOLDOWN_SECONDS` — پیش‌فرض ۶۰.
+- `OTP_MAX_VERIFY_ATTEMPTS` — پیش‌فرض ۵.
+- `IPPANEL_API_KEY`, `IPPANEL_FROM_NUMBER`, `IPPANEL_API_URL` — فقط سمت سرور. مستندات رسمی Webservice: [IPPanel Edge API](https://ippanelcom.github.io/Edge-Document/docs/send/webservice/).
+- `PORT` — پیش‌فرض `4010`; `HOST` — پیش‌فرض `0.0.0.0`.
 
-{
-  "nationalCode": "0123456789"
-}
-```
+فایل `.env.example` placeholder دارد، نه credential واقعی. در Production از فایل یا Secret Store خصوصی استفاده کنید.
 
----
+## قرارداد IPPanel
 
-## 🔒 امنیت
+Adapter از `POST https://edge.ippanel.com/v1/api/send` استفاده می‌کند و `IPPANEL_API_KEY` را در Header `Authorization` می‌فرستد. Body شامل `sending_type: "webservice"`، `from_number` و `recipients` با قالب E.164 و متن OTP است. موفقیت تنها وقتی پذیرفته می‌شود که HTTP موفق باشد، `meta.status === true` باشد و `data.message_outbox_ids` حداقل یک شناسه عددی معتبر داشته باشد. Timeout درخواست خروجی ۱۵ ثانیه و timeout خواندن Nginx برای API برابر ۳۰ ثانیه است. شکست یا پیکربندی نامعتبر پاسخ عمومی و غیرموفق می‌دهد؛ هیچ تلاش مجدد خودکاری انجام نمی‌شود و بدنه پاسخ Provider یا اطلاعات محرمانه Log نمی‌شوند. پذیرش IPPanel تحویل قطعی پیامک به تلفن را اثبات نمی‌کند.
 
-### محدودسازی درخواست‌ها (Rate Limiting)
+## Supabase و دسترسی
 
-- **ارسال OTP**: حداکثر 3 بار در 15 دقیقه
-- **تایید OTP**: حداکثر 10 بار در 15 دقیقه
-- **API عمومی**: حداکثر 100 درخواست در 15 دقیقه
+خدمت فقط ردیف کاربر لازم را از `warroom_users` می‌خواند و OTP و rate limit را در `warroom_otp_codes` و `warroom_otp_rate_limits` نگه می‌دارد. RPCهای `warroom_hit_otp_rate_limit` و `warroom_verify_otp` در Migrationهای موجود تعریف و برای `service_role` محدود شده‌اند. ثبت‌نام و ورود در فرانت‌اند همچنان از Supabase RPC استفاده می‌کند؛ این API ثبت‌نام عمومی ندارد. IP limiterها در کد فعال‌اند، اما Nginx `X-Forwarded-For` را به آدرس peer خودش تنظیم می‌کند؛ پشت reverse proxy میزبان، per-IP واقعی هنوز اثبات نشده و ممکن است کل کاربران در یک bucket مشترک بیفتند.
 
-### امنیت داده‌ها
+این توضیحات تأیید اجرای Migration روی دیتابیس واقعی نیستند. علاوه بر آن، Migration پایه برای `warroom_users` دسترسی مستقیم و Policyهای گسترده `USING (true)` دارد و فیلدهای خصوصی مانند کد ملی و تلفن را در معرض کلاینت قرار می‌دهد؛ این مانع امنیتی خارج از ایزوله‌سازی جداول OTP است و باید پیش از Production با بازطراحی مسیرهای Supabase فرانت‌اند رفع شود. همچنین RPC ثبت‌نام `warroom_register_user` برای `anon` مجاز است ولی در Migration فقط ۱۰ رقم بودن را بررسی می‌کند؛ فرانت‌اند و OTP API نیز رقم کنترلی می‌سنجند، بنابراین فراخوانی مستقیم RPC می‌تواند حسابی بسازد که OTP رد کند. این قرارداد باید با Migration بازبینی‌شده و فهرست‌برداری ایمن از داده‌های موجود هم‌راستا شود. یک blocker مهم دیگر: UI پیش از OTP، رمز را با `warroom_verify_login` بررسی می‌کند، اما endpointهای عمومی Node برای send/resend رمز یا مدرک رمز-تأییدشده نمی‌گیرند. Migration، RPCهای مدیریتی `anon` را با OTP تأییدشده مدیر تا ۳۰ دقیقه مجاز می‌کند؛ بنابراین این API به‌تنهایی الزام دو عاملی رمز+پیامک را تضمین نمی‌کند. پیش از ادعای 2FA یا Production باید رمز و OTP در مرز مورداعتماد به هم متصل و قرارداد RPC بازبینی شود. هیچ Migrationی در این تغییر ویرایش یا اجرا نشده است. تغییر Schema باید جداگانه با وضعیت دیتابیس مقصد مقایسه و بازبینی شود.
 
-- کد OTP **هرگز** به‌صورت متن ساده ذخیره نمی‌شود
-- فقط HMAC-SHA256 هش در دیتابیس ذخیره می‌شود
-- JWT با کلید مخفی امضا می‌شود
-- CORS فقط برای دامنه‌های مجاز فعال است
-- Helmet برای محافظت از هدرهای HTTP
-- Input Validation کامل
+## Lockfile و CI
 
-### CORS مجاز
+`server_node/package-lock.json` در مخزن موجود نیست و در نتیجه دستورات `npm ci --prefix server_node` در GitHub Actions و `npm ci --omit=dev` در Dockerfile API تا زمان ثبت Lock معتبر قابل اتکا نیستند. فایل `.gitignore` اجازه ثبت آن را می‌دهد؛ این Lock در این تغییر ساخته یا جعل نشده است. جزئیات در [راهنمای معماری و استقرار](../docs/deployment-auth.md) آمده است.
 
-```javascript
-[
-  'http://localhost:3000',
-  'http://localhost:5173',
-  'https://warroom-game.ir',
-  'https://dewfcjxlfolwvxqofocc.supabase.co'
-]
-```
-
----
-
-## 🧪 تست API با cURL
-
-### تست ارسال OTP:
-```bash
-curl -X POST http://localhost:4010/api/otp/send \
-  -H "Content-Type: application/json" \
-  -d "{\"nationalCode\":\"0123456789\"}"
-```
-
-### تست تایید OTP:
-```bash
-curl -X POST http://localhost:4010/api/otp/verify \
-  -H "Content-Type: application/json" \
-  -d "{\"nationalCode\":\"0123456789\",\"code\":\"123456\"}"
-```
-
----
-
-## 📊 لاگ‌ها
-
-سرور اطلاعات زیر را لاگ می‌کند:
-
-```
-✅ موفقیت‌ها:
-   - ارسال موفق پیامک (با شناسه پیام)
-   - تایید موفق کد OTP
-
-❌ خطاها:
-   - خطای ارسال پیامک IPPanel
-   - کد OTP نادرست
-   - کاربر یافت نشد
-   - تعداد تلاش‌ها بیش از حد
-
-🔐 امنیتی:
-   - تلاش‌های ناموفق در جدول warroom_otp_failed_attempts
-```
-
----
-
-## 🗄️ ساختار دیتابیس
-
-### جدول `warroom_otp_codes`
-
-| ستون | نوع | توضیحات |
-|------|-----|---------|
-| `id` | uuid | شناسه یکتا |
-| `user_id` | text | کد ملی کاربر |
-| `phone` | text | شماره موبایل |
-| `code` | text | HMAC-SHA256 هش کد |
-| `expires_at` | timestamptz | زمان انقضا |
-| `is_used` | boolean | آیا استفاده شده؟ |
-| `used_at` | timestamptz | زمان استفاده |
-| `attempts` | integer | تعداد تلاش‌ها |
-| `created_at` | timestamptz | زمان ایجاد |
-
----
-
-## 🔧 عیب‌یابی
-
-### سرور راه‌اندازی نمی‌شود
-
-```bash
-# بررسی متغیرهای محیطی
-node -e "require('dotenv').config(); console.log(Boolean(process.env.IPPANEL_API_KEY))"
-
-# بررسی پورت
-netstat -ano | findstr :4010
-```
-
-### پیامک ارسال نمی‌شود
-
-1. بررسی کلید API در پنل IPPanel
-2. بررسی اعتبار حساب IPPanel
-3. بررسی فرمت خط ارسال: `+9890004939`
-4. مشاهده لاگ‌های سرور
-
-### کاربر یافت نمی‌شود
-
-1. بررسی وجود کاربر در Supabase:
-```sql
-SELECT * FROM warroom_users WHERE id = '0123456789';
-```
-
-2. بررسی فیلد `phone` در `data`:
-```sql
-SELECT data->>'phone' FROM warroom_users WHERE id = '0123456789';
-```
-
----
-
-## 📦 وابستگی‌ها
-
-```json
-{
-  "express": "^4.18.2",
-  "cors": "^2.8.5",
-  "helmet": "^7.1.0",
-  "dotenv": "^16.4.5",
-  "jsonwebtoken": "^9.0.2",
-  "ippanel-node-sdk": "^1.0.0",
-  "express-rate-limit": "^7.1.5",
-  "@supabase/supabase-js": "^2.39.3"
-}
-```
-
----
-
-## 🌐 استفاده در فرانت‌اند React
-
-```javascript
-// ارسال کد
-const sendOTP = async (nationalCode) => {
-  const response = await fetch('http://localhost:4010/api/otp/send', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ nationalCode })
-  });
-  return await response.json();
-};
-
-// تایید کد
-const verifyOTP = async (nationalCode, code) => {
-  const response = await fetch('http://localhost:4010/api/otp/verify', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ nationalCode, code })
-  });
-  const data = await response.json();
-  if (data.success) {
-    localStorage.setItem('token', data.token);
-  }
-  return data;
-};
-```
-
----
-
-## 📝 یادداشت‌های مهم
-
-1. **کلید API را هرگز در کد فرانت‌اند قرار ندهید**
-2. فایل `.env` را در Git قرار ندهید
-3. در محیط توسعه، کد OTP در کنسول نمایش داده می‌شود
-4. در محیط Production، `NODE_ENV=production` تنظیم کنید
-5. برای Deploy، از PM2 یا Docker استفاده کنید
-
----
-
-## 🚀 Deploy با PM2
-
-```bash
-npm install -g pm2
-pm2 start server.js --name warroom-otp
-pm2 save
-pm2 startup
-```
-
----
-
-## 📄 لایسنس
-
-MIT License - پروژه اتاق جنگ
-
----
-
-## 🤝 پشتیبانی
-
-برای سوالات و مشکلات، به تیم توسعه پروژه مراجعه کنید.
+هیچ نصب وابستگی، تست، Build، Docker، SQL/Migration، درخواست واقعی به IPPanel یا Deployment به‌عنوان بخشی از این بررسی انجام نشده است.

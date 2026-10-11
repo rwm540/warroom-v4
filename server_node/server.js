@@ -1,4 +1,4 @@
-import('./src/index.js').catch((error) => {
-  console.error('[warroom-server-node] startup failed:', error.message);
+import('./src/index.js').catch(() => {
+  console.error('[warroom-otp-api] startup failed');
   process.exitCode = 1;
 });

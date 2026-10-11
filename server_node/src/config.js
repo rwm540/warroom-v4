@@ -19,19 +19,15 @@ export const config = {
   port: Number(process.env.PORT || 4010),
   host: process.env.HOST || '0.0.0.0',
   nodeEnv: process.env.NODE_ENV || 'development',
-  corsOrigins: String(process.env.CORS_ORIGINS || 'http://localhost:3000,http://127.0.0.1:3000')
-    .split(',')
-    .map((item) => item.trim())
-    .filter(Boolean),
   supabaseUrl: configuredUrl('SUPABASE_URL'),
   supabaseServiceRoleKey: secretValue('SUPABASE_SERVICE_ROLE_KEY'),
-  jwtSecret: secretValue('OTP_CHALLENGE_SECRET') || secretValue('JWT_SECRET'),
+  otpChallengeSecret: secretValue('OTP_CHALLENGE_SECRET'),
   otpSecret: secretValue('OTP_SECRET'),
   otpTtlSeconds: Number(process.env.OTP_TTL_SECONDS || 300),
   otpMaxSend: Number(process.env.OTP_MAX_SEND_PER_15MIN || 3),
   otpResendCooldown: Number(process.env.OTP_RESEND_COOLDOWN_SECONDS || 60),
   otpMaxAttempts: Number(process.env.OTP_MAX_VERIFY_ATTEMPTS || 5),
   ippanelKey: secretValue('IPPANEL_API_KEY'),
-  ippanelFrom: secretValue('IPPANEL_FROM_NUMBER'),
+  ippanelFrom: String(process.env.IPPANEL_FROM_NUMBER || '').trim(),
   ippanelUrl: String(process.env.IPPANEL_API_URL || 'https://edge.ippanel.com/v1/api/send').trim(),
 };

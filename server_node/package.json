@@ -2,8 +2,11 @@
   "name": "warroom-otp-server",
   "version": "1.0.0",
   "description": "سرور امن ارسال و اعتبارسنجی کد تایید OTP برای پلتفرم اتاق جنگ",
-  "main": "server.js",
+  "main": "src/index.js",
   "type": "commonjs",
+  "engines": {
+    "node": ">=22"
+  },
   "scripts": {
     "start": "node src/index.js",
     "dev": "nodemon src/index.js",
@@ -14,7 +17,6 @@
   "license": "MIT",
   "dependencies": {
     "express": "^4.18.2",
-    "cors": "^2.8.5",
     "helmet": "^7.1.0",
     "dotenv": "^16.4.5",
     "jsonwebtoken": "^9.0.2",

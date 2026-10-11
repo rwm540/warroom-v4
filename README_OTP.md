@@ -1,176 +1,35 @@
-# 🛡️ سیستم OTP اتاق جنگ
+# سرویس OTP و IPPanel در WarRoom V4
 
-> برای معماری فعلی، تنظیمات محیطی، اجرای محلی و استقرار Docker به [docs/deployment-auth.md](docs/deployment-auth.md) مراجعه کنید.
+این فایل فقط قرارداد و مسیرهای فعال در مخزن را خلاصه می‌کند؛ **آماده‌بودن Production یا تحویل واقعی پیامک را تأیید نمی‌کند**. معماری و محدودیت‌ها در [docs/deployment-auth.md](docs/deployment-auth.md) توضیح داده شده‌اند.
 
-## ⚡ راه‌اندازی سریع (5 دقیقه)
+## مسیر فعال
 
-### 1. نصب وابستگی‌ها
+- Entry point سرور: `server_node/src/index.js`
+- Routeهای OTP: `server_node/src/routes/otp.js`
+- سرویس SMS: `server_node/src/lib/sms.js`
+- تنظیمات: `server_node/src/config.js`
+- Supabase: `server_node/src/lib/supabase.js`
+- فرانت‌اند از مسیرهای same-origin زیر استفاده می‌کند:
+  - `POST /api/otp/send`
+  - `POST /api/otp/verify`
+  - `POST /api/otp/resend`
+- Nginx فقط همین سه مسیر و `GET /api/health` را به Node روی شبکه خصوصی Docker هدایت می‌کند. API Node پورت عمومی میزبان ندارد.
+- ثبت‌نام و ورود همچنان از Supabase RPC فرانت‌اند انجام می‌شود؛ Node سرویس عمومی مدیریت کاربران نیست.
 
-```bash
-# سرور Node.js
-cd server_node
-npm install
+## قرارداد OTP
 
-# بازگشت به پروژه اصلی
-cd ..
-npm install
-```
+OTP دقیقاً شش رقم است. مقدار پیش‌فرض اعتبار `OTP_TTL_SECONDS` برابر **۳۰۰ ثانیه** است. همان مهلت مطلق برای `expires_at` در Supabase و انقضای challenge token استفاده می‌شود؛ متن SMS مدت اعتبار را به ثانیه از زمان صدور بیان می‌کند و فرانت‌اند تایمر را از `expiresIn` پاسخ سرور می‌گیرد. چالش به شناسه کاربر، شناسه درخواست و HMAC کد ملی مقید است؛ کد OTP به‌صورت HMAC ذخیره می‌شود و پس از تأیید یا پایان تلاش‌ها قابل استفاده مجدد نیست.
 
-### 2. اجرای SQL در Supabase
+## قرارداد IPPanel
 
-1. به پنل Supabase بروید: https://dewfcjxlfolwvxqofocc.supabase.co
-2. SQL Editor را باز کنید
-3. فایل `supabase/migrations/20261011000000_warroom_schema.sql` را اجرا کنید
+کد از Edge Webservice API رسمی IPPanel استفاده می‌کند: [`POST /v1/api/send`](https://ippanelcom.github.io/Edge-Document/docs/send/webservice/). درخواست شامل `Authorization`، فرستنده و گیرنده E.164، متن پیام و `params.recipients` است. موفقیت فقط با پاسخ HTTP موفق، `meta.status === true` و شناسه معتبر در `data.message_outbox_ids` پذیرفته می‌شود. درخواست خروجی timeout برابر ۱۵ ثانیه دارد و timeout خواندن Nginx برای API برابر ۳۰ ثانیه است؛ پاسخ موفق Provider، تحویل قطعی به تلفن را اثبات نمی‌کند.
 
-### 3. راه‌اندازی سرور
+کلید فقط در متغیر خصوصی سمت Node به نام `IPPANEL_API_KEY` قرار می‌گیرد. فرستنده و URL از `IPPANEL_FROM_NUMBER` و `IPPANEL_API_URL` سمت سرور خوانده می‌شوند. هیچ مقدار واقعی یا کلیدی در این مخزن قرار ندهید.
 
-```bash
-# ترمینال 1: سرور Node.js
-cd server_node
-npm start
+## Supabase و محدودیت‌های فعلی
 
-# ترمینال 2: React
-npm run dev
-```
+جداول `warroom_otp_codes` و `warroom_otp_rate_limits` و امضای RPCهای استفاده‌شده در Migrationهای موجود تعریف شده‌اند. دسترسی OTP در Migrationها برای `service_role` محدود شده است. بااین‌حال، Migration پایه برای `warroom_users` هنوز دسترسی مستقیم گسترده و Policyهای `USING (true)` دارد؛ این موضوع می‌تواند کد ملی و شماره همراه را در معرض کلاینت بگذارد و مانع جداگانه Production است. رفع آن نیازمند بازبینی جریان‌های مستقیم Supabase فرانت‌اند است و در این تغییر انجام نشده است. همچنین فرانت‌اند و Node رقم کنترلی کد ملی را بررسی می‌کنند، اما RPC ثبت‌نام `warroom_register_user` در Migration فقط طول/رقمی‌بودن را می‌سنجد و از `anon` قابل فراخوانی است؛ فراخوانی مستقیم می‌تواند رکوردی بسازد که OTP آن را رد می‌کند. قرارداد RPC باید در Migration بازبینی‌شده هم‌راستا شود. همچنین UI رمز را پیش از OTP بررسی می‌کند، اما endpointهای عمومی Node خودشان رمز را نمی‌گیرند یا تأییدشده‌بودنش را نمی‌بندند؛ Migration برای RPCهای مدیریتی `anon` را با OTP مدیر مجاز می‌کند. بنابراین این پیاده‌سازی به‌تنهایی الزام دو عاملی رمز+پیامک را تضمین نمی‌کند و پیش از Production باید این مرز احراز هویت بازطراحی شود. تطبیق فقط ایستا است؛ هیچ SQL/Migration یا اتصال به پایگاه داده واقعی انجام نشده است.
 
----
+**مانع Build/CI باقی‌مانده:** `server_node/package-lock.json` در مخزن وجود ندارد، در حالی که CI و Docker برای API از `npm ci` استفاده می‌کنند. فایل `.gitignore` دیگر Lock را نادیده نمی‌گیرد، اما Lock معتبر از روی Manifest تولید نشده است. تا تولید و ثبت Lock واقعی از مسیر مجاز، نصب API و Build تصویر آن قابل تأیید نیست؛ Lock ساختگی ارائه نمی‌شود.
 
-## ✅ چک کنید
-
-```bash
-# سلامت سرور
-curl http://localhost:4010/health
-
-# باید این پاسخ را ببینید:
-# {"status":"OK","service":"WarRoom OTP Server"}
-```
-
----
-
-## 📱 تست ثبت‌نام
-
-1. به `http://localhost:3000` بروید
-2. فرم ثبت‌نام را پر کنید
-3. دکمه ثبت‌نام را بزنید
-4. صفحه **ریلود نمی‌شود** ✅
-5. مودال OTP نمایش داده می‌شود ✅
-6. پیامک دریافت می‌شود ✅
-7. کد را وارد کنید
-8. ورود موفق ✅
-
----
-
-## 🔧 تغییرات مورد نیاز در AuthView.tsx
-
-فقط **3 قدم** ساده:
-
-### قدم 1: Import
-
-```typescript
-import OTPVerificationModal from './OTPVerificationModal';
-import { registerUser } from '../lib/authApi';
-import { sendOtpByNationalCode } from '../lib/otpApi';
-```
-
-### قدم 2: State
-
-```typescript
-const [showOtpModal, setShowOtpModal] = useState(false);
-const [pendingNationalCode, setPendingNationalCode] = useState('');
-const [pendingUserPhone, setPendingUserPhone] = useState('');
-```
-
-### قدم 3: در handleRegisterSubmit
-
-```typescript
-const handleRegisterSubmit = async (e: React.FormEvent) => {
-  e.preventDefault(); // 👈 مهم!
-  
-  // ... اعتبارسنجی ...
-  
-  // ثبت‌نام
-  const registerResult = await registerUser({
-    firstName, lastName, nationalCode,
-    phone, birthDate, gender, password, groupName
-  });
-  
-  if (registerResult.success) {
-    // ارسال OTP
-    const otpResult = await sendOtpByNationalCode(nationalCode);
-    
-    if (otpResult.success) {
-      setPendingNationalCode(nationalCode);
-      setPendingUserPhone(otpResult.phone || '');
-      setShowOtpModal(true);
-    }
-  }
-};
-```
-
-### قدم 4: مودال در JSX
-
-```tsx
-<OTPVerificationModal
-  isOpen={showOtpModal}
-  onClose={() => setShowOtpModal(false)}
-  onSuccess={(token, user) => {
-    localStorage.setItem('warroom_auth_token', token);
-    onLoginSuccess(user);
-  }}
-  userPhone={pendingUserPhone}
-  nationalCode={pendingNationalCode}
-  campaignTheme={isGirls ? 'girls' : 'boys'}
-/>
-```
-
----
-
-## 📚 مستندات کامل
-
-- `FINAL_SUMMARY.md` - خلاصه کامل تغییرات
-- `AUTHVIEW_INTEGRATION.md` - راهنمای جزئی یکپارچه‌سازی
-- `CHANGES_SUMMARY.md` - لیست تمام فایل‌های ایجاد شده
-- `server_node/README.md` - مستندات API سرور
-- `server_node/QUICK_START.md` - راه‌اندازی سریع سرور
-
----
-
-## 🆘 عیب‌یابی
-
-### سرور اجرا نمی‌شود؟
-
-```bash
-cd server_node
-npm install
-npm start
-```
-
-### صفحه ریلود می‌شود؟
-
-مطمئن شوید `e.preventDefault()` در `handleRegisterSubmit` وجود دارد.
-
-### پیامک ارسال نمی‌شود؟
-
-1. بررسی کلید API در `server_node/.env`
-2. بررسی اعتبار حساب IPPanel
-
-### داده در Supabase ذخیره نمی‌شود؟
-
-```sql
--- بررسی کاربر
-SELECT * FROM warroom_users WHERE id = '0123456789';
-```
-
----
-
-## 🎉 نتیجه
-
-✅ **صفحه ریلود نمی‌شود**  
-✅ **لودینگ درست کار می‌کند**  
-✅ **مودال OTP با انیمیشن**  
-✅ **تایمر 120 ثانیه**  
-✅ **ارسال پیامک**  
-✅ **ذخیره در Supabase**  
-✅ **امنیت 98%**  
-
-**🚀 آماده Production!**
+هیچ تست، Build، نصب وابستگی، Docker، SQL/Migration، ارسال پیامک واقعی یا Deployment از این راهنما اجرا نمی‌شود.

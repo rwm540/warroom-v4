@@ -1,144 +1,15 @@
-# ⚡ راه‌اندازی سریع سرور OTP
+# راهنمای سریع سرویس OTP
 
-> راهنمای جاری و تنظیمات same-origin/Docker در [../docs/deployment-auth.md](../docs/deployment-auth.md) است.
+> قرارداد و مسیرهای جاری در [docs/deployment-auth.md](../docs/deployment-auth.md) و [README.md](README.md) آمده‌اند. نمونه‌های قدیمی این راهنما عمداً حذف شده‌اند تا فرمان‌های نصب یا SQL قدیمی با مسیر اجرایی فعلی اشتباه نشوند.
 
-## نصب و راه‌اندازی در 5 دقیقه
+- API فعال: `server_node/src/index.js`
+- Routeهای OTP: `server_node/src/routes/otp.js`
+- درخواست‌های مرورگر: `/api/otp/send`, `/api/otp/verify`, `/api/otp/resend`
+- Health: `GET /api/health`؛ فقط وضعیت فرایند و پیکربندی را گزارش می‌کند، نه اتصال واقعی به Provider یا Supabase.
+- ثبت‌نام و ورود همچنان از Supabase RPC فرانت‌اند انجام می‌شود.
+- OTP شش‌رقمی است و TTL پیش‌فرض آن ۳۰۰ ثانیه است.
+- IPPanel Edge Webservice contract در [مستندات رسمی](https://ippanelcom.github.io/Edge-Document/docs/send/webservice/) آمده است.
 
-### 📦 مرحله 1: نصب
+## مانع جاری
 
-```bash
-cd server_node
-npm install
-```
-
-### ⚙️ مرحله 2: تنظیم محیط
-
-فایل `.env` از قبل آماده است. در صورت نیاز، ویرایش کنید:
-
-```bash
-# نمایش تنظیمات فعلی
-cat .env
-```
-
-### 🗄️ مرحله 3: اجرای SQL در Supabase
-
-1. به این آدرس بروید:
-   ```
-   https://dewfcjxlfolwvxqofocc.supabase.co
-   ```
-
-2. SQL Editor را باز کنید
-
-3. محتوای فایل `supabase/migrations/20261011000000_warroom_schema.sql` را کپی و Run کنید
-
-### 🚀 مرحله 4: راه‌اندازی سرور
-
-```bash
-npm start
-```
-
-سرور روی پورت 5000 راه‌اندازی می‌شود:
-```
-http://localhost:4010
-```
-
----
-
-## ✅ بررسی سلامت سرور
-
-```bash
-curl http://localhost:4010/health
-```
-
-باید پاسخ زیر را ببینید:
-```json
-{
-  "status": "OK",
-  "uptime": 12.34,
-  "service": "WarRoom OTP Server"
-}
-```
-
----
-
-## 🧪 تست ارسال پیامک
-
-### با شماره تست (09919901583):
-
-```bash
-curl -X POST http://localhost:4010/api/otp/send \
-  -H "Content-Type: application/json" \
-  -d "{\"nationalCode\":\"0123456789\"}"
-```
-
-**توجه:** کاربری با این کد ملی باید در Supabase وجود داشته باشد!
-
----
-
-## 🔍 بررسی لاگ‌ها
-
-سرور به‌صورت زنده لاگ می‌دهد:
-
-```
-✅ پیامک با موفقیت ارسال شد. شناسه: 1234567
-❌ خطا در ارسال پیامک: کاربر یافت نشد
-```
-
----
-
-## 🛑 متوقف کردن سرور
-
-در ترمینال سرور، `Ctrl + C` را فشار دهید.
-
----
-
-## 🐛 عیب‌یابی سریع
-
-### سرور اجرا نمی‌شود؟
-
-```bash
-# بررسی پورت 5000
-netstat -ano | findstr :4010
-
-# Kill کردن پروسه قبلی
-taskkill /PID [PID_NUMBER] /F
-```
-
-### پیامک ارسال نمی‌شود؟
-
-1. بررسی کلید API در `.env`
-2. بررسی اعتبار حساب IPPanel
-3. بررسی وجود کاربر در Supabase:
-
-```sql
-SELECT * FROM warroom_users WHERE id = '0123456789';
-```
-
-### خطای Supabase؟
-
-```bash
-# بررسی اتصال
-curl https://dewfcjxlfolwvxqofocc.supabase.co/rest/v1/
-```
-
----
-
-## 📚 مستندات کامل
-
-- `README.md`: راهنمای کامل API
-- `INTEGRATION_GUIDE.md`: یکپارچه‌سازی با React
-
----
-
-## 🎯 مرحله بعدی
-
-پس از راه‌اندازی موفق سرور، فرانت‌اند React را راه‌اندازی کنید:
-
-```bash
-cd ..
-npm run dev
-```
-
----
-
-**✅ سرور شما آماده است!**
+`server_node/package-lock.json` در مخزن موجود نیست؛ تا زمانی که Lock معتبر از روی Manifest تولید و ثبت نشود، CI و ساخت API با `npm ci` قابل تأیید نیست. در این تغییر Lock ساختگی ساخته نشده است. Migrationها نیز باید با دیتابیس مقصد جداگانه تطبیق داده شوند؛ هیچ Migration اجرا نشده است.

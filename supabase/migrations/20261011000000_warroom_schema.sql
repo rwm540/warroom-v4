@@ -354,6 +354,7 @@ create table if not exists public.warroom_otp_codes (
   sms_message_id  text,
   attempt_count   integer not null default 0,
   max_attempts    integer not null default 5,
+  verified        boolean not null default false,
   expires_at      timestamptz not null,
   is_used         boolean not null default false,
   used_at         timestamptz,
@@ -369,6 +370,7 @@ alter table public.warroom_otp_codes alter column code set default 'retired';
 alter table public.warroom_otp_codes add column if not exists sms_message_id text;
 alter table public.warroom_otp_codes add column if not exists attempt_count integer not null default 0;
 alter table public.warroom_otp_codes add column if not exists max_attempts integer not null default 5;
+alter table public.warroom_otp_codes add column if not exists verified boolean not null default false;
 alter table public.warroom_otp_codes add column if not exists ip_hash text;
 
 -- مهاجرت از کد متن‌ساده به هش و حذف ستون خطرناک code

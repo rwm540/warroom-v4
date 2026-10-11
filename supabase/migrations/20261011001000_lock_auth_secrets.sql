@@ -45,6 +45,7 @@ alter table public.warroom_credentials enable row level security;
 alter table public.warroom_credentials force row level security;
 alter table public.warroom_otp_codes enable row level security;
 alter table public.warroom_otp_codes force row level security;
+alter table public.warroom_otp_codes add column if not exists verified boolean not null default false;
 alter table public.warroom_otp_rate_limits enable row level security;
 alter table public.warroom_otp_rate_limits force row level security;
 alter table public.warroom_refresh_tokens enable row level security;
@@ -79,23 +80,6 @@ grant all on public.warroom_otp_codes to service_role;
 grant all on public.warroom_otp_rate_limits to service_role;
 grant all on public.warroom_refresh_tokens to service_role;
 
--- Legacy administrator passwords must not remain usable. Keep rows and accounts.
-update public.warroom_credentials as credential
-set data = credential.data || jsonb_build_object(
-  'password_hash', encode(gen_random_bytes(32), 'hex'),
-  'password_algorithm', 'reset-required',
-  'mustChangePassword', true
-)
-where credential.id in (
-  select id from public.warroom_users where data->>'role' = 'admin'
-)
-and coalesce(credential.data->>'password_algorithm', '') <> 'scrypt-v1';
-
-update public.warroom_users
-set data = data - 'password' - 'password_hash'
-where data->>'role' = 'admin'
-  and (data ? 'password' or data ? 'password_hash');
-
 create or replace function public.warroom_hit_otp_rate_limit(
   p_id text,
   p_max integer,
@@ -129,25 +113,6 @@ begin
   returning hit_count <= p_max into v_allowed;
 
   return v_allowed;
-end;
-$$;
-
-create or replace function public.warroom_consume_refresh_token(p_token_hash text)
-returns text
-language plpgsql
-security definer
-set search_path = public, pg_temp
-as $$
-declare
-  v_user_id text;
-begin
-  update public.warroom_refresh_tokens
-  set revoked_at = now()
-  where token_hash = p_token_hash
-    and revoked_at is null
-    and expires_at > now()
-  returning user_id into v_user_id;
-  return v_user_id;
 end;
 $$;
 
@@ -195,6 +160,7 @@ begin
   update public.warroom_otp_codes
   set attempt_count = v_attempt + 1,
       is_used = v_match or v_attempt + 1 >= v_max_attempts,
+      verified = v_match,
       used_at = case when v_match or v_attempt + 1 >= v_max_attempts then now() else used_at end
   where challenge_id = p_challenge_id
     and national_code = p_national_code;
@@ -209,50 +175,10 @@ begin
 end;
 $$;
 
-create or replace function public.warroom_bootstrap_admin(p_user_id text, p_password_hash text)
-returns boolean
-language plpgsql
-security definer
-set search_path = public, pg_temp
-as $$
-declare
-  v_inserted boolean;
-begin
-    if p_user_id is null or p_password_hash is null
-      or p_password_hash !~ '^scrypt\$16384\$8\$1\$[0-9a-f]{32}\$[0-9a-f]{128}$' then
-    raise exception 'invalid_password_hash_format';
-  end if;
-
-  insert into public.warroom_credentials (id, data, updated_at)
-  select user_row.id,
-    jsonb_build_object(
-      'password_hash', p_password_hash,
-      'password_algorithm', 'scrypt-v1',
-      'mustChangePassword', true
-    ),
-    now()
-  from public.warroom_users user_row
-  where user_row.id = p_user_id
-    and user_row.data->>'role' = 'admin'
-  on conflict (id) do update set
-    data = excluded.data,
-    updated_at = now()
-  where public.warroom_credentials.data->>'password_algorithm' = 'reset-required'
-  returning true into v_inserted;
-
-  if not found then return false; end if;
-  return v_inserted;
-end;
-$$;
-
 revoke execute on function public.warroom_hit_otp_rate_limit(text, integer, integer) from public, anon, authenticated;
-revoke execute on function public.warroom_consume_refresh_token(text) from public, anon, authenticated;
 revoke execute on function public.warroom_verify_otp(uuid, text, text) from public, anon, authenticated;
-revoke execute on function public.warroom_bootstrap_admin(text, text) from public, anon, authenticated;
 grant execute on function public.warroom_hit_otp_rate_limit(text, integer, integer) to service_role;
-grant execute on function public.warroom_consume_refresh_token(text) to service_role;
 grant execute on function public.warroom_verify_otp(uuid, text, text) to service_role;
-grant execute on function public.warroom_bootstrap_admin(text, text) to service_role;
 
 drop policy if exists "policy_credentials_select" on public.warroom_credentials;
 drop policy if exists "policy_credentials_insert" on public.warroom_credentials;

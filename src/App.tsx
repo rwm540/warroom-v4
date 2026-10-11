@@ -66,7 +66,7 @@ import {
   checkSupabaseHealth
 } from './lib/supabaseData';
 // 🛡️ لایه ارتباط امن با بک‌اند (احراز هویت، رمز عبور، درخواست‌های تغییر رمز)
-import { probeBackend, apiLogout, apiSession, getBackendStatus, subscribeBackendStatus } from './lib/backendApi';
+import { apiLogout, setOtpVerifiedUser } from './lib/backendApi';
 import { installGlobalErrorAudit, logAudit } from './lib/auditLogger';
 
 // Vitrin (Showcase) data layer
@@ -585,72 +585,6 @@ export default function App() {
     checkSupabaseHealth();
   }, []);
 
-  // 🛡️ بررسی سلامت بک‌اند امن و پایش وضعیت آن
-  const [backendReady, setBackendReady] = useState<boolean>(() => Boolean(getBackendStatus()?.available));
-  useEffect(() => {
-    probeBackend();
-    return subscribeBackendStatus((status) => setBackendReady(Boolean(status.available)));
-  }, []);
-
-  // 🛡️ اعتبارسنجی نشست سمت سرور هنگام بارگذاری برنامه:
-  const routeAuthenticatedUser = (user: User | null) => {
-    if (!user) {
-      setCurrentUser(null);
-      setIsAdminMode(false);
-      setMustChangePassword(false);
-      return;
-    }
-
-    const safeUser = { ...user, password: '' };
-    setCurrentUser(safeUser);
-    setMustChangePassword(false);
-    setShowAuthScreen(false);
-
-    if (safeUser.role === 'admin') {
-      setIsAdminMode(true);
-      setActiveTab('Admin');
-      setShowGamePortal(false);
-      return;
-    }
-
-    setIsAdminMode(false);
-    setShowGamePortal(false);
-    setActiveTab('Journey');
-  };
-
-  useEffect(() => {
-    if (!backendReady) return;
-    let cancelled = false;
-
-    apiSession().then((res) => {
-      if (cancelled) return;
-      const serverUser: User | undefined = res.ok && res.data?.authenticated ? (res.data.user as User) : undefined;
-
-      if (!serverUser) {
-        localStorage.removeItem('warroom_current_user_data');
-        localStorage.removeItem('warroom_current_user_id');
-        setCurrentUser(null);
-        setIsAdminMode(false);
-        setMustChangePassword(false);
-        return;
-      }
-
-      const safeUser: User = { ...serverUser, password: '' };
-      routeAuthenticatedUser(safeUser);
-    });
-
-    return () => { cancelled = true; };
-  }, [backendReady]);
-
-  // 🛡️ پاک‌سازی رمزهای باقی‌مانده در حافظه مرورگر در «حالت امن»
-  useEffect(() => {
-    if (!backendReady) return;
-    setUsers(prev => {
-      const hasSecret = prev.some(u => Boolean(u.password));
-      return hasSecret ? prev.map(u => ({ ...u, password: '' })) : prev;
-    });
-  }, [backendReady, setUsers]);
-
   // همگام‌سازی ذخیره‌های ویترین با Supabase هنگام تغییر (Bookmark Toggle)
   useEffect(() => {
     const handler = (e: Event) => {
@@ -719,7 +653,7 @@ export default function App() {
       setIsGamePortalMandatory(true);
       setShowGamePortal(true);
     }
-  }, [currentUser, backendReady]);
+  }, [currentUser]);
 
   const clearAllAppStorage = () => {
     try {
@@ -1040,14 +974,6 @@ export default function App() {
     return !n.is_read_by.includes(currentUser.id);
   }).length;
 
-  useEffect(() => {
-    if (currentUser) {
-      localStorage.setItem('warroom_current_user_id', currentUser.id);
-    } else {
-      localStorage.removeItem('warroom_current_user_id');
-    }
-  }, [currentUser]);
-
   // System notification alert trigger
   const triggerAlert = (msg: string) => {
     setAlertNotification(msg);
@@ -1068,14 +994,18 @@ export default function App() {
     triggerAlert('خروج از سامانه اتاق جنگ با موفقیت انجام شد.');
   };
 
-  const handleLoginSuccess = async (user: User, _meta?: { mustChangePassword?: boolean; isNewRegistration?: boolean }) => {
+  const handleLoginSuccess = async (user: User, _meta?: { mustChangePassword?: boolean; isNewRegistration?: boolean; otpProof?: string }) => {
     const safeUser: User = { ...user, password: '' };
+    const otpProof = String(_meta?.otpProof || '');
+    if (!otpProof) {
+      triggerAlert('تأیید سرور برای ورود دریافت نشد. دوباره کد پیامکی را وارد کنید.');
+      return;
+    }
+    setOtpVerifiedUser(safeUser, otpProof);
 
     setCurrentUser(safeUser);
     setShowAuthScreen(false);
     setMustChangePassword(Boolean(_meta?.mustChangePassword || user.mustChangePassword));
-    localStorage.setItem('warroom_current_user_data', JSON.stringify(safeUser));
-    localStorage.setItem('warroom_current_user_id', safeUser.id);
 
     if (safeUser.gender === 'دختر') {
       setCampaignTheme('girls');
@@ -1109,9 +1039,8 @@ export default function App() {
       const dbUser = users.find(u => u.id === currentUser.id);
       if (dbUser) {
         if (dbUser.is_blocked && currentUser.role !== 'admin') {
+          void apiLogout();
           setCurrentUser(null);
-          localStorage.removeItem('warroom_current_user_id');
-          localStorage.removeItem('warroom_current_user_data');
           setShowAuthScreen(true);
           triggerAlert('حساب کاربری شما توسط مدیریت مسدود شد.');
           return;
@@ -1127,7 +1056,6 @@ export default function App() {
           dbUser.role !== currentUser.role
         ) {
           setCurrentUser(dbUser);
-          localStorage.setItem('warroom_current_user_data', JSON.stringify(dbUser));
         }
       }
     }

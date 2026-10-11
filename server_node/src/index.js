@@ -4,7 +4,6 @@ import cors from 'cors';
 import rateLimit from 'express-rate-limit';
 import { config } from './config.js';
 import otpRouter from './routes/otp.js';
-import authRouter from './routes/auth.js';
 
 const app = express();
 app.disable('x-powered-by');
@@ -39,15 +38,6 @@ app.use(rateLimit({
   message: { error: 'RATE_LIMITED', message: 'درخواست‌های زیادی ارسال شده است.' },
 }));
 
-app.use('/api/auth', (req, res, next) => {
-  if (['GET', 'HEAD', 'OPTIONS'].includes(req.method)) return next();
-  const origin = req.get('origin');
-  if (origin && !config.corsOrigins.includes(origin)) {
-    return res.status(403).json({ success: false, error: 'ORIGIN_DENIED', message: 'درخواست از مبدأ غیرمجاز است.' });
-  }
-  next();
-});
-
 const healthHandler = (_req, res) => {
   res.json({
     ok: true,
@@ -60,7 +50,6 @@ app.get('/health', healthHandler);
 app.get('/api/health', healthHandler);
 
 app.use('/api/otp', otpRouter);
-app.use('/api/auth', authRouter);
 
 app.use((err, _req, res, _next) => {
   const status = Number(err.status || (err.message === 'CORS_DENIED' ? 403 : 500));

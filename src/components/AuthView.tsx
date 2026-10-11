@@ -41,12 +41,7 @@ import { sendOtpByNationalCode } from '../lib/otpApi';
 import { createGroupRecord, MAX_GROUP_MEMBERS } from '../lib/groupRegistration';
 import { loginUser, registerUser } from '../lib/authApi';
 import {
-  probeBackend,
-  subscribeBackendStatus,
-  getBackendStatus,
   requestPasswordReset,
-  checkPasswordResetStatus,
-  type BackendStatus
 } from '../lib/backendApi';
 
 const WARROOM_LOGO_PATH = '/images/logos/warroom_logo.webp';
@@ -56,7 +51,7 @@ interface AuthViewProps {
   setUsers: React.Dispatch<React.SetStateAction<User[]>>;
   groups: Group[];
   setGroups: React.Dispatch<React.SetStateAction<Group[]>>;
-  onLoginSuccess: (user: User, meta?: { mustChangePassword?: boolean; isNewRegistration?: boolean }) => void;
+  onLoginSuccess: (user: User, meta?: { mustChangePassword?: boolean; isNewRegistration?: boolean; otpProof?: string }) => void;
   /** ثبت درخواست تغییر رمز در «حالت محلی» (زمانی که بک‌اند امن در دسترس نیست) */
   createLocalPasswordResetRequest?: (input: {
     nationalCode: string;
@@ -254,14 +249,6 @@ export default function AuthView({
     triggerAlert(result.data.message);
   };
 
-  // 🛡️ وضعیت بک‌اند امن (لایه‌های امنیتی سرور)
-  const [backendStatus, setBackendStatus] = useState<BackendStatus | null>(() => getBackendStatus());
-  useEffect(() => {
-    probeBackend();
-    return subscribeBackendStatus(setBackendStatus);
-  }, []);
-  const backendReady = Boolean(backendStatus?.available);
-
   // Handle Unified Register Submission
   const handleRegisterSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -388,12 +375,6 @@ export default function AuthView({
     }
 
     setIsSubmitting(true);
-    const status = await probeBackend(true);
-    if (!status.available) {
-      setIsSubmitting(false);
-      setLoginError('سرور احراز هویت در دسترس نیست؛ ورود محلی غیرفعال است.');
-      return;
-    }
     const result = await loginUser(natId, loginPassword);
     setIsSubmitting(false);
     if (!result.success || !result.user) {
@@ -927,7 +908,7 @@ export default function AuthView({
           if (pendingUser) {
             const authenticatedUser = { ...pendingUser, ...verifiedUser, password: '' } as User;
             triggerAlert(`احراز هویت پیامکی انجام شد. خوش آمدید ${authenticatedUser.first_name} ${authenticatedUser.last_name}`);
-            onLoginSuccess(authenticatedUser, pendingMeta);
+            onLoginSuccess(authenticatedUser, { ...pendingMeta, otpProof: verifiedUser.otpProof });
           }
         }}
       />

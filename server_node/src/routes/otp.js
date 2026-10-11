@@ -12,7 +12,7 @@ import {
 } from '../lib/identity.js';
 import { sendOtpSms } from '../lib/sms.js';
 import { assertDb, findUserByNationalCode } from '../lib/supabase.js';
-import { issueRefreshToken, setSessionCookies, signAccessToken, signChallengeToken, verifyToken } from '../lib/tokens.js';
+import { signChallengeToken, verifyToken } from '../lib/tokens.js';
 
 const router = Router();
 
@@ -206,16 +206,15 @@ router.post('/verify', async (req, res, next) => {
       first_name: userRow?.data?.first_name || '',
       last_name: userRow?.data?.last_name || '',
     };
-
-    const refresh = await issueRefreshToken(user.id);
-    const accessToken = signAccessToken(user, refresh.sessionId);
-    setSessionCookies(res, accessToken, refresh.token);
+    const { error: proofError } = await db.from('warroom_otp_codes')
+      .update({ verified: true })
+      .eq('challenge_id', challenge.challengeId)
+      .eq('user_id', user.id);
+    if (proofError) throw publicError('OTP_VERIFY_FAILED', 'ثبت نتیجه تأیید کد ناموفق بود.', 503);
 
     res.json({
       success: true,
-      tokenType: 'Bearer',
-      expiresIn: config.jwtAccessTtl,
-      user,
+      user: { ...user, otpProof: challenge.challengeId },
     });
   } catch (error) {
     next(error);

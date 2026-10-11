@@ -56,7 +56,6 @@ import {
 } from './data/home';
 
 import { supabase, isSupabaseEnabled } from './lib/supabaseClient';
-import { setRedisSession } from './lib/redisClient';
 // Supabase Data Sync Layer (falls back to localStorage automatically)
 import {
   useSyncedCollection,
@@ -628,19 +627,8 @@ export default function App() {
       const serverUser: User | undefined = res.ok && res.data?.authenticated ? (res.data.user as User) : undefined;
 
       if (!serverUser) {
-        try {
-          const storedUser = localStorage.getItem('warroom_current_user_data');
-          if (storedUser) {
-            const parsed = JSON.parse(storedUser) as User | null;
-            if (parsed?.id) {
-              const safeUser = { ...parsed, password: '' } as User;
-              setCurrentUser(safeUser);
-              return;
-            }
-          }
-        } catch {
-          // Fall through
-        }
+        localStorage.removeItem('warroom_current_user_data');
+        localStorage.removeItem('warroom_current_user_id');
         setCurrentUser(null);
         setIsAdminMode(false);
         setMustChangePassword(false);
@@ -648,8 +636,7 @@ export default function App() {
       }
 
       const safeUser: User = { ...serverUser, password: '' };
-      setCurrentUser((prev) => (prev && prev.id === safeUser.id ? { ...prev, ...safeUser } : safeUser));
-      setMustChangePassword(false);
+      routeAuthenticatedUser(safeUser);
     });
 
     return () => { cancelled = true; };
@@ -742,23 +729,6 @@ export default function App() {
       // Ignore storage access issues in restricted contexts.
     }
   };
-
-  useEffect(() => {
-    try {
-      const storedUser = localStorage.getItem('warroom_current_user_data');
-      if (!storedUser) return;
-      const parsed = JSON.parse(storedUser) as User | null;
-      if (parsed && parsed.id) {
-        const safeUser = { ...parsed, password: '' } as User;
-        setCurrentUser(safeUser);
-        routeAuthenticatedUser(safeUser);
-      } else {
-        localStorage.removeItem('warroom_current_user_data');
-      }
-    } catch {
-      localStorage.removeItem('warroom_current_user_data');
-    }
-  }, []);
 
   // Keep theme in sync with currentUser gender
   useEffect(() => {
@@ -1086,11 +1056,8 @@ export default function App() {
     }, 4500);
   };
 
-  const handleLogout = () => {
-    // 🛡️ ابطال نشست سمت سرور (توکن هش‌شده + کوکی HttpOnly)
-    if (backendReady) {
-      apiLogout().catch(() => { /* خروج محلی در هر صورت انجام می‌شود */ });
-    }
+  const handleLogout = async () => {
+    await apiLogout();
     setMustChangePassword(false);
     setCurrentUser(null);
     setIsAdminMode(false);
@@ -1103,26 +1070,12 @@ export default function App() {
 
   const handleLoginSuccess = async (user: User, _meta?: { mustChangePassword?: boolean; isNewRegistration?: boolean }) => {
     const safeUser: User = { ...user, password: '' };
-    const sessionId = `warroom_session_${safeUser.id}_${Date.now()}`;
-    const sessionPayload = {
-      userId: safeUser.id,
-      expiresAt: String(Date.now() + 7 * 24 * 60 * 60 * 1000),
-      role: safeUser.role,
-      name: `${safeUser.first_name} ${safeUser.last_name}`,
-    };
 
     setCurrentUser(safeUser);
     setShowAuthScreen(false);
     setMustChangePassword(Boolean(_meta?.mustChangePassword || user.mustChangePassword));
     localStorage.setItem('warroom_current_user_data', JSON.stringify(safeUser));
     localStorage.setItem('warroom_current_user_id', safeUser.id);
-    localStorage.setItem('warroom_session_id', sessionId);
-
-    try {
-      await setRedisSession(sessionId, sessionPayload, 7 * 24 * 60 * 60);
-    } catch {
-      // Redis is optional; session remains localStorage-backed for app-level persistence.
-    }
 
     if (safeUser.gender === 'دختر') {
       setCampaignTheme('girls');

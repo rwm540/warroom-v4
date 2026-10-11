@@ -2,7 +2,23 @@
  * API برای ثبت‌نام و ورود کاربر
  */
 
-const AUTH_API_BASE = import.meta.env.VITE_OTP_API_URL?.replace('/otp', '/auth') || 'http://localhost:5000/api/auth';
+const AUTH_API_BASE = '/api/auth';
+
+async function postAuth<T>(path: string, data: unknown): Promise<T & { success?: boolean; error?: string; message?: string }> {
+  try {
+    const response = await fetch(`${AUTH_API_BASE}/${path}`, {
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    });
+    const result = await response.json();
+    if (!response.ok) return { ...result, success: false, error: result.message || result.error || 'درخواست ناموفق بود.' };
+    return result;
+  } catch (error) {
+    return { success: false, error: error instanceof Error ? error.message : 'ارتباط با سرور برقرار نشد.' } as T & { success: boolean; error: string };
+  }
+}
 
 export interface RegisterData {
   firstName: string;
@@ -13,6 +29,12 @@ export interface RegisterData {
   gender: 'دختر' | 'پسر';
   password: string;
   groupName?: string;
+  personalCode?: string;
+  educationLevel?: string;
+  grade?: string;
+  province?: string;
+  city?: string;
+  schoolName?: string;
 }
 
 export interface RegisterResponse {
@@ -24,7 +46,11 @@ export interface RegisterResponse {
     lastName: string;
     phone: string;
     gender: string;
+    national_code?: string;
+    [field: string]: unknown;
   };
+  group?: Record<string, unknown>;
+  mustChangePassword?: boolean;
   error?: string;
 }
 
@@ -32,44 +58,17 @@ export interface RegisterResponse {
  * ثبت‌نام کاربر جدید
  */
 export async function registerUser(data: RegisterData): Promise<RegisterResponse> {
-  try {
-    const response = await fetch(`${AUTH_API_BASE}/register`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify(data)
-    });
+  return postAuth<RegisterResponse>('register', data);
+}
 
-    const result = await response.json();
-    return result;
-  } catch (error) {
-    console.error('خطا در ثبت‌نام:', error);
-    return {
-      success: false,
-      message: 'خطا در ارتباط با سرور',
-      error: error instanceof Error ? error.message : 'Unknown error'
-    };
-  }
+export async function loginUser(nationalCode: string, password: string): Promise<RegisterResponse> {
+  return postAuth<RegisterResponse>('login', { nationalCode, password });
 }
 
 /**
  * بررسی وجود کد ملی
  */
 export async function checkNationalCodeExists(nationalCode: string): Promise<boolean> {
-  try {
-    const response = await fetch(`${AUTH_API_BASE}/check-national-code`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({ nationalCode })
-    });
-
-    const result = await response.json();
-    return result.exists === true;
-  } catch (error) {
-    console.error('خطا در بررسی کد ملی:', error);
-    return false;
-  }
+  const result = await postAuth<{ exists?: boolean }>('check-national-code', { nationalCode });
+  return result.exists === true;
 }

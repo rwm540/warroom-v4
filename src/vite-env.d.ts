@@ -4,9 +4,10 @@
 interface ImportMetaEnv {
   /** آدرس پروژه Supabase (مثال: https://xxxx.supabase.co) */
   readonly VITE_SUPABASE_URL?: string;
+  readonly VITE_SUPABASE_PUBLISHABLE_KEY?: string;
+  readonly VITE_SUPABASE_PUBLIC_KEY?: string;
   /** کلید عمومی anon پروژه Supabase */
   readonly VITE_SUPABASE_ANON_KEY?: string;
-  readonly VITE_OTP_API_URL?: string;
 }
 
 interface ImportMeta {

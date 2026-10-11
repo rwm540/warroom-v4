@@ -10,6 +10,9 @@ concurrency:
   group: warroom-production
   cancel-in-progress: true
 
+permissions:
+  contents: read
+
 jobs:
   validate:
     runs-on: ubuntu-latest
@@ -22,9 +25,32 @@ jobs:
       - run: npm ci
       - run: npm run lint
       - run: npm run build
+      - name: Install API dependencies
+        run: npm ci --prefix server_node
+      - name: Run API unit tests
+        run: npm test --prefix server_node
+      - name: Smoke-test API health without external credentials
+        shell: bash
+        run: |
+          set -euo pipefail
+          NODE_ENV=test PORT=4010 HOST=127.0.0.1 npm start --prefix server_node > /tmp/warroom-api.log 2>&1 &
+          api_pid=$!
+          trap 'kill "$api_pid" 2>/dev/null || true' EXIT
+          for attempt in $(seq 1 30); do
+            if curl --fail --silent http://127.0.0.1:4010/health > /tmp/warroom-health.json; then
+              cat /tmp/warroom-health.json
+              exit 0
+            fi
+            sleep 1
+          done
+          cat /tmp/warroom-api.log
+          exit 1
+      - name: Build API container
+        run: docker build -f server_node/Dockerfile -t warroom-api:ci .
 
   deploy:
     needs: validate
+    if: needs.validate.result == 'success'
     runs-on: [self-hosted, linux, x64]
 
     steps:

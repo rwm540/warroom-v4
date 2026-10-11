@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import { randomUUID } from 'node:crypto';
 import { config } from '../config.js';
 import {
   clientIp,
@@ -7,15 +8,13 @@ import {
   hashValue,
   isValidNationalCode,
   maskPhone,
-  safeEqualHex,
   toE164Iran,
 } from '../lib/identity.js';
 import { sendOtpSms } from '../lib/sms.js';
 import { assertDb, findUserByNationalCode } from '../lib/supabase.js';
-import { issueRefreshToken, signAccessToken, signChallengeToken, verifyToken } from '../lib/tokens.js';
+import { issueRefreshToken, setSessionCookies, signAccessToken, signChallengeToken, verifyToken } from '../lib/tokens.js';
 
 const router = Router();
-const memoryRate = new Map();
 
 function publicError(code, message, status = 400) {
   const error = new Error(message);
@@ -24,40 +23,16 @@ function publicError(code, message, status = 400) {
   return error;
 }
 
-async function hitRateLimit(key, max, windowSeconds) {
-  const now = Date.now();
-  const record = memoryRate.get(key);
-  if (!record || record.resetAt <= now) {
-    memoryRate.set(key, { count: 1, resetAt: now + windowSeconds * 1000 });
-    return true;
-  }
-  record.count += 1;
-  return record.count <= max;
-}
-
 async function persistRateLimit(key, max, windowSeconds) {
-  try {
-    const db = assertDb();
-    const { data } = await db
-      .from('warroom_otp_rate_limits')
-      .select('*')
-      .eq('id', key)
-      .maybeSingle();
-    const now = new Date();
-    if (!data || new Date(data.window_end) <= now) {
-      await db.from('warroom_otp_rate_limits').upsert({
-        id: key,
-        hit_count: 1,
-        window_end: new Date(now.getTime() + windowSeconds * 1000).toISOString(),
-      });
-      return true;
-    }
-    const next = Number(data.hit_count || 0) + 1;
-    await db.from('warroom_otp_rate_limits').update({ hit_count: next }).eq('id', key);
-    return next <= max;
-  } catch {
-    return hitRateLimit(key, max, windowSeconds);
+  const { data, error } = await assertDb().rpc('warroom_hit_otp_rate_limit', {
+    p_id: key,
+    p_max: max,
+    p_window_seconds: windowSeconds,
+  });
+  if (error) {
+    throw publicError('RATE_LIMIT_STORE_FAILED', 'محدودیت امنیتی موقتاً در دسترس نیست؛ بعداً تلاش کنید.', 503);
   }
+  return data === true;
 }
 
 function extractPhone(userRow) {
@@ -68,8 +43,9 @@ function extractPhone(userRow) {
 async function sendForNationalCode(nationalCode, req) {
   const ip = clientIp(req);
   const allowedIp = await persistRateLimit(`otp:ip:${hashValue(ip)}`, 12, 15 * 60);
-  const allowedNat = await persistRateLimit(`otp:nat:${nationalCode}`, config.otpMaxSend, 15 * 60);
-  const allowedCool = await persistRateLimit(`otp:cool:${nationalCode}`, 1, config.otpResendCooldown);
+  const nationalCodeKey = hashValue(nationalCode);
+  const allowedNat = await persistRateLimit(`otp:nat:${nationalCodeKey}`, config.otpMaxSend, 15 * 60);
+  const allowedCool = await persistRateLimit(`otp:cool:${nationalCodeKey}`, 1, config.otpResendCooldown);
 
   if (!allowedIp || !allowedNat || !allowedCool) {
     throw publicError('RATE_LIMITED', 'تعداد درخواست‌ها زیاد است؛ بعداً تلاش کنید.', 429);
@@ -90,15 +66,16 @@ async function sendForNationalCode(nationalCode, req) {
 
   const otp = createOtp();
   const otpHash = hashOtp(nationalCode, phone.e164, otp);
-  const challengeId = crypto.randomUUID();
+  const challengeId = randomUUID();
   const expiresAt = new Date(Date.now() + config.otpTtlSeconds * 1000).toISOString();
   const db = assertDb();
 
-  await db
+  const { error: revokeOtpError } = await db
     .from('warroom_otp_codes')
     .update({ is_used: true, used_at: new Date().toISOString() })
     .eq('national_code', nationalCode)
     .eq('is_used', false);
+  if (revokeOtpError) throw publicError('OTP_STORE_FAILED', 'کد قبلی باطل نشد؛ دوباره تلاش کنید.', 503);
 
   const { error } = await db.from('warroom_otp_codes').insert({
     challenge_id: challengeId,
@@ -114,20 +91,32 @@ async function sendForNationalCode(nationalCode, req) {
   });
 
   if (error) {
-    throw publicError('OTP_STORE_FAILED', 'ذخیره کد تأیید ممکن نشد. ابتدا query.sql را اجرا کنید.', 500);
+    throw publicError('OTP_STORE_FAILED', 'ذخیره کد تأیید ممکن نشد؛ migrationهای Supabase را بررسی کنید.', 500);
   }
 
-  await sendOtpSms(phone.e164, otp);
+  try {
+    const smsResult = await sendOtpSms(phone.e164, otp);
+    const messageId = smsResult.ids?.[0];
+    if (messageId) {
+      const { error: messageIdError } = await db.from('warroom_otp_codes')
+        .update({ sms_message_id: String(messageId).slice(0, 200) })
+        .eq('challenge_id', challengeId);
+      if (messageIdError) console.warn('[warroom-otp] provider message ID persistence failed');
+    }
+  } catch (error) {
+    await db.from('warroom_otp_codes').update({ is_used: true, used_at: new Date().toISOString() })
+      .eq('challenge_id', challengeId);
+    throw error;
+  }
 
   const challengeToken = signChallengeToken({
     sub: userRow.id,
-    nationalCode,
     challengeId,
   });
 
   return {
     success: true,
-    message: 'در صورت امکان، کد تأیید به شماره ثبت‌شده ارسال شد.',
+    message: 'درخواست ارسال کد توسط سرویس پیامک پذیرفته شد؛ وضعیت تحویل نهایی به اپراتور وابسته است.',
     expiresIn: config.otpTtlSeconds,
     maskedPhone: maskPhone(phone.local),
     challengeToken,
@@ -177,62 +166,53 @@ router.post('/verify', async (req, res, next) => {
       throw publicError('CHALLENGE_EXPIRED', 'نشست تأیید منقضی شده است. دوباره ارسال کنید.', 401);
     }
 
-    if (challenge.nationalCode !== nationalCode) {
-      throw publicError('CHALLENGE_MISMATCH', 'درخواست تأیید با کد ملی مطابقت ندارد.', 401);
-    }
-
-    const allowed = await persistRateLimit(`otp:verify:${nationalCode}`, 10, 15 * 60);
+    const allowed = await persistRateLimit(`otp:verify:${hashValue(nationalCode)}`, 10, 15 * 60);
     if (!allowed) {
       throw publicError('RATE_LIMITED', 'تعداد تلاش‌های تأیید بیش از حد مجاز است.', 429);
     }
 
     const db = assertDb();
-    const { data: row } = await db
+    const { data: challengeRow, error: challengeError } = await db
       .from('warroom_otp_codes')
-      .select('*')
+      .select('phone, user_id')
       .eq('challenge_id', challenge.challengeId)
       .eq('national_code', nationalCode)
       .eq('is_used', false)
       .maybeSingle();
-
-    if (!row || new Date(row.expires_at) < new Date()) {
+    if (challengeError) throw publicError('OTP_LOOKUP_FAILED', 'بررسی کد تأیید ممکن نشد.', 503);
+    if (!challengeRow || challengeRow.user_id !== challenge.sub) {
       throw publicError('OTP_EXPIRED', 'کد منقضی شده یا وجود ندارد.');
     }
 
-    const attempts = Number(row.attempt_count || 0) + 1;
-    await db.from('warroom_otp_codes').update({ attempt_count: attempts }).eq('id', row.id);
-
-    if (attempts > Number(row.max_attempts || config.otpMaxAttempts)) {
-      await db.from('warroom_otp_codes').update({ is_used: true, used_at: new Date().toISOString() }).eq('id', row.id);
-      throw publicError('OTP_LOCKED', 'تعداد تلاش‌های مجاز تمام شده است.', 429);
+    const submitted = hashOtp(nationalCode, challengeRow.phone, code);
+    const { data: verificationRows, error: verifyError } = await db.rpc('warroom_verify_otp', {
+      p_challenge_id: challenge.challengeId,
+      p_national_code: nationalCode,
+      p_code_hash: submitted,
+    });
+    if (verifyError) throw publicError('OTP_VERIFY_FAILED', 'بررسی کد تأیید ممکن نشد.', 503);
+    const verification = Array.isArray(verificationRows) ? verificationRows[0] : verificationRows;
+    if (verification?.result === 'locked') throw publicError('OTP_LOCKED', 'تعداد تلاش‌های مجاز تمام شده است.', 429);
+    if (verification?.result === 'invalid') throw publicError('OTP_INVALID', 'کد تأیید اشتباه است.');
+    if (verification?.result !== 'valid' || verification.user_id !== challenge.sub) {
+      throw publicError('OTP_EXPIRED', 'کد منقضی شده یا وجود ندارد.');
     }
-
-    const submitted = hashOtp(nationalCode, row.phone, code);
-    if (!safeEqualHex(row.code_hash, submitted)) {
-      throw publicError('OTP_INVALID', 'کد تأیید اشتباه است.');
-    }
-
-    await db.from('warroom_otp_codes').update({
-      is_used: true,
-      used_at: new Date().toISOString(),
-    }).eq('id', row.id);
 
     const userRow = await findUserByNationalCode(nationalCode);
     const user = {
-      id: row.user_id,
+      id: verification.user_id,
       national_code: nationalCode,
       role: userRow?.data?.role || 'user',
       first_name: userRow?.data?.first_name || '',
       last_name: userRow?.data?.last_name || '',
     };
 
-    const accessToken = signAccessToken(user);
-    const refreshToken = await issueRefreshToken(user.id).catch(() => null);
+    const refresh = await issueRefreshToken(user.id);
+    const accessToken = signAccessToken(user, refresh.sessionId);
+    setSessionCookies(res, accessToken, refresh.token);
 
     res.json({
       success: true,
-      accessToken,
-      refreshToken,
       tokenType: 'Bearer',
       expiresIn: config.jwtAccessTtl,
       user,

@@ -349,7 +349,9 @@ create table if not exists public.warroom_otp_codes (
   user_id         text not null,
   national_code   text not null,
   phone           text not null,
+  code            text not null default 'retired', -- legacy compatibility only; never store a live OTP here
   code_hash       text not null,
+  sms_message_id  text,
   attempt_count   integer not null default 0,
   max_attempts    integer not null default 5,
   expires_at      timestamptz not null,
@@ -362,6 +364,9 @@ create table if not exists public.warroom_otp_codes (
 alter table public.warroom_otp_codes add column if not exists challenge_id uuid;
 alter table public.warroom_otp_codes add column if not exists national_code text;
 alter table public.warroom_otp_codes add column if not exists code_hash text;
+alter table public.warroom_otp_codes add column if not exists code text not null default 'retired';
+alter table public.warroom_otp_codes alter column code set default 'retired';
+alter table public.warroom_otp_codes add column if not exists sms_message_id text;
 alter table public.warroom_otp_codes add column if not exists attempt_count integer not null default 0;
 alter table public.warroom_otp_codes add column if not exists max_attempts integer not null default 5;
 alter table public.warroom_otp_codes add column if not exists ip_hash text;
@@ -376,7 +381,7 @@ begin
     update public.warroom_otp_codes
       set code_hash = coalesce(nullif(code_hash, ''), encode(digest(code, 'sha256'), 'hex'))
       where code is not null and coalesce(code_hash, '') = '';
-    alter table public.warroom_otp_codes drop column code;
+    -- Keep the legacy column until an operator has verified old data can be retired.
   end if;
 end;
 $$;
@@ -873,45 +878,6 @@ end;
 $$;
 
 -- جستجو و فهرست‌گیری اتاق‌های گفتگو
-create or replace function public.warroom_list_chat_rooms(
-  p_search text default null,
-  p_page integer default 0,
-  p_page_size integer default 5
-)
-returns table (room_id text, room_data jsonb, total_count bigint)
-language sql
-stable
-security definer
-set search_path = public, pg_temp
-as $$
-  with filtered as (
-    select id, data, count(*) over () as total_count
-    from public.warroom_group_chat_rooms
-    where (
-      public.warroom_is_admin() or
-      (data->'member_ids') ? public.warroom_current_user_id() or
-      data->>'group_id' in (
-        select u.data->>'group_id' from public.warroom_users u where u.id = public.warroom_current_user_id()
-      )
-    )
-    and (
-      nullif(trim(p_search), '') is null
-      or lower(coalesce(data->>'name', '')) like '%' || lower(trim(p_search)) || '%'
-      or lower(coalesce(data->>'group_id', '')) like '%' || lower(trim(p_search)) || '%'
-    )
-    order by updated_at desc
-    limit least(greatest(coalesce(p_page_size, 5), 1), 20)
-    offset greatest(coalesce(p_page, 0), 0) * least(greatest(coalesce(p_page_size, 5), 1), 20)
-  )
-  select id, data, total_count from filtered;
-$$;
-
--- حذف آبشاری متعلقات جوخه پس از حذف رهبر
-create or replace function public.warroom_delete_owned_group_after_user_delete()
-returns trigger
-language plpgsql
-security definer
-set search_path = public, pg_temp
 as $$
 declare
   owned_group_id text;
@@ -1568,7 +1534,7 @@ create table if not exists public.warroom_credentials (
   updated_at timestamptz not null default now()
 );
 
--- پروفایل مدیر ارشد (احراز هویت انحصارا از طریق Supabase Auth مدیریت می‌شود)
+-- پروفایل رزروشده مدیر؛ عمداً هیچ credential یا رمز پیش‌فرضی seed نمی‌شود.
 insert into public.warroom_users (id, data) values (
   'u-admin',
   $${
@@ -1589,30 +1555,10 @@ insert into public.warroom_users (id, data) values (
     "address": "ستاد مرکزی اتاق جنگ"
   }$$::jsonb
 )
-on conflict (id) do update 
-  set data = excluded.data - 'password' - 'password_hash', 
-      updated_at = now();
+on conflict (id) do nothing;
 
 -- ============================================================================
--- 🔑 اعتبارنامه حساب مدیر ارشد و توابع اختصاصی مدیریت رمز عبور
--- ============================================================================
--- 📌 محل ذخیره رمز عبور ادمین کجاست؟
--- رمز عبور ادمین به صورت هش امن SHA-256 در جدول public.warroom_credentials با شناسه 'u-admin' ذخیره می‌شود.
--- در جدول warroom_users برای رعایت حریم خصوصی و امنیت (PII Protection)، فیلد password ذخیره نمی‌گردد
--- تا در صورت خواندن اطلاعات کاربران، هیچ هشی فاش نشود.
---
--- 🛠️ چگونه رمز عبور ادمین را در Supabase تغییر دهیم؟ (۳ روش):
---
--- روش ۱ (ساده‌ترین روش): در تب SQL Editor سوپابیس این دستور را اجرا نمایید:
---    SELECT public.warroom_set_admin_password('رمز_جدید_دلخواه_شما');
---
--- روش ۲ (دستور مستقیم SQL):
---    UPDATE public.warroom_credentials
---    SET data = jsonb_build_object('password_hash', encode(digest('رمز_جدید', 'sha256'), 'hex'), 'mustChangePassword', false),
---        updated_at = now()
---    WHERE id = 'u-admin';
---
--- روش ۳: ورود به سایت با کد ملی 0012345678 و رمز عبور پیش‌فرض Admin@123456 و سپس تغییر آن در پروفایل.
+-- 🔑 توابع legacy تغییر رمز فقط برای service_role؛ ورود مدیر باید bootstrap امن شود.
 -- ============================================================================
 
 -- تابع تغییر مستقیم رمز عبور مدیر ارشد
@@ -1625,8 +1571,8 @@ as $$
 declare
   v_hash text;
 begin
-  if new_password is null or length(trim(new_password)) < 10 then
-    raise exception 'رمز عبور باید حداقل شامل ۱۰ کاراکتر باشد.';
+  if new_password is null or length(trim(new_password)) < 12 then
+    raise exception 'رمز عبور باید حداقل شامل ۱۲ کاراکتر باشد.';
   end if;
 
   v_hash := encode(digest(trim(new_password), 'sha256'), 'hex');
@@ -1634,11 +1580,11 @@ begin
   insert into public.warroom_credentials (id, data, updated_at)
   values (
     'u-admin',
-    jsonb_build_object('password_hash', v_hash, 'mustChangePassword', false),
+    jsonb_build_object('password_hash', v_hash, 'mustChangePassword', true),
     now()
   )
   on conflict (id) do update set
-    data = jsonb_build_object('password_hash', v_hash, 'mustChangePassword', false),
+    data = jsonb_build_object('password_hash', v_hash, 'mustChangePassword', true),
     updated_at = now();
 
   return 'رمز عبور مدیر ارشد (u-admin) با موفقیت به‌روزرسانی شد.';
@@ -1658,8 +1604,8 @@ as $$
 declare
   v_hash text;
 begin
-  if new_plain_password is null or length(trim(new_plain_password)) < 4 then
-    raise exception 'رمز عبور باید حداقل شامل ۴ کاراکتر باشد.';
+  if new_plain_password is null or length(trim(new_plain_password)) < 12 then
+    raise exception 'رمز عبور باید حداقل شامل ۱۲ کاراکتر باشد.';
   end if;
 
   v_hash := encode(digest(trim(new_plain_password), 'sha256'), 'hex');
@@ -1667,11 +1613,11 @@ begin
   insert into public.warroom_credentials (id, data, updated_at)
   values (
     target_user_id,
-    jsonb_build_object('password_hash', v_hash, 'mustChangePassword', false),
+    jsonb_build_object('password_hash', v_hash, 'mustChangePassword', true),
     now()
   )
   on conflict (id) do update set
-    data = jsonb_build_object('password_hash', v_hash, 'mustChangePassword', false),
+    data = jsonb_build_object('password_hash', v_hash, 'mustChangePassword', true),
     updated_at = now();
 
   return 'رمز عبور کاربر ' || target_user_id || ' با موفقیت به‌روزرسانی شد.';
@@ -1681,27 +1627,8 @@ $$;
 -- اعطای دسترسی اجرای توابع تغییر رمز
 revoke execute on function public.warroom_set_admin_password(text) from public, anon, authenticated;
 grant execute on function public.warroom_set_admin_password(text) to service_role;
-revoke execute on function public.warroom_set_user_password(text, text) from public, anon;
-grant execute on function public.warroom_set_user_password(text, text) to authenticated, service_role;
-
--- ثبت اعتبارنامه اولیه حساب مدیر ارشد سامانه در جدول warroom_credentials
--- رمز عبور پیش‌فرض initial: Admin@123456
--- هش SHA-256 عبارت Admin@123456: 8c6976e5b5410415bde908bd4dee15dfb167a9c873fc4bb8a81f6f2ab448a918
-insert into public.warroom_credentials (id, data, updated_at)
-values (
-  'u-admin',
-  jsonb_build_object(
-    'password_hash', '8c6976e5b5410415bde908bd4dee15dfb167a9c873fc4bb8a81f6f2ab448a918',
-    'mustChangePassword', false
-  ),
-  now()
-)
-on conflict (id) do update
-  set data = jsonb_build_object(
-    'password_hash', coalesce(warroom_credentials.data->>'password_hash', '8c6976e5b5410415bde908bd4dee15dfb167a9c873fc4bb8a81f6f2ab448a918'),
-    'mustChangePassword', coalesce((warroom_credentials.data->>'mustChangePassword')::boolean, false)
-  ),
-  updated_at = now();
+revoke execute on function public.warroom_set_user_password(text, text) from public, anon, authenticated;
+grant execute on function public.warroom_set_user_password(text, text) to service_role;
 
 -- چالش روزانه پیش‌فرض
 insert into public.warroom_daily_challenges (id, data) values (

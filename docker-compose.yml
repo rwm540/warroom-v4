@@ -1,4 +1,38 @@
 services:
+  warroom-api:
+    build:
+      context: .
+      dockerfile: server_node/Dockerfile
+    container_name: warroom-v4-api
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      PORT: 4010
+      HOST: 0.0.0.0
+      CORS_ORIGINS: ${CORS_ORIGINS:?CORS_ORIGINS must contain the deployed site origin}
+      SUPABASE_URL: ${SUPABASE_URL:?SUPABASE_URL is required}
+      SUPABASE_SERVICE_ROLE_KEY: ${SUPABASE_SERVICE_ROLE_KEY:?SUPABASE_SERVICE_ROLE_KEY is required}
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required}
+      OTP_SECRET: ${OTP_SECRET:?OTP_SECRET is required}
+      ADMIN_BOOTSTRAP_TOKEN: ${ADMIN_BOOTSTRAP_TOKEN:-}
+      JWT_ACCESS_TTL: ${JWT_ACCESS_TTL:-15m}
+      JWT_REFRESH_TTL: ${JWT_REFRESH_TTL:-7d}
+      OTP_TTL_SECONDS: ${OTP_TTL_SECONDS:-300}
+      OTP_MAX_SEND_PER_15MIN: ${OTP_MAX_SEND_PER_15MIN:-3}
+      OTP_RESEND_COOLDOWN_SECONDS: ${OTP_RESEND_COOLDOWN_SECONDS:-60}
+      OTP_MAX_VERIFY_ATTEMPTS: ${OTP_MAX_VERIFY_ATTEMPTS:-5}
+      IPPANEL_API_KEY: ${IPPANEL_API_KEY:-}
+      IPPANEL_FROM_NUMBER: ${IPPANEL_FROM_NUMBER:-}
+      IPPANEL_API_URL: ${IPPANEL_API_URL:-https://edge.ippanel.com/v1/api/send}
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:4010/health').then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    networks:
+      - warroom-private
+
   warroom:
     build:
       context: .
@@ -8,5 +42,20 @@ services:
         VITE_SUPABASE_PUBLISHABLE_KEY: ${VITE_SUPABASE_PUBLISHABLE_KEY:?VITE_SUPABASE_PUBLISHABLE_KEY is required}
     container_name: warroom-v4
     restart: unless-stopped
+    depends_on:
+      warroom-api:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1/ || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
     ports:
       - "127.0.0.1:3100:80"
+    networks:
+      - warroom-private
+
+networks:
+  warroom-private:
+    driver: bridge

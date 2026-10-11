@@ -1,5 +1,7 @@
 # ✅ خلاصه نهایی تغییرات
 
+> این فایل خلاصهٔ تاریخی و غیرمرجع است. برای راه‌اندازی فعلی، تنظیمات و migrationهای دستی به [docs/deployment-auth.md](docs/deployment-auth.md) مراجعه کنید.
+
 ## 🎯 مشکلات حل شده
 
 1. ✅ **صفحه دیگر ریلود نمی‌شود** - با `e.preventDefault()`
@@ -158,13 +160,13 @@ npm run dev
 ### 1. بررسی سلامت سرور
 
 ```bash
-curl http://localhost:5000/health
+curl http://localhost:4010/health
 ```
 
 ### 2. تست ثبت‌نام
 
 ```bash
-curl -X POST http://localhost:5000/api/auth/register \
+curl -X POST http://localhost:4010/api/auth/register \
   -H "Content-Type: application/json" \
   -d '{
     "firstName": "علی",
@@ -320,7 +322,7 @@ const handleRegisterSubmit = async (e: React.FormEvent) => {
 ### داده در Supabase ذخیره نمی‌شود؟
 ```bash
 # بررسی سرور
-curl http://localhost:5000/health
+curl http://localhost:4010/health
 
 # بررسی لاگ سرور
 # در ترمینال سرور Node.js خطاها را ببینید

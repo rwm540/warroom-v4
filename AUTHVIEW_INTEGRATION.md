@@ -1,5 +1,7 @@
 # 🔗 راهنمای یکپارچه‌سازی AuthView با سرور OTP
 
+> راهنمای تاریخی؛ نمونه‌کدهای این فایل برای معماری قبلی است و نباید دوباره کپی شود. مرجع فعلی: [docs/deployment-auth.md](docs/deployment-auth.md). API مرورگر same-origin است، OTP شش‌رقمی و اعتبار آن از پاسخ سرور (۳۰۰ ثانیه پیش‌فرض) گرفته می‌شود.
+
 ## مشکلاتی که حل شد:
 
 1. ✅ **صفحه ریلود نمی‌شود**
@@ -229,15 +231,14 @@ cd server_node
 npm start
 ```
 
-سرور روی `http://localhost:5000` اجرا می‌شود.
+سرور روی `http://localhost:4010` اجرا می‌شود.
 
 ### 3. تنظیم متغیر محیطی در React
 
 فایل `.env` در ریشه پروژه React:
 
 ```env
-VITE_OTP_API_URL=http://localhost:5000/api/otp
-```
+# Current frontend uses same-origin /api routes; do not set an OTP API URL.```
 
 ### 4. اجرای React
 
@@ -323,7 +324,7 @@ const handleRegisterSubmit = async (e: React.FormEvent) => {
 **راه‌حل:**
 ```bash
 # بررسی سرور
-curl http://localhost:5000/health
+curl http://localhost:4010/health
 
 # اجرای مجدد
 cd server_node

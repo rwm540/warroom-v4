@@ -66,4 +66,4 @@ Adapter از `POST https://edge.ippanel.com/v1/api/send` استفاده می‌�
 
 `server_node/package-lock.json` در مخزن موجود نیست و در نتیجه دستورات `npm ci --prefix server_node` در GitHub Actions و `npm ci --omit=dev` در Dockerfile API تا زمان ثبت Lock معتبر قابل اتکا نیستند. فایل `.gitignore` اجازه ثبت آن را می‌دهد؛ این Lock در این تغییر ساخته یا جعل نشده است. جزئیات در [راهنمای معماری و استقرار](../docs/deployment-auth.md) آمده است.
 
-هیچ نصب وابستگی، تست، Build، Docker، SQL/Migration، درخواست واقعی به IPPanel یا Deployment به‌عنوان بخشی از این بررسی انجام نشده است.
+هیچ API-وابستگی، تست، Build، Docker، SQL/Migration، اتصال زنده به دیتابیس، درخواست واقعی به IPPanel یا Deployment به‌عنوان بخشی از این بررسی اجرا نشد. به‌اشتباه، هنگام ساخت PR یک `npm ci` در ریشه مخزن اجرا شد و npm گزارش کرد ۵۰۵ بسته نصب شده‌اند؛ این کار برخلاف محدودیت درخواست‌شده بود و تکرار نمی‌شود. این نصب lockfile را نساخت یا تغییر نداد و `server_node` جداگانه نصب نشد.

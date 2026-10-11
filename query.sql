@@ -342,6 +342,79 @@ create table if not exists public.warroom_squad_merge_requests (
   check (source_squad_id <> target_squad_id)
 );
 
+-- ۳۹. کدهای تایید OTP — فقط هش، فقط service_role (سرور Node)
+create table if not exists public.warroom_otp_codes (
+  id              uuid primary key default gen_random_uuid(),
+  challenge_id    uuid not null default gen_random_uuid(),
+  user_id         text not null,
+  national_code   text not null,
+  phone           text not null,
+  code_hash       text not null,
+  attempt_count   integer not null default 0,
+  max_attempts    integer not null default 5,
+  expires_at      timestamptz not null,
+  is_used         boolean not null default false,
+  used_at         timestamptz,
+  ip_hash         text,
+  created_at      timestamptz not null default now()
+);
+
+alter table public.warroom_otp_codes add column if not exists challenge_id uuid;
+alter table public.warroom_otp_codes add column if not exists national_code text;
+alter table public.warroom_otp_codes add column if not exists code_hash text;
+alter table public.warroom_otp_codes add column if not exists attempt_count integer not null default 0;
+alter table public.warroom_otp_codes add column if not exists max_attempts integer not null default 5;
+alter table public.warroom_otp_codes add column if not exists ip_hash text;
+
+-- مهاجرت از کد متن‌ساده به هش و حذف ستون خطرناک code
+do $$
+begin
+  if exists (
+    select 1 from information_schema.columns
+    where table_schema = 'public' and table_name = 'warroom_otp_codes' and column_name = 'code'
+  ) then
+    update public.warroom_otp_codes
+      set code_hash = coalesce(nullif(code_hash, ''), encode(digest(code, 'sha256'), 'hex'))
+      where code is not null and coalesce(code_hash, '') = '';
+    alter table public.warroom_otp_codes drop column code;
+  end if;
+end;
+$$;
+
+update public.warroom_otp_codes
+  set challenge_id = coalesce(challenge_id, gen_random_uuid())
+  where challenge_id is null;
+alter table public.warroom_otp_codes alter column challenge_id set default gen_random_uuid();
+alter table public.warroom_otp_codes alter column challenge_id set not null;
+
+create unique index if not exists idx_warroom_otp_codes_challenge on public.warroom_otp_codes(challenge_id);
+create index if not exists idx_warroom_otp_codes_user_id on public.warroom_otp_codes(user_id);
+create index if not exists idx_warroom_otp_codes_national on public.warroom_otp_codes(national_code);
+create index if not exists idx_warroom_otp_codes_hash on public.warroom_otp_codes(code_hash);
+create index if not exists idx_warroom_otp_codes_is_used on public.warroom_otp_codes(is_used);
+create index if not exists idx_warroom_otp_codes_expires on public.warroom_otp_codes(expires_at);
+
+-- ۴۰. محدودسازی نرخ OTP در دیتابیس
+create table if not exists public.warroom_otp_rate_limits (
+  id          text primary key,
+  hit_count   integer not null default 0,
+  window_end  timestamptz not null,
+  updated_at  timestamptz not null default now()
+);
+
+-- ۴۱. توکن‌های تازه‌سازی JWT (هش‌شده)
+create table if not exists public.warroom_refresh_tokens (
+  id           uuid primary key default gen_random_uuid(),
+  user_id      text not null,
+  token_hash   text not null unique,
+  expires_at   timestamptz not null,
+  revoked_at   timestamptz,
+  created_at   timestamptz not null default now()
+);
+
+create index if not exists idx_warroom_refresh_user on public.warroom_refresh_tokens(user_id);
+create index if not exists idx_warroom_refresh_expires on public.warroom_refresh_tokens(expires_at);
+
 -- ============================================================================
 -- جداول فوق‌امنیتی سرور (فقط service_role و بدون هیچ دسترسی از کلاینت)
 -- ============================================================================
@@ -489,7 +562,8 @@ begin
     'warroom_team_registration_sessions','warroom_team_registrations',
     'warroom_group_join_requests','warroom_squad_enlistments','warroom_squad_hierarchy',
     'warroom_squad_merge_requests','warroom_session_log','warroom_credentials',
-    'warroom_sessions','warroom_password_resets','warroom_security_kv'
+    'warroom_sessions','warroom_password_resets','warroom_security_kv',
+    'warroom_otp_rate_limits','warroom_refresh_tokens'
   ]
   loop
     execute format('drop trigger if exists trg_%s_updated_at on public.%I', t, t);
@@ -900,6 +974,7 @@ from public.warroom_users u;
 -- ----------------------------------------------------------------------------
 create index if not exists idx_warroom_users_auth_uid      on public.warroom_users (auth_user_id);
 create index if not exists idx_warroom_users_national_code on public.warroom_users ((data->>'national_code'));
+create index if not exists idx_warroom_users_phone         on public.warroom_users ((data->>'phone'));
 create index if not exists idx_warroom_users_personal_code on public.warroom_users ((data->>'personal_code'));
 create index if not exists idx_warroom_users_role          on public.warroom_users ((data->>'role'));
 create index if not exists idx_warroom_users_group_id      on public.warroom_users ((data->>'group_id'));
@@ -995,6 +1070,12 @@ revoke all on public.warroom_sessions        from anon, authenticated;
 revoke all on public.warroom_password_resets from anon, authenticated;
 revoke all on public.warroom_security_kv     from anon, authenticated;
 revoke all on public.warroom_session_log     from anon, authenticated;
+revoke all on public.warroom_otp_codes       from anon, authenticated;
+revoke all on public.warroom_otp_rate_limits from anon, authenticated;
+revoke all on public.warroom_refresh_tokens  from anon, authenticated;
+grant all on public.warroom_otp_codes to service_role;
+grant all on public.warroom_otp_rate_limits to service_role;
+grant all on public.warroom_refresh_tokens to service_role;
 
 -- جدول warroom_credentials: مجوز خواندن و نوشتن محدود تحت RLS اختصاصی
 grant select, insert, update on public.warroom_credentials to anon, authenticated;
@@ -1033,7 +1114,8 @@ begin
     'warroom_group_join_requests','warroom_squad_enlistments','warroom_squad_hierarchy',
     'warroom_wallet_transactions','warroom_point_transfers','warroom_squad_merge_requests',
     'warroom_session_log','warroom_credentials','warroom_sessions',
-    'warroom_password_resets','warroom_audit_log','warroom_security_kv'
+    'warroom_password_resets','warroom_audit_log','warroom_security_kv',
+    'warroom_otp_codes','warroom_otp_rate_limits','warroom_refresh_tokens'
   ]
   loop
     execute format('alter table public.%I enable row level security;', t);
@@ -1337,6 +1419,18 @@ create policy "policy_credentials_update" on public.warroom_credentials
     or id = public.warroom_current_user_id()
   );
 
+-- OTP / JWT: هیچ دسترسی کلاینتی — فقط service_role سرور Node
+alter table public.warroom_otp_codes enable row level security;
+alter table public.warroom_otp_rate_limits enable row level security;
+alter table public.warroom_refresh_tokens enable row level security;
+alter table public.warroom_otp_codes force row level security;
+alter table public.warroom_otp_rate_limits force row level security;
+alter table public.warroom_refresh_tokens force row level security;
+
+drop policy if exists "policy_otp_no_client" on public.warroom_otp_codes;
+drop policy if exists "policy_otp_rate_no_client" on public.warroom_otp_rate_limits;
+drop policy if exists "policy_refresh_no_client" on public.warroom_refresh_tokens;
+
 -- ----------------------------------------------------------------------------
 -- ۸) امنیت Storage رسانه‌ها (warroom-media) — ایمن در برابر خطای ۴۲۷۱۰
 -- ----------------------------------------------------------------------------
@@ -1433,7 +1527,8 @@ begin
       'warroom_users','warroom_password_reset_requests','warroom_payment_transactions',
       'warroom_wallet_transactions','warroom_point_transfers','warroom_kv',
       'warroom_server_settings','warroom_payment_config','warroom_admin_settings',
-      'warroom_credentials','warroom_sessions','warroom_password_resets'
+      'warroom_credentials','warroom_sessions','warroom_password_resets',
+      'warroom_otp_codes','warroom_otp_rate_limits','warroom_refresh_tokens'
     ]
     loop
       begin
@@ -1530,8 +1625,8 @@ as $$
 declare
   v_hash text;
 begin
-  if new_password is null or length(trim(new_password)) < 4 then
-    raise exception 'رمز عبور باید حداقل شامل ۴ کاراکتر باشد.';
+  if new_password is null or length(trim(new_password)) < 10 then
+    raise exception 'رمز عبور باید حداقل شامل ۱۰ کاراکتر باشد.';
   end if;
 
   v_hash := encode(digest(trim(new_password), 'sha256'), 'hex');
@@ -1546,7 +1641,7 @@ begin
     data = jsonb_build_object('password_hash', v_hash, 'mustChangePassword', false),
     updated_at = now();
 
-  return 'رمز عبور مدیر ارشد (u-admin) با موفقیت به‌روزرسانی شد. هش ثبت‌شده: ' || v_hash;
+  return 'رمز عبور مدیر ارشد (u-admin) با موفقیت به‌روزرسانی شد.';
 end;
 $$;
 
@@ -1584,7 +1679,9 @@ end;
 $$;
 
 -- اعطای دسترسی اجرای توابع تغییر رمز
-grant execute on function public.warroom_set_admin_password(text) to authenticated, anon, service_role;
+revoke execute on function public.warroom_set_admin_password(text) from public, anon, authenticated;
+grant execute on function public.warroom_set_admin_password(text) to service_role;
+revoke execute on function public.warroom_set_user_password(text, text) from public, anon;
 grant execute on function public.warroom_set_user_password(text, text) to authenticated, service_role;
 
 -- ثبت اعتبارنامه اولیه حساب مدیر ارشد سامانه در جدول warroom_credentials
@@ -1741,7 +1838,7 @@ begin
   select count(*) into realtime_leaks_count
   from pg_publication_tables
   where pubname = 'supabase_realtime'
-    and tablename in ('warroom_users', 'warroom_wallet_transactions', 'warroom_payment_transactions', 'warroom_server_settings', 'warroom_credentials');
+    and tablename in ('warroom_users', 'warroom_wallet_transactions', 'warroom_payment_transactions', 'warroom_server_settings', 'warroom_credentials', 'warroom_otp_codes', 'warroom_refresh_tokens');
 
   if realtime_leaks_count > 0 then
     raise warning 'SECURITY AUDIT: Sensitive tables still exposed in Realtime!';

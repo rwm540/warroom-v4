@@ -196,7 +196,7 @@ export async function apiLogin(nationalCode: string, password: string): Promise<
       }
     }
 
-    if (adminCustomMatched || trimmedPassword === 'Admin@123456' || passwordHash === adminPasswordHash || trimmedPassword === 'admin') {
+    if (adminCustomMatched || passwordHash === adminPasswordHash) {
       const adminUser: User & { password?: string } = {
         id: 'u-admin',
         first_name: 'امیرحسین',

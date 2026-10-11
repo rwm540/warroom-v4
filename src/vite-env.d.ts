@@ -6,6 +6,7 @@ interface ImportMetaEnv {
   readonly VITE_SUPABASE_URL?: string;
   /** کلید عمومی anon پروژه Supabase */
   readonly VITE_SUPABASE_ANON_KEY?: string;
+  readonly VITE_OTP_API_URL?: string;
 }
 
 interface ImportMeta {

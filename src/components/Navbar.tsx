@@ -113,11 +113,6 @@ export default function Navbar({
   };
 
   const handleSelectTab = (tab: string, isAdmin = false, isNotif = false) => {
-    if (tab === 'GamePortals' && onOpenGamePortal) {
-      setIsMobileMoreOpen(false);
-      onOpenGamePortal();
-      return;
-    }
     if (isNotif && onOpenNotifications) {
       setIsMobileMoreOpen(false);
       onOpenNotifications();
@@ -130,7 +125,6 @@ export default function Navbar({
 
   // Full Desktop Navigation items (Web desktop/laptop) - Dashboard is exclusive to Admin
   const desktopNavItems: { id: string; label: string; icon: any; badge?: string }[] = [
-    { id: 'GamePortals', label: 'انتخاب بازی', icon: Gamepad2 },
     { id: 'Journey', label: 'نقشه مراحل بازی', icon: Compass },
     { id: 'Rewards', label: 'جوایز و امتیازات', icon: Gift },
     { id: 'Vitrin', label: 'ویترین و آثار', icon: Grid },
@@ -138,7 +132,6 @@ export default function Navbar({
 
   // Android Mobile Bottom Navigation (Core 4 tabs)
   const mobileBottomItems = [
-    { id: 'GamePortals', label: 'انتخاب بازی', icon: Gamepad2 },
     { id: 'Journey', label: 'نقشه بازی', icon: Compass },
     { id: 'Rewards', label: 'جوایز و امتیازات', icon: Gift },
     { id: 'Vitrin', label: 'ویترین و آثار', icon: Grid },
@@ -146,12 +139,6 @@ export default function Navbar({
 
   // Items shown inside the Mobile Android Bottom Sheet (More ...)
   const mobileSheetItems = [
-    {
-      id: 'GamePortals',
-      label: 'انتخاب بازی',
-      desc: 'مشاهده درگاه‌ها و سامانه‌های عملیاتی (اتاق جنگ، کهکشان و سایبری)',
-      icon: Gamepad2,
-    },
     {
       id: 'Chat',
       label: 'چت روم جوخه',

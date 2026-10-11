@@ -53,6 +53,7 @@ import {
   UserPlus,
   Phone,
   MapPin,
+  Map,
   Calendar,
   Building,
   Hash,
@@ -78,6 +79,7 @@ import {
 import AdminAvatarsPanel from './admin/AdminAvatarsPanel';
 import { AdminGameMapManager } from './admin/AdminGameMapManager';
 import { AdminGameMapTimerManager } from './admin/AdminGameMapTimerManager';
+import { AdminStageBuilderManager } from './admin/AdminStageBuilderManager';
 import { PaginationControls } from './common/PaginationControls';
 import { defaultHomeButtons } from '../data/home';
 import { VitrinPost, buildVitrinPostFromSubmission } from '../data/vitrinData';
@@ -2133,6 +2135,19 @@ export default function AdminPanel({
         >
           <Clock size={15} className="text-amber-400" />
           <span>مدیریت تایمر مراحل و نقشه بازی</span>
+        </button>
+
+        <button
+          onClick={() => setActiveAdminTab('stage_builder')}
+          className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl whitespace-nowrap shrink-0 transition border relative ${
+            activeAdminTab === 'stage_builder' 
+              ? 'bg-gradient-to-r from-emerald-500 via-teal-400 to-emerald-500 text-slate-950 border-emerald-400 font-black shadow-[0_0_20px_rgba(16,185,129,0.5)]' 
+              : 'bg-[#080d21] text-emerald-300 border-emerald-500/40 hover:border-emerald-400 hover:text-white'
+          }`}
+          id="btn-tab-stage-builder"
+        >
+          <Map size={15} className="text-emerald-400" />
+          <span>ایجاد مراحل و نقشه بازی</span>
         </button>
 
         <button
@@ -5873,11 +5888,24 @@ export default function AdminPanel({
       {/* ==================================================================== */}
       {/* 13.5 ⏰ GAME MAP TIMER MANAGER TAB — مدیریت تایمر مراحل و نقشه بازی   */}
       {/* ==================================================================== */}
-      {(activeAdminTab === 'game_map_timer' || activeAdminTab === 'stage_builder' || activeAdminTab === 'game_journey_map') && (
+      {activeAdminTab === 'game_map_timer' && (
         <AdminGameMapTimerManager
           siteSettings={siteSettings}
           setSiteSettings={setSiteSettings}
           triggerAlert={triggerAlert}
+        />
+      )}
+
+      {/* ==================================================================== */}
+      {/* 13.6 🏗️ STAGE BUILDER TAB — ایجاد مراحل و نقشه بازی                   */}
+      {/* ==================================================================== */}
+      {activeAdminTab === 'stage_builder' && (
+        <AdminStageBuilderManager
+          siteSettings={siteSettings}
+          setSiteSettings={setSiteSettings}
+          triggerAlert={triggerAlert}
+          stages={stages}
+          setStages={setStages}
         />
       )}
 

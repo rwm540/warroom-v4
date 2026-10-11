@@ -726,6 +726,14 @@ export default function App() {
   // Current Logged-in User (Managed in memory + Supabase backend)
   const [currentUser, setCurrentUser] = useState<User | null>(null);
 
+  // 🆕 Mandatory Game Selection on Login
+  useEffect(() => {
+    if (currentUser && currentUser.role !== 'admin' && !sessionStorage.getItem('warroom_selected_game_id')) {
+      setIsGamePortalMandatory(true);
+      setShowGamePortal(true);
+    }
+  }, [currentUser, backendReady]);
+
   const clearAllAppStorage = () => {
     try {
       const keys = [...Object.keys(localStorage)];

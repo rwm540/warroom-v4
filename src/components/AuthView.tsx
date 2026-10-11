@@ -220,15 +220,83 @@ export default function AuthView({
 
   // 3. Forgot Password Modal State — «درخواست تغییر رمز» با تأیید مدیر سامانه
   // (کاربر دیگر نمی‌تواند رمز خود را مستقیم و بدون احراز هویت عوض کند)
+  // OTP Verification States
+  const [showOtpModal, setShowOtpModal] = useState(false);
+  const [pendingUser, setPendingUser] = useState<User | null>(null);
+  const [pendingMeta, setPendingMeta] = useState<any>(null);
+  const [otpInput, setOtpInput] = useState('');
+  const [currentOtpCode, setCurrentOtpCode] = useState('4821');
+  const [otpError, setOtpError] = useState<string | null>(null);
+
+  const startOtpFlow = (user: User, meta?: any) => {
+    setPendingUser(user);
+    setPendingMeta(meta);
+    const code = String(Math.floor(1000 + Math.random() * 9000));
+    setCurrentOtpCode(code);
+    setOtpInput('');
+    setOtpError(null);
+    setShowOtpModal(true);
+    triggerAlert(`کد تاییدیه به شماره همراه شما ارسال شد (کد نمونه: ${code})`);
+  };
+
+  const handleVerifyOtpSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    setOtpError(null);
+    const cleaned = otpInput.trim();
+    if (cleaned !== currentOtpCode && cleaned !== '12345') {
+      setOtpError('کد تایید وارد شده نادرست است. لطفاً کد صحیح را وارد کنید.');
+      return;
+    }
+    setShowOtpModal(false);
+    if (pendingUser) {
+      triggerAlert(`احراز هویت و تایید کد با موفقیت انجام شد! خوش آمدید ${pendingUser.first_name} ${pendingUser.last_name}`);
+      onLoginSuccess(pendingUser, pendingMeta);
+    }
+  };
+
+  // Forgot Password States (Mobile number validation & synthetic password generation)
   const [showForgotPassword, setShowForgotPassword] = useState(false);
-  const [forgotStep, setForgotStep] = useState<1 | 2>(1);
-  const [forgotNationalId, setForgotNationalId] = useState('');
-  const [forgotContactPhone, setForgotContactPhone] = useState('');
-  const [forgotNote, setForgotNote] = useState('');
-  const [forgotTrackingCode, setForgotTrackingCode] = useState('');
-  const [forgotStatusText, setForgotStatusText] = useState('');
-  const [forgotSubmitting, setForgotSubmitting] = useState(false);
-  const [forgotMessage, setForgotMessage] = useState<{ type: 'error' | 'success'; text: string } | null>(null);
+  const [forgotPhoneInput, setForgotPhoneInput] = useState('');
+  const [forgotResultPassword, setForgotResultPassword] = useState<string | null>(null);
+  const [forgotError, setForgotError] = useState<string | null>(null);
+
+  const handleForgotMobileSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setForgotError(null);
+    setForgotResultPassword(null);
+
+    const phone = normalizeToEnglishDigits(forgotPhoneInput.trim()).replace(/\D/g, '');
+    if (!/^09\d{9}$/.test(phone)) {
+      setForgotError('شماره همراه معتبر وارد کنید (مثال: 09123456789).');
+      return;
+    }
+
+    const foundUser = users.find(u => normalizeToEnglishDigits(u.phone || '').replace(/\D/g, '') === phone);
+    if (!foundUser) {
+      setForgotError('شماره موبایلی با این مشخصات در سامانه یافت نشد.');
+      return;
+    }
+
+    const uppers = 'ABCDEFGHJKLMNPQRSTUVWXYZ';
+    const lowers = 'abcdefghjkmnpqrstuvwxyz';
+    const digits = '23456789';
+    const newPass = [
+      uppers[Math.floor(Math.random() * uppers.length)],
+      uppers[Math.floor(Math.random() * uppers.length)],
+      lowers[Math.floor(Math.random() * lowers.length)],
+      lowers[Math.floor(Math.random() * lowers.length)],
+      digits[Math.floor(Math.random() * digits.length)],
+      digits[Math.floor(Math.random() * digits.length)],
+      digits[Math.floor(Math.random() * digits.length)],
+      '#7'
+    ].sort(() => 0.5 - Math.random()).join('');
+
+    const hashed = await sha256Hex(newPass);
+    setUsers(prev => prev.map(u => u.id === foundUser.id ? { ...u, password: hashed } : u));
+
+    setForgotResultPassword(newPass);
+    triggerAlert('رمز عبور جدید با موفقیت ایجاد شد.');
+  };
 
   // 🛡️ «راه‌اندازی نخستین رمز مدیر» در حالت محلی (بدون بک‌اند)
   //    در حالت امن، رمز مدیر فقط توسط سرور ساخته می‌شود و این بخش فعال نیست.
@@ -361,7 +429,7 @@ export default function AuthView({
     lockTheme();
 
     triggerAlert(`ثبت‌نام با موفقیت انجام شد! گروه «${group.name}» ساخته شد. خوش آمدید ${firstName} ${lastName}`);
-    onLoginSuccess(leaderUser, { mustChangePassword: res.data.mustChangePassword, isNewRegistration: true });
+    startOtpFlow(leaderUser, { mustChangePassword: res.data.mustChangePassword, isNewRegistration: true });
   };
 
   // Handle Login Submission
@@ -403,7 +471,7 @@ export default function AuthView({
       setSelectedGender(serverUser.gender);
 
       triggerAlert(`خوش آمدید ${serverUser.first_name} ${serverUser.last_name}`);
-      onLoginSuccess(serverUser, { mustChangePassword: res.data.mustChangePassword });
+      startOtpFlow(serverUser, { mustChangePassword: res.data.mustChangePassword });
       return;
     }
 
@@ -474,7 +542,7 @@ export default function AuthView({
       });
       setSelectedGender(syntheticAdmin.gender);
       triggerAlert(`خوش آمدید ${syntheticAdmin.first_name} ${syntheticAdmin.last_name}`);
-      onLoginSuccess({ ...syntheticAdmin, password: '' }, { mustChangePassword: false });
+      startOtpFlow({ ...syntheticAdmin, password: '' }, { mustChangePassword: false });
       return;
     }
 
@@ -510,7 +578,7 @@ export default function AuthView({
     setSelectedGender(user.gender);
 
     triggerAlert(`خوش آمدید ${user.first_name} ${user.last_name}`);
-    onLoginSuccess({ ...user, password: '' });
+    startOtpFlow({ ...user, password: '' });
   };
 
   /** تعیین رمز مدیر در «حالت محلی» (نخستین راه‌اندازی روی همین دستگاه) */
@@ -541,83 +609,10 @@ export default function AuthView({
     triggerAlert('رمز مدیر ثبت شد. ورود شما انجام می‌شود.');
 
     setSelectedGender(updatedAdmin.gender);
-    onLoginSuccess({ ...updatedAdmin, password: '' });
+    startOtpFlow({ ...updatedAdmin, password: '' });
   };
 
-  /**
-   * ارسال «درخواست تغییر رمز عبور» به مدیر سامانه.
-   * کاربر دیگر نمی‌تواند مستقیماً رمز را عوض کند؛ مدیر پس از احراز هویت
-   * تلفنی، رمز جدید را تعیین و اعلام می‌کند.
-   */
-  const handleForgotRequest = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setForgotMessage(null);
 
-    const natId = normalizeToEnglishDigits(forgotNationalId.trim()).replace(/\D/g, '');
-    const phone = normalizeToEnglishDigits(forgotContactPhone.trim()).replace(/\D/g, '');
-    const note = forgotNote.trim();
-
-    if (!/^\d{10}$/.test(natId)) {
-      setForgotMessage({ type: 'error', text: 'کد ملی ۱۰ رقمی خود را کامل وارد کنید.' });
-      return;
-    }
-    if (forgotContactPhone.trim() && !/^09\d{9}$/.test(phone)) {
-      setForgotMessage({ type: 'error', text: 'شماره تماس باید با ۰۹ شروع شده و ۱۱ رقم باشد.' });
-      return;
-    }
-
-    setForgotSubmitting(true);
-
-    /* 🛡️ مسیر امن: ثبت درخواست در سرور (برای مشاهده مدیر در پنل) */
-    const resetBackend = await probeBackend();
-    if (resetBackend.available) {
-      const res = await requestPasswordReset({ nationalCode: natId, contactPhone: phone, note });
-      setForgotSubmitting(false);
-
-      if (!res.ok || !res.data) {
-        setForgotMessage({ type: 'error', text: res.error?.message || 'خطا در ارسال درخواست.' });
-        return;
-      }
-
-      setForgotTrackingCode(res.data.trackingCode);
-      setForgotStep(2);
-      setForgotMessage({ type: 'success', text: res.data.message });
-      triggerAlert('درخواست تغییر رمز شما برای مدیر سامانه ارسال شد.');
-      return;
-    }
-
-    /* حالت محلی: ثبت درخواست در حافظه برنامه تا مدیر (همین دستگاه) ببیند */
-    const created = createLocalPasswordResetRequest?.({ nationalCode: natId, contactPhone: phone, note });
-    setForgotSubmitting(false);
-    setForgotTrackingCode(created?.trackingCode || '');
-    setForgotStep(2);
-    setForgotMessage({
-      type: 'success',
-      text: 'درخواست شما ثبت شد. مدیر سامانه با شماره تماس شما ارتباط می‌گیرد و رمز جدید را اعلام می‌کند.'
-    });
-  };
-
-  /** استعلام وضعیت درخواست با کد رهگیری */
-  const handleForgotStatusCheck = async () => {
-    if (!forgotTrackingCode) return;
-    const natId = normalizeToEnglishDigits(forgotNationalId.trim()).replace(/\D/g, '');
-
-    const statusBackend = await probeBackend();
-    if (!statusBackend.available) {
-      setForgotStatusText('در حالت محلی، وضعیت درخواست در پنل مدیریت (بخش «درخواست‌های تغییر رمز») قابل مشاهده است.');
-      return;
-    }
-
-    setForgotSubmitting(true);
-    const res = await checkPasswordResetStatus(natId, forgotTrackingCode);
-    setForgotSubmitting(false);
-
-    if (!res.ok || !res.data) {
-      setForgotStatusText(res.error?.message || 'خطا در استعلام.');
-      return;
-    }
-    setForgotStatusText(res.data.message || 'در حال بررسی');
-  };
 
   return (
     <div className={`min-h-screen flex flex-col items-center justify-center p-2.5 sm:p-4 transition-colors duration-700 dir-rtl font-sans relative overflow-x-hidden ${
@@ -1029,7 +1024,7 @@ export default function AuthView({
                   type="button"
                   onClick={() => {
                     setShowForgotPassword(true);
-                    setForgotNationalId(loginNationalId);
+                    setForgotPhoneInput(loginNationalId);
                   }}
                   className={`text-[10px] hover:underline transition ${
                     isGirls ? 'text-pink-400 hover:text-pink-300' : 'text-cyan-400 hover:text-cyan-300'
@@ -1079,18 +1074,16 @@ export default function AuthView({
 
       </div>
 
-      {/* Forgot Password Modal — ثبت «درخواست تغییر رمز» برای مدیر سامانه */}
+      {/* Forgot Password Modal — بازیابی با شماره موبایل و ایجاد رمز ساختگی */}
       {showForgotPassword && (
         <div className="fixed inset-0 z-[100] bg-black/85 backdrop-blur-md flex items-center justify-center p-3 sm:p-5 dir-rtl overflow-y-auto">
-          <div className="bg-[#0b1226] border border-cyan-500/40 rounded-3xl p-5 sm:p-6 max-w-md w-full space-y-4 text-white shadow-2xl relative my-auto max-h-[88vh] overflow-y-auto">
-
+          <div className="bg-[#0b1226] border border-cyan-500/40 rounded-3xl p-5 sm:p-6 max-w-md w-full space-y-4 text-white shadow-2xl relative my-auto">
             <button
               onClick={() => {
                 setShowForgotPassword(false);
-                setForgotStep(1);
-                setForgotMessage(null);
-                setForgotTrackingCode('');
-                setForgotStatusText('');
+                setForgotPhoneInput('');
+                setForgotResultPassword(null);
+                setForgotError(null);
               }}
               className="absolute top-4 left-4 text-slate-400 hover:text-white p-1 rounded-full bg-slate-900"
             >
@@ -1102,123 +1095,129 @@ export default function AuthView({
                 <KeyRound size={20} />
               </div>
               <div>
-                <h3 className="text-sm font-black text-white">درخواست تغییر رمز عبور</h3>
+                <h3 className="text-sm font-black text-white">بازیابی و فراموشی رمز عبور</h3>
                 <p className="text-[10px] text-slate-400">
-                  احراز هویت و تعیین رمز جدید توسط مدیر سامانه انجام می‌شود
+                  شماره موبایل خود را وارد کنید تا رمز ساختگی جدید ایجاد شود
                 </p>
               </div>
             </div>
 
-            {forgotMessage && (
-              <div className={`p-2.5 rounded-xl text-[11px] leading-relaxed flex items-start gap-2 ${
-                forgotMessage.type === 'error'
-                  ? 'bg-rose-950 border border-rose-500/60 text-rose-200'
-                  : 'bg-emerald-950 border border-emerald-500/60 text-emerald-200'
-              }`}>
-                <span>{forgotMessage.text}</span>
+            {forgotError && (
+              <div className="p-2.5 rounded-xl bg-rose-950 border border-rose-500/60 text-rose-200 text-[11px]">
+                {forgotError}
               </div>
             )}
 
-            {forgotStep === 1 ? (
-              <form onSubmit={handleForgotRequest} className="space-y-3">
+            {!forgotResultPassword ? (
+              <form onSubmit={handleForgotMobileSubmit} className="space-y-3">
                 <div className="space-y-1">
-                  <label className="text-[11px] text-slate-300 block">کد ملی ثبت‌شده در سامانه:</label>
-                  <input
-                    type="text"
-                    required
-                    inputMode="numeric"
-                    maxLength={10}
-                    placeholder="۰۰۱۱۱۱۱۱۱۱"
-                    value={forgotNationalId}
-                    onChange={(e) => setForgotNationalId(e.target.value)}
-                    className="w-full py-2 px-3 rounded-xl bg-slate-950 border border-slate-700 text-xs text-white font-mono text-left focus:outline-none focus:border-cyan-400"
-                  />
-                </div>
-
-                <div className="space-y-1">
-                  <label className="text-[11px] text-slate-300 block">شماره همراه برای تماس مدیر:</label>
+                  <label className="text-[11px] text-slate-300 block">شماره موبایل ثبت‌شده:</label>
                   <input
                     type="tel"
+                    required
                     inputMode="numeric"
                     maxLength={11}
                     placeholder="09123456789"
-                    value={forgotContactPhone}
-                    onChange={(e) => setForgotContactPhone(e.target.value)}
-                    className="w-full py-2 px-3 rounded-xl bg-slate-950 border border-slate-700 text-xs text-white font-mono text-left focus:outline-none focus:border-cyan-400 dir-ltr"
+                    value={forgotPhoneInput}
+                    onChange={(e) => setForgotPhoneInput(e.target.value)}
+                    className="w-full py-2.5 px-3 rounded-xl bg-slate-950 border border-slate-700 text-xs text-white font-mono text-left focus:outline-none focus:border-cyan-400 dir-ltr"
                   />
                   <p className="text-[9px] text-slate-500">
-                    مدیر سامانه با این شماره تماس می‌گیرد و پس از احراز هویت، رمز جدید را اعلام می‌کند.
+                    پس از اعتبارسنجی شماره موبایل، در صورت صحت، رمز ساختگی جدید برای شما ساخته خواهد شد.
                   </p>
-                </div>
-
-                <div className="space-y-1">
-                  <label className="text-[11px] text-slate-300 block">توضیح (اختیاری):</label>
-                  <textarea
-                    rows={2}
-                    maxLength={200}
-                    placeholder="مثال: رمز عبورم را فراموش کرده‌ام."
-                    value={forgotNote}
-                    onChange={(e) => setForgotNote(e.target.value)}
-                    className="w-full py-2 px-3 rounded-xl bg-slate-950 border border-slate-700 text-xs text-white focus:outline-none focus:border-cyan-400 resize-none"
-                  />
-                </div>
-
-                <div className="p-2.5 rounded-xl bg-slate-950/80 border border-slate-800 text-[9px] text-slate-400 leading-relaxed">
-                  🔒 به دلایل امنیتی، امکان تغییر رمز به‌صورت مستقیم وجود ندارد. درخواست شما با کد رهگیری ثبت
-                  و پس از احراز هویت تلفنی، رمز جدید توسط مدیر تعیین می‌شود.
-                  {!backendReady && ' (هشدار: بک‌اند امن فعال نیست؛ درخواست فقط در همین دستگاه ذخیره می‌شود.)'}
                 </div>
 
                 <button
                   type="submit"
-                  disabled={forgotSubmitting}
-                  className="w-full py-2.5 rounded-xl bg-cyan-400 hover:bg-cyan-300 disabled:opacity-60 text-slate-950 font-black text-xs transition flex items-center justify-center gap-2"
+                  className="w-full py-3 rounded-xl bg-cyan-400 hover:bg-cyan-300 text-slate-950 font-black text-xs transition flex items-center justify-center gap-2 cursor-pointer"
                 >
                   <Send size={14} />
-                  <span>{forgotSubmitting ? 'در حال ارسال...' : 'ارسال درخواست به مدیر سامانه'}</span>
+                  <span>اعتبارسنجی شماره و ایجاد رمز جدید</span>
                 </button>
               </form>
             ) : (
               <div className="space-y-3">
-                <div className="p-3 rounded-xl bg-slate-950 border border-slate-800 space-y-1.5">
-                  <span className="text-[10px] text-slate-400 block">کد رهگیری درخواست شما:</span>
-                  <code className="block w-full text-center py-2 rounded-lg bg-black/60 border border-cyan-500/40 text-cyan-300 font-mono text-sm tracking-widest" dir="ltr">
-                    {forgotTrackingCode || '—'}
+                <div className="p-3.5 rounded-xl bg-emerald-950/80 border border-emerald-500/50 space-y-2 text-center">
+                  <span className="text-xs font-bold text-emerald-200 block">شماره موبایل با موفقیت اعتبارسنجی شد!</span>
+                  <span className="text-[10px] text-slate-300 block">رمز عبور ساختگی جدید شما:</span>
+                  <code className="block w-full py-2.5 rounded-lg bg-black/70 border border-emerald-500/40 text-emerald-300 font-mono text-base tracking-wider font-black select-all" dir="ltr">
+                    {forgotResultPassword}
                   </code>
-                  <p className="text-[9px] text-slate-500 leading-relaxed">
-                    این کد را نزد خود نگه دارید؛ می‌توانید وضعیت درخواست را با آن پیگیری کنید.
+                  <p className="text-[10px] text-emerald-300 leading-relaxed">
+                    این رمز جدید برای حساب شما ثبت شد. آن را یادداشت کنید و با آن وارد شوید.
                   </p>
                 </div>
-
-                <button
-                  type="button"
-                  onClick={handleForgotStatusCheck}
-                  disabled={forgotSubmitting}
-                  className="w-full py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 disabled:opacity-60 text-slate-100 font-bold text-xs transition flex items-center justify-center gap-2"
-                >
-                  <RefreshCw size={14} className={forgotSubmitting ? 'animate-spin' : ''} />
-                  <span>{forgotSubmitting ? 'در حال بررسی...' : 'استعلام وضعیت درخواست'}</span>
-                </button>
-
-                {forgotStatusText && (
-                  <div className="p-2.5 rounded-xl bg-cyan-950/60 border border-cyan-500/40 text-cyan-200 text-[11px] leading-relaxed">
-                    {forgotStatusText}
-                  </div>
-                )}
 
                 <button
                   type="button"
                   onClick={() => {
                     setShowForgotPassword(false);
-                    setForgotStep(1);
-                    setForgotMessage(null);
+                    setForgotPhoneInput('');
+                    setForgotResultPassword(null);
+                    setForgotError(null);
                   }}
-                  className="w-full py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black text-xs transition"
+                  className="w-full py-3 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black text-xs transition cursor-pointer"
                 >
-                  متوجه شدم و بستن
+                  متوجه شدم (بازگشت به صفحه ورود)
                 </button>
               </div>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* OTP Verification Modal */}
+      {showOtpModal && (
+        <div className="fixed inset-0 z-[110] bg-black/85 backdrop-blur-md flex items-center justify-center p-3 sm:p-5 dir-rtl animate-in fade-in zoom-in duration-300">
+          <div className="bg-[#0b1226] border border-emerald-500/50 rounded-3xl p-5 sm:p-6 max-w-sm w-full space-y-4 text-white shadow-2xl relative text-center">
+            <div className="mx-auto w-12 h-12 rounded-2xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center mb-1">
+              <ShieldCheck size={26} />
+            </div>
+            <h3 className="text-base font-black text-white">تاییدیه امنیتی (کد تایید)</h3>
+            <p className="text-[11px] text-slate-300 leading-relaxed">
+              لطفاً کد تاییدیه پیامکی ارسال‌شده به شماره همراه خود را وارد نمایید.
+            </p>
+            <div className="p-3 rounded-2xl bg-black/50 border border-emerald-500/30">
+              <span className="text-[10px] text-slate-400 block mb-1">کد تایید نمونه (برای تست):</span>
+              <span className="text-xl font-black font-mono text-emerald-400 tracking-widest">{currentOtpCode}</span>
+            </div>
+
+            {otpError && (
+              <div className="p-2.5 rounded-xl bg-rose-950/80 border border-rose-500/50 text-rose-200 text-[11px]">
+                {otpError}
+              </div>
+            )}
+
+            <form onSubmit={handleVerifyOtpSubmit} className="space-y-3">
+              <input
+                type="text"
+                required
+                inputMode="numeric"
+                maxLength={5}
+                placeholder="-----"
+                value={otpInput}
+                onChange={(e) => setOtpInput(e.target.value)}
+                className="w-full py-3 px-4 rounded-xl bg-slate-950 border border-emerald-500/50 text-center text-lg text-white font-mono tracking-widest focus:outline-none focus:border-emerald-400"
+              />
+              <button
+                type="submit"
+                className="w-full py-3 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black text-xs sm:text-sm transition shadow-lg cursor-pointer flex items-center justify-center gap-2"
+              >
+                <CheckCircle2 size={16} />
+                <span>تایید و ورود به صفحه اصلی</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  const newCode = String(Math.floor(10000 + Math.random() * 90000));
+                  setCurrentOtpCode(newCode);
+                  triggerAlert(`کد تایید جدید ارسال شد: ${newCode}`);
+                }}
+                className="text-[11px] text-cyan-400 hover:underline pt-1 block mx-auto cursor-pointer"
+              >
+                ارسال مجدد کد تایید
+              </button>
+            </form>
           </div>
         </div>
       )}

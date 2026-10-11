@@ -14,6 +14,7 @@ interface AdminGameMapManagerProps {
   stages?: JourneyStage[];
   setStages?: React.Dispatch<React.SetStateAction<JourneyStage[]>>;
   triggerAlert: (msg: string) => void;
+  hideHeader?: boolean;
 }
 
 // الگوها و نقشه‌های آماده و استراتژیک برای اتاق جنگ
@@ -55,7 +56,8 @@ export const AdminGameMapManager: React.FC<AdminGameMapManagerProps> = ({
   setSiteSettings,
   stages = [],
   setStages,
-  triggerAlert
+  triggerAlert,
+  hideHeader = false
 }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const canvasRef = useRef<HTMLDivElement>(null);
@@ -315,53 +317,54 @@ export const AdminGameMapManager: React.FC<AdminGameMapManagerProps> = ({
       <div className="absolute top-0 left-0 w-80 h-80 bg-cyan-500/10 rounded-full blur-3xl pointer-events-none" />
       <div className="absolute bottom-0 right-0 w-80 h-80 bg-amber-500/10 rounded-full blur-3xl pointer-events-none" />
 
-      {/* Header section */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-800/80 pb-4 relative z-10">
-        <div className="flex items-center gap-3">
-          <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-cyan-500/25 to-blue-600/15 border border-cyan-500/40 text-cyan-400 flex items-center justify-center shrink-0 shadow-[0_0_20px_rgba(6,182,212,0.3)]">
-            <Map size={24} className="animate-pulse" />
-          </div>
-          <div>
-            <div className="flex items-center gap-2">
-              <h3 className="text-base font-black text-white">استودیوی چیدمان نقشه، درگ اند دراپ مراحل و کنترل جاده</h3>
-              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-cyan-500/20 text-cyan-300 border border-cyan-500/30">
-                Drag & Drop چیدمان آزاد
-              </span>
+      {!hideHeader && (
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-800/80 pb-4 relative z-10">
+          <div className="flex items-center gap-3">
+            <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-cyan-500/25 to-blue-600/15 border border-cyan-500/40 text-cyan-400 flex items-center justify-center shrink-0 shadow-[0_0_20px_rgba(6,182,212,0.3)]">
+              <Map size={24} className="animate-pulse" />
             </div>
-            <p className="text-xs text-slate-400 mt-0.5">
-              آیکون مراحل را مستقیماً با ماوس یا لمس روی جاده تصویر درگ کنید؛ طول، عرض و نوار جاده را کنترل نمایید.
-            </p>
+            <div>
+              <div className="flex items-center gap-2">
+                <h3 className="text-base font-black text-white">استودیوی چیدمان نقشه و کنترل جاده</h3>
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-cyan-500/20 text-cyan-300 border border-cyan-500/30">
+                  Drag & Drop چیدمان آزاد
+                </span>
+              </div>
+              <p className="text-xs text-slate-400 mt-0.5">
+                آیکون مراحل را مستقیماً با ماوس یا لمس روی جاده تصویر درگ کنید؛ طول، عرض و نوار جاده را کنترل نمایید.
+              </p>
+            </div>
+          </div>
+
+          {/* Tab switch */}
+          <div className="flex items-center bg-slate-950/80 border border-slate-800 rounded-2xl p-1 gap-1 self-start sm:self-auto">
+            <button
+              type="button"
+              onClick={() => setPreviewTab('editor')}
+              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${
+                previewTab === 'editor'
+                  ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 shadow-sm'
+                  : 'text-slate-400 hover:text-white'
+              }`}
+            >
+              <Sliders size={14} />
+              <span>تنظیمات و ابزارها</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setPreviewTab('live_preview')}
+              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${
+                previewTab === 'live_preview'
+                  ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 shadow-sm'
+                  : 'text-slate-400 hover:text-white'
+              }`}
+            >
+              <Eye size={14} />
+              <span>پیش‌نمایش تمام‌صفحه</span>
+            </button>
           </div>
         </div>
-
-        {/* Tab switch */}
-        <div className="flex items-center bg-slate-950/80 border border-slate-800 rounded-2xl p-1 gap-1 self-start sm:self-auto">
-          <button
-            type="button"
-            onClick={() => setPreviewTab('editor')}
-            className={`px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${
-              previewTab === 'editor'
-                ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 shadow-sm'
-                : 'text-slate-400 hover:text-white'
-            }`}
-          >
-            <Sliders size={14} />
-            <span>تنظیمات و ابزارها</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => setPreviewTab('live_preview')}
-            className={`px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${
-              previewTab === 'live_preview'
-                ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 shadow-sm'
-                : 'text-slate-400 hover:text-white'
-            }`}
-          >
-            <Eye size={14} />
-            <span>پیش‌نمایش تمام‌صفحه</span>
-          </button>
-        </div>
-      </div>
+      )}
 
       {previewTab === 'editor' ? (
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 relative z-10">
@@ -370,27 +373,7 @@ export const AdminGameMapManager: React.FC<AdminGameMapManagerProps> = ({
           {/* LEFT / CENTER: INTERACTIVE DRAG & DROP MAP CANVAS (7 Cols)   */}
           {/* ============================================================ */}
           <div className="lg:col-span-7 space-y-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <MousePointerClick size={16} className="text-amber-400 animate-bounce" />
-                <span className="text-xs font-black text-white">بوم درگ اند دراپ مراحل روی نقشه:</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={handleAutoArrange}
-                  className="px-2.5 py-1 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-800 text-[10px] text-cyan-300 font-bold transition flex items-center gap-1 cursor-pointer"
-                  title="چیدمان متقارن و یکنواخت مراحل"
-                >
-                  <RefreshCw size={11} />
-                  <span>چیدمان خودکار</span>
-                </button>
-                <span className="text-[10px] text-slate-400 bg-slate-950 px-2 py-0.5 rounded border border-slate-800">
-                  {activeStagesList.length} مرحله
-                </span>
-              </div>
-            </div>
-
+            
             {/* DRAGGABLE CANVAS CONTAINER */}
             <div 
               ref={canvasRef}

@@ -1,16 +1,57 @@
+# Dependencies
 node_modules
-**/node_modules
+npm-debug.log
+yarn-debug.log
+yarn-error.log
+
+# Build outputs
 dist
+build
+.next
+.nuxt
+.output
+
+# Environment files with secrets - never baked into image
+.env
+.env.local
+.env.development.local
+.env.production.local
+.env.test.local
+
+# Git
 .git
 .gitignore
-.env
-.env.*
-!.env.example
-**/.env
-**/.env.*
-!**/.env.example
-npm-debug.log*
-Dockerfile
-docker-compose.yml
-coverage
+
+# Logs and caches
+logs
 *.log
+.cache
+.parcel-cache
+.turbo
+.vite
+coverage
+
+# IDE
+.vscode
+.idea
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Docker compose override for local dev (optional)
+docker-compose.override.yml
+
+# Tests
+__tests__
+*.test.ts
+*.test.js
+*.spec.ts
+*.spec.js
+
+# Supabase local
+supabase/.branches
+supabase/.temp

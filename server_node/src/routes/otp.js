@@ -26,16 +26,47 @@ function publicError(code, message, status = 400) {
   return error;
 }
 
-async function persistRateLimit(key, max, windowSeconds) {
-  const { data, error } = await assertDb().rpc('warroom_hit_otp_rate_limit', {
-    p_id: key,
-    p_max: max,
-    p_window_seconds: windowSeconds,
-  });
-  if (error) {
-    throw publicError('RATE_LIMIT_STORE_FAILED', 'محدودیت امنیتی موقتاً در دسترس نیست؛ بعداً تلاش کنید.', 503);
+async function dbRateLimit(key, max, windowSeconds) {
+  try {
+    const { data, error } = await assertDb().rpc('warroom_hit_otp_rate_limit', {
+      p_id: key,
+      p_max: max,
+      p_window_seconds: windowSeconds,
+    });
+    if (error) {
+      console.error('[rate-limit] DB error:', error.message);
+      return null;
+    }
+    return data === true;
+  } catch (e) {
+    console.error('[rate-limit] DB exception:', e.message);
+    return null;
   }
-  return data === true;
+}
+
+async function persistRateLimit(key, max, windowSeconds) {
+  // Try Redis first (with hashed key to avoid raw PII), fallback to DB, fail closed if both down
+  let redisResult = null;
+  try {
+    const { redisRateLimit } = await import('../lib/redis.js');
+    redisResult = await redisRateLimit(key, max, windowSeconds);
+  } catch {
+    redisResult = null;
+  }
+
+  if (redisResult !== null) {
+    // Redis succeeded
+    return redisResult;
+  }
+
+  // Fallback to DB
+  const dbResult = await dbRateLimit(key, max, windowSeconds);
+  if (dbResult !== null) {
+    return dbResult;
+  }
+
+  // Both Redis and DB unavailable - fail closed for security
+  throw publicError('RATE_LIMIT_STORE_FAILED', 'محدودیت امنیتی موقتاً در دسترس نیست؛ بعداً تلاش کنید.', 503);
 }
 
 function extractPhone(userRow) {

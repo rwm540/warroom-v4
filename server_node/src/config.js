@@ -46,6 +46,16 @@ export const config = {
   ippanelUrl: String(process.env.IPPANEL_API_URL || 'https://edge.ippanel.com/v1/api/send').trim(),
   passwordResetRateLimitPerHour: intEnv('PASSWORD_RESET_RATE_LIMIT_PER_HOUR', 3, 1, 20),
   registrationRateLimitPerHour: intEnv('REGISTRATION_RATE_LIMIT_PER_HOUR', 5, 1, 20),
+  redisUrl: (() => {
+    const v = String(process.env.REDIS_URL || '').trim();
+    if (!v) return '';
+    // Never allow placeholder values
+    if (/^(replace_|your_|change_me|unset_)/i.test(v)) return '';
+    // Must be redis:// or rediss://
+    if (!v.startsWith('redis://') && !v.startsWith('rediss://')) return '';
+    return v;
+  })(),
+  redisPassword: secretValue('REDIS_PASSWORD'),
 };
 
 export function assertRequiredSecrets() {

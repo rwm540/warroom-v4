@@ -48,8 +48,17 @@ if (config.nodeEnv === 'production') {
   }
 }
 
-app.get('/api/health', (_req, res) => {
+app.get('/api/health', async (_req, res) => {
   // Minimal info, no secrets, no stack traces
+  // Check Redis health without exposing connection details
+  let redisStatus = { configured: false, available: false };
+  try {
+    const { checkRedisHealth } = await import('./lib/redis.js');
+    redisStatus = await checkRedisHealth();
+  } catch {
+    redisStatus = { configured: Boolean(config.redisUrl), available: false };
+  }
+
   res.json({
     ok: true,
     service: 'warroom-otp-api',
@@ -60,6 +69,11 @@ app.get('/api/health', (_req, res) => {
       ippanel: {
         configured: isSmsConfigured(),
         connectivity: 'not_checked',
+      },
+      redis: {
+        configured: redisStatus.configured,
+        available: redisStatus.available,
+        // Never expose URL, password, or connection details
       },
     },
   });

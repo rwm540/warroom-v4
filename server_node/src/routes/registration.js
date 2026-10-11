@@ -15,14 +15,34 @@ function publicError(code, message, status = 400) {
   return err;
 }
 
+async function dbRateLimit(key, max, windowSeconds) {
+  try {
+    const { data, error } = await assertDb().rpc('warroom_hit_otp_rate_limit', {
+      p_id: key,
+      p_max: max,
+      p_window_seconds: windowSeconds,
+    });
+    if (error) return null;
+    return data === true;
+  } catch {
+    return null;
+  }
+}
+
 async function hitRateLimit(key, max, windowSeconds) {
-  const { data, error } = await assertDb().rpc('warroom_hit_otp_rate_limit', {
-    p_id: key,
-    p_max: max,
-    p_window_seconds: windowSeconds,
-  });
-  if (error) throw publicError('RATE_LIMIT_STORE_FAILED', 'محدودیت امنیتی موقتاً در دسترس نیست.', 503);
-  return data === true;
+  let redisResult = null;
+  try {
+    const { redisRateLimit } = await import('../lib/redis.js');
+    redisResult = await redisRateLimit(key, max, windowSeconds);
+  } catch {
+    redisResult = null;
+  }
+  if (redisResult !== null) return redisResult;
+
+  const dbResult = await dbRateLimit(key, max, windowSeconds);
+  if (dbResult !== null) return dbResult;
+
+  throw publicError('RATE_LIMIT_STORE_FAILED', 'محدودیت امنیتی موقتاً در دسترس نیست.', 503);
 }
 
 // Registration pending table: warroom_pending_registrations (id, national_code, phone_e164, phone_local, user_data, password_hash_pending, expires_at, verified, created_at)

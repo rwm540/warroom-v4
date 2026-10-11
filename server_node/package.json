@@ -10,7 +10,7 @@
   "scripts": {
     "start": "node src/index.js",
     "dev": "nodemon src/index.js",
-    "test": "node --test src/lib/identity.test.js src/lib/sms.test.js src/lib/security.test.js"
+    "test": "node --test src/lib/identity.test.js src/lib/sms.test.js src/lib/security.test.js src/lib/redis.test.js"
   },
   "keywords": ["otp", "sms", "jwt", "express", "ippanel"],
   "author": "WarRoom Team",
@@ -21,7 +21,8 @@
     "dotenv": "^16.4.5",
     "jsonwebtoken": "^9.0.2",
     "express-rate-limit": "^7.1.5",
-    "@supabase/supabase-js": "^2.39.3"
+    "@supabase/supabase-js": "^2.39.3",
+    "redis": "^4.7.0"
   },
   "devDependencies": {
     "nodemon": "^3.0.3"

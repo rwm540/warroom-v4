@@ -1,57 +1,110 @@
 services:
-  warroom-api:
+  redis:
+    image: redis:7-alpine
+    container_name: warroom-redis
+    restart: unless-stopped
+    command: >
+      redis-server
+      --requirepass ${REDIS_PASSWORD:-warroom_local_redis_pass}
+      --appendonly yes
+      --maxmemory 256mb
+      --maxmemory-policy allkeys-lru
+    volumes:
+      - redis_data:/data
+    networks:
+      - warroom-private
+    healthcheck:
+      test: ["CMD", "redis-cli", "--raw", "-a", "${REDIS_PASSWORD:-warroom_local_redis_pass}", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    # No ports exposed to host by default - only internal network
+    # For local debugging, uncomment below but document risk:
+    # ports:
+    #   - "127.0.0.1:6379:6379"
+
+  api:
     build:
       context: .
-      dockerfile: server_node/Dockerfile
-    container_name: warroom-v4-api
+      dockerfile: Dockerfile.api
+    container_name: warroom-api
     restart: unless-stopped
+    depends_on:
+      redis:
+        condition: service_healthy
     environment:
-      NODE_ENV: production
+      NODE_ENV: ${NODE_ENV:-production}
       PORT: 4010
       HOST: 0.0.0.0
+      TRUST_PROXY: 1
+      # Supabase - service_role only at runtime, never baked
       SUPABASE_URL: ${SUPABASE_URL:?SUPABASE_URL is required}
       SUPABASE_SERVICE_ROLE_KEY: ${SUPABASE_SERVICE_ROLE_KEY:?SUPABASE_SERVICE_ROLE_KEY is required}
+      # OTP secrets - runtime only
       OTP_CHALLENGE_SECRET: ${OTP_CHALLENGE_SECRET:?OTP_CHALLENGE_SECRET is required}
       OTP_SECRET: ${OTP_SECRET:?OTP_SECRET is required}
       OTP_TTL_SECONDS: ${OTP_TTL_SECONDS:-300}
       OTP_MAX_SEND_PER_15MIN: ${OTP_MAX_SEND_PER_15MIN:-3}
       OTP_RESEND_COOLDOWN_SECONDS: ${OTP_RESEND_COOLDOWN_SECONDS:-60}
       OTP_MAX_VERIFY_ATTEMPTS: ${OTP_MAX_VERIFY_ATTEMPTS:-5}
+      # IPPanel - runtime only
       IPPANEL_API_KEY: ${IPPANEL_API_KEY:-}
       IPPANEL_FROM_NUMBER: ${IPPANEL_FROM_NUMBER:-}
       IPPANEL_API_URL: ${IPPANEL_API_URL:-https://edge.ippanel.com/v1/api/send}
+      # Rate limits
+      PASSWORD_RESET_RATE_LIMIT_PER_HOUR: ${PASSWORD_RESET_RATE_LIMIT_PER_HOUR:-3}
+      REGISTRATION_RATE_LIMIT_PER_HOUR: ${REGISTRATION_RATE_LIMIT_PER_HOUR:-5}
+      # Redis - internal service name, not localhost
+      REDIS_URL: redis://:${REDIS_PASSWORD:-warroom_local_redis_pass}@redis:6379
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-warroom_local_redis_pass}
+    networks:
+      - warroom-private
     healthcheck:
       test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:4010/api/health').then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"]
       interval: 30s
       timeout: 5s
       retries: 3
-      start_period: 10s
-    networks:
-      - warroom-private
+      start_period: 15s
+    # API port not exposed to host in production-like setup - only via web
+    # For direct API debugging, use:
+    # ports:
+    #   - "127.0.0.1:4010:4010"
 
-  warroom:
+  web:
     build:
       context: .
-      dockerfile: Dockerfile
+      dockerfile: Dockerfile.web
       args:
         VITE_SUPABASE_URL: ${VITE_SUPABASE_URL:?VITE_SUPABASE_URL is required}
-        VITE_SUPABASE_PUBLISHABLE_KEY: ${VITE_SUPABASE_PUBLISHABLE_KEY:?VITE_SUPABASE_PUBLISHABLE_KEY is required}
-    container_name: warroom-v4
+        VITE_SUPABASE_PUBLISHABLE_KEY: ${VITE_SUPABASE_PUBLISHABLE_KEY:-}
+        VITE_SUPABASE_ANON_KEY: ${VITE_SUPABASE_ANON_KEY:-}
+        VITE_SUPABASE_PUBLIC_KEY: ${VITE_SUPABASE_PUBLIC_KEY:-}
+    container_name: warroom-web
     restart: unless-stopped
     depends_on:
-      warroom-api:
+      api:
         condition: service_healthy
+      redis:
+        condition: service_healthy
+    ports:
+      - "${WEB_PORT:-127.0.0.1:3100:80}"
+    networks:
+      - warroom-private
     healthcheck:
       test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1/ || exit 1"]
       interval: 30s
       timeout: 5s
       retries: 3
       start_period: 10s
-    ports:
-      - "127.0.0.1:3100:80"
-    networks:
-      - warroom-private
 
 networks:
   warroom-private:
     driver: bridge
+
+volumes:
+  redis_data:
+    driver: local
+    # Volume persists Redis AOF for rate limit counters
+    # Rate limit data is ephemeral and not PII (hashed keys), safe to persist
+    # For full reset: docker compose down -v (WARNING: deletes rate limit history)

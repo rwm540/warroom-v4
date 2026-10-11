@@ -1,6 +1,6 @@
 # 🔗 راهنمای یکپارچه‌سازی فرانت‌اند React با سرور OTP
 
-> نمونه‌های مستقیم localhost در این راهنمای تاریخی برای Production مناسب نیستند. فرانت‌اند فعلی از مسیرهای same-origin `/api/auth` و `/api/otp` استفاده می‌کند؛ مرجع: [../../docs/deployment-auth.md](../../docs/deployment-auth.md).
+> نمونه‌های کد این راهنمای تاریخی و مستقیم localhost برای Production مناسب نیستند. فرانت‌اند فعلی فقط برای OTP از مسیرهای same-origin `/api/otp/send`, `/api/otp/verify` و `/api/otp/resend` استفاده می‌کند؛ ثبت‌نام و ورود از Supabase RPC انجام می‌شود و Node مسیر عمومی `/api/auth` ندارد. مرجع: [../docs/deployment-auth.md](../docs/deployment-auth.md).
 
 این راهنما نحوه اتصال کامپوننت `AuthView.tsx` به سرور Node.js OTP را توضیح می‌دهد.
 

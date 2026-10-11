@@ -1,10 +1,14 @@
-/**
- * API برای ارسال و تایید کد OTP از طریق سرور Node.js
- */
+/** API calls for the same-origin Node OTP service. */
 
 const OTP_API_BASE = '/api/otp';
 
-async function postJson<T extends { success?: boolean; message?: string; error?: string }>(path: string, body: unknown): Promise<T> {
+interface ApiEnvelope {
+  success?: boolean;
+  message?: string;
+  error?: string;
+}
+
+async function postJson<T extends ApiEnvelope>(path: string, body: unknown): Promise<T> {
   try {
     const response = await fetch(`${OTP_API_BASE}/${path}`, {
       method: 'POST',
@@ -12,68 +16,68 @@ async function postJson<T extends { success?: boolean; message?: string; error?:
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
     });
-    const data = await response.json();
-    if (!response.ok) {
-      return { ...data, success: false, error: data.message || data.error || `درخواست ناموفق بود (${response.status}).` } as T;
+
+    const payload: unknown = await response.json().catch(() => null);
+    if (!payload || typeof payload !== 'object' || Array.isArray(payload)) {
+      return {
+        success: false,
+        error: 'پاسخ معتبر از سرور دریافت نشد.',
+      } as T;
     }
-    return data as T;
-  } catch (error) {
+
+    const data = payload as T;
+    if (!response.ok) {
+      return {
+        ...data,
+        success: false,
+        error: data.message || data.error || `درخواست ناموفق بود (${response.status}).`,
+      } as T;
+    }
+    return data;
+  } catch {
     return {
       success: false,
-      message: 'ارتباط با سرور برقرار نشد.',
-      error: error instanceof Error ? error.message : 'خطای ارتباط با سرور',
+      error: 'ارتباط با سرور برقرار نشد.',
     } as T;
   }
 }
 
-export interface OTPSendResponse {
+export interface OTPSendResponse extends ApiEnvelope {
   success: boolean;
-  message: string;
-  phone?: string;
+  message?: string;
+  error?: string;
   expiresIn?: number;
   maskedPhone?: string;
   challengeToken?: string;
-  error?: string;
 }
 
-export interface OTPVerifyResponse {
+export interface OTPVerifiedUser {
+  id: string;
+  otpProof: string;
+}
+
+export interface OTPVerifyResponse extends ApiEnvelope {
   success: boolean;
-  message: string;
-  token?: string;
-  accessToken?: string;
-  refreshToken?: string;
-  tokenType?: string;
-  expiresIn?: number;
-  user?: {
-    id: string;
-    first_name?: string;
-    last_name?: string;
-    firstName?: string;
-    lastName?: string;
-    national_code?: string;
-    role?: string;
-  };
+  message?: string;
   error?: string;
+  user?: OTPVerifiedUser;
 }
 
-/**
- * ارسال کد OTP بر اساس کد ملی
- * سرور از Supabase شماره موبایل را می‌گیرد و پیامک ارسال می‌کند
- */
+/** The server resolves the registered phone number and never returns it in full. */
 export async function sendOtpByNationalCode(nationalCode: string): Promise<OTPSendResponse> {
   return postJson<OTPSendResponse>('send', { nationalCode });
 }
 
-/**
- * تایید کد OTP وارد شده توسط کاربر
- */
-export async function verifyOtp(nationalCode: string, code: string, challengeToken?: string): Promise<OTPVerifyResponse> {
-  return postJson<OTPVerifyResponse>('verify', { nationalCode, code, challengeToken: challengeToken || '' });
+/** Verifies a six-digit code against the request identified by its challenge token. */
+export async function verifyOtp(
+  nationalCode: string,
+  code: string,
+  challengeToken: string,
+): Promise<OTPVerifyResponse> {
+  return postJson<OTPVerifyResponse>('verify', { nationalCode, code, challengeToken });
 }
 
-/**
- * ارسال مجدد کد OTP
- */
+/** Requests a new OTP challenge for the same national code. */
 export async function resendOtp(nationalCode: string): Promise<OTPSendResponse> {
   return postJson<OTPSendResponse>('resend', { nationalCode });
 }

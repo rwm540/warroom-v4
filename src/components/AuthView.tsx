@@ -46,6 +46,10 @@ import {
 
 const WARROOM_LOGO_PATH = '/images/logos/warroom_logo.webp';
 
+function isValidOtpExpiry(value: unknown): value is number {
+  return typeof value === 'number' && Number.isInteger(value) && value > 0 && value <= 900;
+}
+
 interface AuthViewProps {
   users: User[];
   setUsers: React.Dispatch<React.SetStateAction<User[]>>;
@@ -192,7 +196,7 @@ export default function AuthView({
   const [pendingMeta, setPendingMeta] = useState<any>(null);
   const [otpChallengeToken, setOtpChallengeToken] = useState('');
   const [otpMaskedPhone, setOtpMaskedPhone] = useState('');
-  const [otpExpiresIn, setOtpExpiresIn] = useState(300);
+  const [otpExpiresIn, setOtpExpiresIn] = useState<number | null>(null);
 
   const startOtpFlow = async (user: User, meta?: any): Promise<boolean> => {
     setPendingUser(user);
@@ -206,16 +210,16 @@ export default function AuthView({
       return false;
     }
     const result = await sendOtpByNationalCode(nationalCode);
-    if (!result.success || !result.challengeToken) {
-      const message = result.error || 'ارسال کد تأیید ناموفق بود.';
+    if (!result.success || !result.challengeToken || !isValidOtpExpiry(result.expiresIn)) {
+      const message = result.error || result.message || 'ارسال کد تأیید ناموفق بود یا زمان اعتبار از سرور دریافت نشد.';
       if (activeTab === 'register') setRegisterError(message);
       else setLoginError(message);
       triggerAlert(message);
       return false;
     }
-    setOtpChallengeToken(result.challengeToken || '');
-    setOtpMaskedPhone(result.maskedPhone || user.phone || '');
-    setOtpExpiresIn(result.expiresIn || 300);
+    setOtpChallengeToken(result.challengeToken);
+    setOtpMaskedPhone(result.maskedPhone || 'شماره همراه ثبت‌شده');
+    setOtpExpiresIn(result.expiresIn);
     setShowOtpModal(true);
     triggerAlert(result.maskedPhone
       ? `کد تأیید به شماره ${result.maskedPhone} ارسال شد.`
@@ -900,10 +904,11 @@ export default function AuthView({
         nationalCode={normalizeToEnglishDigits(pendingUser?.national_code || pendingUser?.nationalCode || '')}
         userPhone={otpMaskedPhone}
         challengeToken={otpChallengeToken}
-        expiresIn={otpExpiresIn}
+        expiresIn={otpExpiresIn ?? 0}
         onChallengeToken={setOtpChallengeToken}
+        onExpiresIn={setOtpExpiresIn}
         campaignTheme={isGirls ? 'girls' : 'boys'}
-        onSuccess={(_token, verifiedUser) => {
+        onSuccess={(verifiedUser) => {
           setShowOtpModal(false);
           if (pendingUser) {
             const authenticatedUser = { ...pendingUser, ...verifiedUser, password: '' } as User;

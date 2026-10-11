@@ -1,36 +1,51 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Shield, X, CheckCircle, AlertCircle, RefreshCw, Clock } from 'lucide-react';
-import { verifyOtp, resendOtp } from '../lib/otpApi';
+import { resendOtp, verifyOtp } from '../lib/otpApi';
+import type { OTPVerifiedUser } from '../lib/otpApi';
 
 interface OTPVerificationModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSuccess: (token: string, user: any) => void;
+  onSuccess: (user: OTPVerifiedUser) => void;
   userPhone: string;
   nationalCode: string;
-  challengeToken?: string;
-  expiresIn?: number;
-  onChallengeToken?: (token: string) => void;
+  challengeToken: string;
+  expiresIn: number;
+  onChallengeToken: (token: string) => void;
+  onExpiresIn: (seconds: number) => void;
   campaignTheme?: 'girls' | 'boys';
 }
 
-/**
- * کامپوننت تایید کد OTP
- * با تایمر 120 ثانیه و ارسال مجدد
- */
+function emptyOtpDigits() {
+  return Array.from({ length: 6 }, () => '');
+}
+
+function normalizeOtpInput(value: string) {
+  return value
+    .replace(/[^0-9۰-۹٠-٩]/g, '')
+    .replace(/[۰-۹]/g, (digit) => String('۰۱۲۳۴۵۶۷۸۹'.indexOf(digit)))
+    .replace(/[٠-٩]/g, (digit) => String('٠١٢٣٤٥٦٧٨٩'.indexOf(digit)));
+}
+
+function hasValidExpiry(value: unknown): value is number {
+  return Number.isInteger(value) && Number(value) > 0 && Number(value) <= 900;
+}
+
+/** OTP challenge modal with six digits and a server-provided expiration. */
 export default function OTPVerificationModal({
   isOpen,
   onClose,
   onSuccess,
   userPhone,
   nationalCode,
-  challengeToken = '',
-  expiresIn = 300,
+  challengeToken,
+  expiresIn,
   onChallengeToken,
+  onExpiresIn,
   campaignTheme = 'boys'
 }: OTPVerificationModalProps) {
-  const [otpCode, setOtpCode] = useState('');
+  const [otpDigits, setOtpDigits] = useState<string[]>(emptyOtpDigits);
   const [error, setError] = useState<string | null>(null);
   const [isVerifying, setIsVerifying] = useState(false);
   const [timeLeft, setTimeLeft] = useState(expiresIn);
@@ -40,138 +55,119 @@ export default function OTPVerificationModal({
   const inputRefs = useRef<Array<HTMLInputElement | null>>([]);
 
   const isGirls = campaignTheme === 'girls';
+  const otpCode = otpDigits.join('');
+  const isOtpComplete = otpDigits.every((digit) => /^\d$/.test(digit));
 
   useEffect(() => {
     setActiveChallengeToken(challengeToken);
   }, [challengeToken]);
 
   useEffect(() => {
-    if (!isOpen) return;
-    setTimeLeft(expiresIn);
-    setCanResend(false);
-  }, [isOpen, challengeToken, expiresIn]);
-
-  // تایمر شمارش معکوس
-  useEffect(() => {
-    if (!isOpen) {
-      setTimeLeft(expiresIn);
+    if (isOpen) {
+      setOtpDigits(emptyOtpDigits());
+      setError(null);
+      setIsVerifying(false);
       setCanResend(false);
       return;
     }
+    setOtpDigits(emptyOtpDigits());
+    setError(null);
+    setIsVerifying(false);
+    setCanResend(false);
+  }, [isOpen, challengeToken]);
 
-    const timer = setInterval(() => {
-      setTimeLeft((prev) => {
-        if (prev <= 1) {
-          setCanResend(true);
-          return 0;
-        }
-        return prev - 1;
-      });
-    }, 1000);
+  useEffect(() => {
+    if (!isOpen || !hasValidExpiry(expiresIn)) {
+      if (isOpen) {
+        setTimeLeft(0);
+        setCanResend(true);
+      }
+      return;
+    }
 
+    const deadline = Date.now() + expiresIn * 1000;
+    const updateTimer = () => {
+      const remaining = Math.max(0, Math.floor((deadline - Date.now()) / 1000));
+      setTimeLeft(remaining);
+      setCanResend(remaining === 0);
+    };
+
+    updateTimer();
+    const timer = setInterval(updateTimer, 1000);
     return () => clearInterval(timer);
-  }, [isOpen, expiresIn]);
+  }, [isOpen, challengeToken, expiresIn]);
 
-  // فرمت زمان به دقیقه:ثانیه
   const formatTime = (seconds: number) => {
-    const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
+    const safeSeconds = Math.max(0, seconds);
+    const mins = Math.floor(safeSeconds / 60);
+    const secs = safeSeconds % 60;
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
-  const isOtpComplete = /^\d{6}$/.test(otpCode);
 
-  /**
-   * تایید کد OTP
-   */
   const handleVerifyOTP = async () => {
+    if (!isOtpComplete) {
+      setError('کد تأیید باید دقیقاً ۶ رقم باشد.');
+      return;
+    }
+    if (!activeChallengeToken) {
+      setError('نشست اعتبارسنجی کد تأیید نامعتبر است؛ لطفاً دوباره کد را ارسال کنید.');
+      return;
+    }
+    if (timeLeft <= 0) {
+      setError('کد تأیید منقضی شده است؛ کد تازه‌ای درخواست کنید.');
+      return;
+    }
+
     setError(null);
     setIsVerifying(true);
-
-    const cleanCode = otpCode.replace(/\s/g, '');
-
-    // بررسی طول کد
-    if (!/^\d{6}$/.test(otpCode)) {
-      setError('کد تأیید باید ۶ رقم باشد');
-      setIsVerifying(false);
-      return;
-    }
-
-    if (!activeChallengeToken) {
-      setError('نشست اعتبارسنجی کد تایید نامعتبر است؛ لطفاً دوباره کد را ارسال کنید.');
-      setIsVerifying(false);
-      return;
-    }
-
     try {
-      const result = await verifyOtp(nationalCode, cleanCode, activeChallengeToken);
-
+      const result = await verifyOtp(nationalCode, otpCode, activeChallengeToken);
       if (!result.success) {
-        setError(result.error || result.message || 'کد تایید نامعتبر است.');
-        setIsVerifying(false);
+        setError(result.error || result.message || 'کد تأیید نامعتبر است.');
         return;
       }
-
-      const token = result.accessToken || result.token || '';
-      const user = result.user || {};
-
-      if (user && 'id' in user && user.id) {
-        onSuccess(token, user);
-      } else {
-        setError('خطا در دریافت اطلاعات کاربر');
+      if (!result.user?.id || !result.user.otpProof) {
+        setError('پاسخ تأیید سرور ناقص است. دوباره کد را ارسال کنید.');
+        return;
       }
-      
-      setIsVerifying(false);
-    } catch (err) {
-      console.error('خطا در اعتبارسنجی OTP:', err);
-      setError('خطا در بررسی کد تایید. لطفاً دوباره تلاش کنید');
+      onSuccess(result.user);
+    } catch {
+      setError('خطا در بررسی کد تأیید. لطفاً دوباره تلاش کنید.');
+    } finally {
       setIsVerifying(false);
     }
   };
 
-  /**
-   * ارسال مجدد کد
-   */
   const handleResendOTP = async () => {
-    if (!canResend || isResending) return;
+    if (!canResend || isResending || isVerifying) return;
 
     setIsResending(true);
     setError(null);
-
     try {
       const result = await resendOtp(nationalCode);
-
-      if (result.success) {
-        const nextToken = result.challengeToken || '';
-        if (!nextToken) {
-          setError('سرور نشست جدیدی برای کد تأیید صادر نکرد. دوباره تلاش کنید.');
-          return;
-        }
-        setActiveChallengeToken(nextToken);
-        onChallengeToken?.(nextToken);
-        setOtpCode('');
-        setTimeLeft(result.expiresIn || expiresIn);
-        setCanResend(false);
-        setError(null);
-      } else {
-        setError(result.error || 'خطا در ارسال مجدد');
+      if (!result.success) {
+        setError(result.error || result.message || 'ارسال مجدد کد ناموفق بود.');
+        return;
       }
-    } catch (err) {
-      setError('خطا در ارسال مجدد کد');
+      if (!result.challengeToken || !hasValidExpiry(result.expiresIn)) {
+        setError(result.message || 'پاسخ سرور برای کد تازه ناقص است؛ دوباره تلاش کنید.');
+        return;
+      }
+
+      setActiveChallengeToken(result.challengeToken);
+      onChallengeToken(result.challengeToken);
+      setOtpDigits(emptyOtpDigits());
+      setTimeLeft(result.expiresIn);
+      onExpiresIn(result.expiresIn);
+      setCanResend(false);
+      setError(null);
+      inputRefs.current[0]?.focus();
+    } catch {
+      setError('خطا در ارسال مجدد کد. لطفاً دوباره تلاش کنید.');
     } finally {
       setIsResending(false);
     }
   };
-
-  // ریست کردن state هنگام بستن
-  useEffect(() => {
-    if (!isOpen) {
-      setOtpCode('');
-      setError(null);
-      setIsVerifying(false);
-      setTimeLeft(expiresIn);
-      setCanResend(false);
-    }
-  }, [isOpen, expiresIn]);
 
   if (!isOpen) return null;
 
@@ -255,15 +251,19 @@ export default function OTPVerificationModal({
           {/* فیلدهای شش‌خانه ورود کد */}
           <div className="mb-6">
             <div className="mx-auto grid w-full max-w-[22rem] grid-cols-6 gap-2" dir="ltr" onPaste={(event) => {
-              const pasted = event.clipboardData.getData('text').replace(/[^0-9۰-۹٠-٩]/g, '')
-                .replace(/[۰-۹]/g, digit => String('۰۱۲۳۴۵۶۷۸۹'.indexOf(digit)))
-                .replace(/[٠-٩]/g, digit => String('٠١٢٣٤٥٦٧٨٩'.indexOf(digit)))
-                .slice(0, 6);
+              const pasted = normalizeOtpInput(event.clipboardData.getData('text')).slice(0, 6);
               if (!pasted) return;
               event.preventDefault();
-              setOtpCode(pasted);
+
+              const focusedIndex = inputRefs.current.indexOf(event.target as HTMLInputElement);
+              const startIndex = pasted.length === 6 ? 0 : Math.max(focusedIndex, 0);
+              const nextDigits = pasted.length === 6 ? emptyOtpDigits() : [...otpDigits];
+              pasted.slice(0, 6 - startIndex).split('').forEach((digit, offset) => {
+                nextDigits[startIndex + offset] = digit;
+              });
+              setOtpDigits(nextDigits);
               setError(null);
-              inputRefs.current[Math.min(pasted.length, 5)]?.focus();
+              inputRefs.current[Math.min(startIndex + pasted.length, 5)]?.focus();
             }}>
               {Array.from({ length: 6 }, (_, index) => (
                 <input
@@ -273,38 +273,46 @@ export default function OTPVerificationModal({
                   inputMode="numeric"
                   autoComplete={index === 0 ? 'one-time-code' : 'off'}
                   autoFocus={index === 0}
-                  maxLength={1}
-                  aria-label={`رقم ${index + 1} کد تایید`}
-                  value={otpCode[index] && otpCode[index] !== ' ' ? otpCode[index] : ''}
+                  maxLength={index === 0 ? 6 : 1}
+                  aria-label={`رقم ${index + 1} کد تأیید`}
+                  aria-invalid={Boolean(error)}
+                  aria-describedby={error ? 'otp-verification-error' : undefined}
+                  value={otpDigits[index]}
                   onChange={(event) => {
-                    const rawValue = event.target.value.replace(/[^0-9۰-۹٠-٩]/g, '')
-                      .replace(/[۰-۹]/g, value => String('۰۱۲۳۴۵۶۷۸۹'.indexOf(value)))
-                      .replace(/[٠-٩]/g, value => String('٠١٢٣٤٥٦٧٨٩'.indexOf(value)));
-                    const nextCode = otpCode.padEnd(6, ' ').split('');
-                    const digits = rawValue.slice(0, 6).split('');
-                    if (digits.length > 1) {
-                      digits.forEach((value, offset) => {
-                        if (index + offset < 6) nextCode[index + offset] = value;
-                      });
-                      inputRefs.current[Math.min(index + digits.length, 5)]?.focus();
-                    } else {
-                      nextCode[index] = rawValue || ' ';
-                      if (rawValue && index < 5) inputRefs.current[index + 1]?.focus();
-                    }
-                    setOtpCode(nextCode.join(''));
+                    const enteredDigits = normalizeOtpInput(event.currentTarget.value).slice(0, 6 - index);
+                    const nextDigits = [...otpDigits];
+                    enteredDigits.split('').forEach((digit, offset) => {
+                      nextDigits[index + offset] = digit;
+                    });
+                    if (!enteredDigits) nextDigits[index] = '';
+                    setOtpDigits(nextDigits);
                     setError(null);
+                    if (enteredDigits) {
+                      inputRefs.current[Math.min(index + enteredDigits.length, 5)]?.focus();
+                    }
                   }}
                   onKeyDown={(event) => {
                     if (event.key === 'Backspace') {
-                      if (!otpCode[index] || otpCode[index] === ' ') {
-                        if (index > 0) inputRefs.current[index - 1]?.focus();
-                      } else {
-                        const nextCode = otpCode.padEnd(6, ' ').split('');
-                        nextCode[index] = ' ';
-                        setOtpCode(nextCode.join(''));
+                      event.preventDefault();
+                      const nextDigits = [...otpDigits];
+                      if (nextDigits[index]) {
+                        nextDigits[index] = '';
+                        setOtpDigits(nextDigits);
+                      } else if (index > 0) {
+                        nextDigits[index - 1] = '';
+                        setOtpDigits(nextDigits);
+                        inputRefs.current[index - 1]?.focus();
                       }
+                    } else if (event.key === 'ArrowLeft' && index > 0) {
+                      event.preventDefault();
+                      inputRefs.current[index - 1]?.focus();
+                    } else if (event.key === 'ArrowRight' && index < 5) {
+                      event.preventDefault();
+                      inputRefs.current[index + 1]?.focus();
+                    } else if (event.key === 'Enter') {
+                      event.preventDefault();
+                      void handleVerifyOTP();
                     }
-                    if (event.key === 'Enter' && isOtpComplete) handleVerifyOTP();
                   }}
                   disabled={isVerifying || timeLeft === 0}
                   className={`aspect-square w-full min-w-0 rounded-xl border-2 text-center text-2xl font-black transition focus:outline-none focus:ring-4
@@ -321,6 +329,8 @@ export default function OTPVerificationModal({
             </div>
             {error && (
               <motion.div
+                id="otp-verification-error"
+                role="alert"
                 initial={{ opacity: 0, y: -10 }}
                 animate={{ opacity: 1, y: 0 }}
                 className="flex items-center gap-2 mt-3 text-red-600 text-sm"
@@ -333,6 +343,7 @@ export default function OTPVerificationModal({
 
           {/* دکمه تایید */}
           <button
+            type="button"
             onClick={handleVerifyOTP}
             disabled={!isOtpComplete || isVerifying || timeLeft === 0}
             className={`w-full py-4 rounded-2xl font-black text-white text-lg transition-all transform
@@ -364,6 +375,7 @@ export default function OTPVerificationModal({
 
           {/* دکمه ارسال مجدد */}
           <button
+            type="button"
             onClick={handleResendOTP}
             disabled={!canResend || isResending || isVerifying}
             className={`w-full mt-4 py-3 rounded-xl font-bold text-sm transition-all
@@ -388,22 +400,6 @@ export default function OTPVerificationModal({
             )}
           </button>
 
-          {/* نمایش در محیط توسعه */}
-          {process.env.NODE_ENV === 'development' && (
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              className="mt-6 p-4 rounded-xl bg-yellow-100 border border-yellow-300"
-            >
-              <p className="text-xs text-yellow-800 text-center">
-                <strong>توجه (فقط در محیط توسعه):</strong>
-                <br />
-                کد تایید به شماره {userPhone} ارسال شد
-                <br />
-                کد ملی: {nationalCode}
-              </p>
-            </motion.div>
-          )}
         </motion.div>
       </motion.div>
     </AnimatePresence>

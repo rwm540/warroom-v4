@@ -1,18 +1,33 @@
-import { createHmac, createHash, randomInt, timingSafeEqual } from 'node:crypto';
+import { createHmac, randomInt, timingSafeEqual } from 'node:crypto';
 import { config } from '../config.js';
+
+const SECRET_PLACEHOLDER = /^(replace_|your_|change_me|unset_)/i;
 
 export function normalizeDigits(input) {
   return String(input || '')
-    .replace(/[۰-۹]/g, (d) => String('۰۱۲۳۴۵۶۷۸۹'.indexOf(d)))
-    .replace(/[٠-٩]/g, (d) => String('٠١٢٣٤٥٦٧٨٩'.indexOf(d)))
+    .replace(/[۰-۹]/g, (digit) => String('۰۱۲۳۴۵۶۷۸۹'.indexOf(digit)))
+    .replace(/[٠-٩]/g, (digit) => String('٠١٢٣٤٥٦٧٨٩'.indexOf(digit)))
     .replace(/\D/g, '');
+}
+
+export function normalizeOtpCode(input) {
+  const value = String(input ?? '');
+  if (!/^[0-9۰-۹٠-٩]{6}$/.test(value)) return null;
+  return normalizeDigits(value);
 }
 
 export function isValidNationalCode(raw) {
   const code = normalizeDigits(raw);
-  if (code === '0012345678') return code;
   if (!/^\d{10}$/.test(code) || /^(\d)\1{9}$/.test(code)) return null;
-  return code;
+
+  const checksum = Number(code[9]);
+  const weightedSum = code.slice(0, 9).split('').reduce(
+    (total, digit, index) => total + Number(digit) * (10 - index),
+    0,
+  );
+  const remainder = weightedSum % 11;
+  const isValidChecksum = remainder < 2 ? checksum === remainder : checksum === 11 - remainder;
+  return isValidChecksum ? code : null;
 }
 
 export function toE164Iran(input) {
@@ -31,20 +46,23 @@ export function maskPhone(e164OrLocal) {
   return `${local.slice(0, 4)}***${local.slice(-2)}`;
 }
 
-export function createOtp() {
-  const isPlaceholder = (value) => /^(replace_|your_|change_me|unset_)/i.test(value);
+function assertOtpSecrets() {
   if (
     config.otpSecret.length < 32 ||
-    config.jwtSecret.length < 32 ||
-    config.otpSecret === config.jwtSecret ||
-    isPlaceholder(config.otpSecret) ||
-    isPlaceholder(config.jwtSecret)
+    config.otpChallengeSecret.length < 32 ||
+    config.otpSecret === config.otpChallengeSecret ||
+    SECRET_PLACEHOLDER.test(config.otpSecret) ||
+    SECRET_PLACEHOLDER.test(config.otpChallengeSecret)
   ) {
     const error = new Error('AUTH_SECRETS_NOT_CONFIGURED');
     error.status = 503;
     error.code = 'AUTH_SECRETS_NOT_CONFIGURED';
     throw error;
   }
+}
+
+export function createOtp() {
+  assertOtpSecrets();
   if (!Number.isInteger(config.otpTtlSeconds) || config.otpTtlSeconds < 60 || config.otpTtlSeconds > 900) {
     const error = new Error('OTP_TTL_INVALID');
     error.status = 503;
@@ -55,14 +73,26 @@ export function createOtp() {
 }
 
 export function hashOtp(nationalCode, phone, otp) {
-  if (config.otpSecret.length < 32 || /^(replace_|your_|change_me|unset_)/i.test(config.otpSecret)) {
+  if (config.otpSecret.length < 32 || SECRET_PLACEHOLDER.test(config.otpSecret)) {
     const error = new Error('OTP_SECRET_NOT_CONFIGURED');
     error.status = 503;
     error.code = 'OTP_SECRET_NOT_CONFIGURED';
     throw error;
   }
   return createHmac('sha256', config.otpSecret)
-    .update(`${nationalCode}:${phone}:${otp}`)
+    .update(`otp-code:${nationalCode}:${phone}:${otp}`)
+    .digest('hex');
+}
+
+export function hashNationalCodeForChallenge(nationalCode) {
+  if (config.otpSecret.length < 32 || SECRET_PLACEHOLDER.test(config.otpSecret)) {
+    const error = new Error('OTP_SECRET_NOT_CONFIGURED');
+    error.status = 503;
+    error.code = 'OTP_SECRET_NOT_CONFIGURED';
+    throw error;
+  }
+  return createHmac('sha256', config.otpSecret)
+    .update(`otp-challenge-national-code:${nationalCode}`)
     .digest('hex');
 }
 
@@ -73,7 +103,15 @@ export function safeEqualHex(a, b) {
 }
 
 export function hashValue(value) {
-  return createHash('sha256').update(String(value || '')).digest('hex');
+  if (config.otpSecret.length < 32 || SECRET_PLACEHOLDER.test(config.otpSecret)) {
+    const error = new Error('OTP_SECRET_NOT_CONFIGURED');
+    error.status = 503;
+    error.code = 'OTP_SECRET_NOT_CONFIGURED';
+    throw error;
+  }
+  return createHmac('sha256', config.otpSecret)
+    .update(`otp-rate-limit:${String(value || '')}`)
+    .digest('hex');
 }
 
 export function clientIp(req) {

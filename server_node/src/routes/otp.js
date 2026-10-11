@@ -4,10 +4,13 @@ import { config } from '../config.js';
 import {
   clientIp,
   createOtp,
+  hashNationalCodeForChallenge,
   hashOtp,
   hashValue,
   isValidNationalCode,
   maskPhone,
+  normalizeOtpCode,
+  safeEqualHex,
   toE164Iran,
 } from '../lib/identity.js';
 import { sendOtpSms } from '../lib/sms.js';
@@ -40,14 +43,23 @@ function extractPhone(userRow) {
   return toE164Iran(data.phone || data.mobile || data.contact_phone);
 }
 
+async function invalidateChallenge(db, challengeId) {
+  const { error } = await db
+    .from('warroom_otp_codes')
+    .update({ is_used: true, used_at: new Date().toISOString() })
+    .eq('challenge_id', challengeId)
+    .eq('is_used', false);
+  if (error) throw error;
+}
+
 async function sendForNationalCode(nationalCode, req) {
   const ip = clientIp(req);
-  const allowedIp = await persistRateLimit(`otp:ip:${hashValue(ip)}`, 12, 15 * 60);
   const nationalCodeKey = hashValue(nationalCode);
-  const allowedNat = await persistRateLimit(`otp:nat:${nationalCodeKey}`, config.otpMaxSend, 15 * 60);
-  const allowedCool = await persistRateLimit(`otp:cool:${nationalCodeKey}`, 1, config.otpResendCooldown);
+  const allowedIp = await persistRateLimit(`otp:ip:${hashValue(ip)}`, 12, 15 * 60);
+  const allowedNationalCode = await persistRateLimit(`otp:national:${nationalCodeKey}`, config.otpMaxSend, 15 * 60);
+  const allowedCooldown = await persistRateLimit(`otp:cooldown:${nationalCodeKey}`, 1, config.otpResendCooldown);
 
-  if (!allowedIp || !allowedNat || !allowedCool) {
+  if (!allowedIp || !allowedNationalCode || !allowedCooldown) {
     throw publicError('RATE_LIMITED', 'تعداد درخواست‌ها زیاد است؛ بعداً تلاش کنید.', 429);
   }
 
@@ -61,25 +73,35 @@ async function sendForNationalCode(nationalCode, req) {
 
   const phone = extractPhone(userRow);
   if (!phone) {
-    throw publicError('PHONE_MISSING', 'شماره موبایل برای این کد ملی ثبت نشده است.', 400);
+    throw publicError('PHONE_MISSING', 'شماره موبایل معتبر برای این حساب ثبت نشده است.', 400);
   }
 
   const otp = createOtp();
   const otpHash = hashOtp(nationalCode, phone.e164, otp);
   const challengeId = randomUUID();
-  const expiresAt = new Date(Date.now() + config.otpTtlSeconds * 1000).toISOString();
+  const issuedAtMs = Math.floor(Date.now() / 1000) * 1000;
+  const expiresAtMs = issuedAtMs + config.otpTtlSeconds * 1000;
+  const expiresAt = new Date(expiresAtMs).toISOString();
+  const challengeToken = signChallengeToken({
+    sub: String(userRow.id),
+    challengeId,
+    nationalCodeBinding: hashNationalCodeForChallenge(nationalCode),
+  }, expiresAtMs);
   const db = assertDb();
+  const issuedAt = new Date(issuedAtMs).toISOString();
 
   const { error: revokeOtpError } = await db
     .from('warroom_otp_codes')
-    .update({ is_used: true, used_at: new Date().toISOString() })
+    .update({ is_used: true, used_at: issuedAt })
     .eq('national_code', nationalCode)
     .eq('is_used', false);
-  if (revokeOtpError) throw publicError('OTP_STORE_FAILED', 'کد قبلی باطل نشد؛ دوباره تلاش کنید.', 503);
+  if (revokeOtpError) {
+    throw publicError('OTP_STORE_FAILED', 'کد قبلی باطل نشد؛ درخواست جدید ثبت نشد.', 503);
+  }
 
-  const { error } = await db.from('warroom_otp_codes').insert({
+  const { error: insertError } = await db.from('warroom_otp_codes').insert({
     challenge_id: challengeId,
-    user_id: userRow.id,
+    user_id: String(userRow.id),
     national_code: nationalCode,
     phone: phone.e164,
     code_hash: otpHash,
@@ -90,37 +112,48 @@ async function sendForNationalCode(nationalCode, req) {
     ip_hash: hashValue(ip),
   });
 
-  if (error) {
-    throw publicError('OTP_STORE_FAILED', 'ذخیره کد تأیید ممکن نشد؛ migrationهای Supabase را بررسی کنید.', 500);
+  if (insertError) {
+    throw publicError('OTP_STORE_FAILED', 'ذخیره کد تأیید ممکن نشد.', 503);
   }
 
   try {
-    const smsResult = await sendOtpSms(phone.e164, otp);
+    const smsResult = await sendOtpSms(phone.e164, otp, { issuedAtMs, expiresAtMs });
     const messageId = smsResult.ids?.[0];
-    if (messageId) {
-      const { error: messageIdError } = await db.from('warroom_otp_codes')
-        .update({ sms_message_id: String(messageId).slice(0, 200) })
-        .eq('challenge_id', challengeId);
-      if (messageIdError) console.warn('[warroom-otp] provider message ID persistence failed');
+    if (!messageId) {
+      throw publicError('SMS_SEND_FAILED', 'ارسال پیامک توسط سرویس تأیید نشد.', 502);
     }
+
+    const { data: savedMessage, error: messageIdError } = await db
+      .from('warroom_otp_codes')
+      .update({ sms_message_id: messageId })
+      .eq('challenge_id', challengeId)
+      .eq('is_used', false)
+      .select('challenge_id')
+      .maybeSingle();
+    if (messageIdError || !savedMessage) {
+      throw publicError('OTP_STORE_FAILED', 'ثبت نتیجه سرویس پیامک در پایگاه داده ناموفق بود.', 503);
+    }
+
+    const expiresIn = Math.floor((expiresAtMs - Date.now()) / 1000);
+    if (expiresIn <= 0) {
+      throw publicError('OTP_EXPIRED', 'مهلت کد تأیید هنگام ارسال پایان یافت؛ دوباره درخواست کنید.', 503);
+    }
+
+    return {
+      success: true,
+      message: 'درخواست ارسال کد توسط سرویس پیامک پذیرفته شد؛ تحویل نهایی به اپراتور وابسته است.',
+      expiresIn,
+      maskedPhone: maskPhone(phone.local),
+      challengeToken,
+    };
   } catch (error) {
-    await db.from('warroom_otp_codes').update({ is_used: true, used_at: new Date().toISOString() })
-      .eq('challenge_id', challengeId);
+    try {
+      await invalidateChallenge(db, challengeId);
+    } catch {
+      throw publicError('OTP_CLEANUP_FAILED', 'ارسال پیامک تأیید نشد و پاک‌سازی کد نیز ناموفق بود؛ با پشتیبانی تماس بگیرید.', 503);
+    }
     throw error;
   }
-
-  const challengeToken = signChallengeToken({
-    sub: userRow.id,
-    challengeId,
-  });
-
-  return {
-    success: true,
-    message: 'درخواست ارسال کد توسط سرویس پیامک پذیرفته شد؛ وضعیت تحویل نهایی به اپراتور وابسته است.',
-    expiresIn: config.otpTtlSeconds,
-    maskedPhone: maskPhone(phone.local),
-    challengeToken,
-  };
 }
 
 router.post('/send', async (req, res, next) => {
@@ -152,18 +185,26 @@ router.post('/resend', async (req, res, next) => {
 router.post('/verify', async (req, res, next) => {
   try {
     const nationalCode = isValidNationalCode(req.body?.nationalCode || req.body?.national_code);
-    const code = String(req.body?.code || '').replace(/\D/g, '');
+    const code = normalizeOtpCode(req.body?.code);
     const challengeToken = String(req.body?.challengeToken || '');
 
-    if (!nationalCode || !/^\d{6}$/.test(code) || !challengeToken) {
-      throw publicError('INVALID_INPUT', 'کد ملی، کد تأیید یا نشست نامعتبر است.');
+    if (!nationalCode || !code || !challengeToken) {
+      throw publicError('INVALID_INPUT', 'کد ملی، کد تأیید شش‌رقمی یا نشست نامعتبر است.');
     }
 
     let challenge;
     try {
       challenge = verifyToken(challengeToken, 'otp_challenge');
     } catch {
-      throw publicError('CHALLENGE_EXPIRED', 'نشست تأیید منقضی شده است. دوباره ارسال کنید.', 401);
+      throw publicError('CHALLENGE_EXPIRED', 'نشست تأیید منقضی یا نامعتبر است. دوباره کد را ارسال کنید.', 401);
+    }
+
+    if (
+      typeof challenge.sub !== 'string' ||
+      typeof challenge.challengeId !== 'string' ||
+      !safeEqualHex(challenge.nationalCodeBinding, hashNationalCodeForChallenge(nationalCode))
+    ) {
+      throw publicError('CHALLENGE_MISMATCH', 'نشست تأیید با این کد ملی سازگار نیست.', 401);
     }
 
     const allowed = await persistRateLimit(`otp:verify:${hashValue(nationalCode)}`, 10, 15 * 60);
@@ -179,8 +220,10 @@ router.post('/verify', async (req, res, next) => {
       .eq('national_code', nationalCode)
       .eq('is_used', false)
       .maybeSingle();
-    if (challengeError) throw publicError('OTP_LOOKUP_FAILED', 'بررسی کد تأیید ممکن نشد.', 503);
-    if (!challengeRow || challengeRow.user_id !== challenge.sub) {
+    if (challengeError) {
+      throw publicError('OTP_LOOKUP_FAILED', 'بررسی کد تأیید ممکن نشد.', 503);
+    }
+    if (!challengeRow || String(challengeRow.user_id) !== challenge.sub) {
       throw publicError('OTP_EXPIRED', 'کد منقضی شده یا وجود ندارد.');
     }
 
@@ -190,31 +233,25 @@ router.post('/verify', async (req, res, next) => {
       p_national_code: nationalCode,
       p_code_hash: submitted,
     });
-    if (verifyError) throw publicError('OTP_VERIFY_FAILED', 'بررسی کد تأیید ممکن نشد.', 503);
-    const verification = Array.isArray(verificationRows) ? verificationRows[0] : verificationRows;
-    if (verification?.result === 'locked') throw publicError('OTP_LOCKED', 'تعداد تلاش‌های مجاز تمام شده است.', 429);
-    if (verification?.result === 'invalid') throw publicError('OTP_INVALID', 'کد تأیید اشتباه است.');
-    if (verification?.result !== 'valid' || verification.user_id !== challenge.sub) {
-      throw publicError('OTP_EXPIRED', 'کد منقضی شده یا وجود ندارد.');
+    if (verifyError) {
+      throw publicError('OTP_VERIFY_FAILED', 'بررسی کد تأیید ممکن نشد.', 503);
     }
 
-    const userRow = await findUserByNationalCode(nationalCode);
-    const user = {
-      id: verification.user_id,
-      national_code: nationalCode,
-      role: userRow?.data?.role || 'user',
-      first_name: userRow?.data?.first_name || '',
-      last_name: userRow?.data?.last_name || '',
-    };
-    const { error: proofError } = await db.from('warroom_otp_codes')
-      .update({ verified: true })
-      .eq('challenge_id', challenge.challengeId)
-      .eq('user_id', user.id);
-    if (proofError) throw publicError('OTP_VERIFY_FAILED', 'ثبت نتیجه تأیید کد ناموفق بود.', 503);
+    const verification = Array.isArray(verificationRows) ? verificationRows[0] : verificationRows;
+    if (verification?.result === 'locked') {
+      throw publicError('OTP_LOCKED', 'تعداد تلاش‌های مجاز تمام شده است.', 429);
+    }
+    if (verification?.result === 'invalid') {
+      throw publicError('OTP_INVALID', 'کد تأیید اشتباه است.');
+    }
+    if (verification?.result !== 'valid' || String(verification.user_id) !== challenge.sub) {
+      throw publicError('OTP_EXPIRED', 'کد منقضی شده یا قبلاً مصرف شده است.');
+    }
 
     res.json({
       success: true,
-      user: { ...user, otpProof: challenge.challengeId },
+      message: 'کد تأیید شد.',
+      user: { id: challenge.sub, otpProof: challenge.challengeId },
     });
   } catch (error) {
     next(error);

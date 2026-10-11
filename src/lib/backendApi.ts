@@ -127,7 +127,7 @@ export async function apiCheckNationalCodeExists(nationalCode: string): Promise<
 
 export async function apiRegister(payload: Record<string, any>): Promise<ApiResult<AuthPayload>> {
   try {
-    const userId = String(payload.id || `user_${crypto.randomUUID()}`);
+    const userId = String(payload.id || `user_${globalThis.crypto.randomUUID()}`);
     const profile = {
       ...payload,
       id: userId,
@@ -197,9 +197,9 @@ export async function requestPasswordReset(input: { phone: string; note?: string
       .maybeSingle();
     if (lookupError) return { ok: false, error: errorFrom(lookupError) };
     if (!userRow) return { ok: false, error: { code: 'USER_NOT_FOUND', message: 'شماره همراه در سامانه پیدا نشد.' } };
-    const trackingCode = `WR-${crypto.randomUUID().replace(/-/g, '').slice(0, 8).toUpperCase()}`;
+    const trackingCode = `WR-${globalThis.crypto.randomUUID().replace(/-/g, '').slice(0, 8).toUpperCase()}`;
     const record = {
-      id: `reset_${crypto.randomUUID()}`,
+      id: `reset_${globalThis.crypto.randomUUID()}`,
       user_id: userRow.id,
       national_code: userRow.data?.national_code,
       contact_phone: input.phone,

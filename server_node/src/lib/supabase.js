@@ -29,3 +29,30 @@ export async function findUserByNationalCode(nationalCode) {
   if (error) throw error;
   return data || null;
 }
+
+export async function findUserByPhone(phoneLocal) {
+  const { data, error } = await assertDb()
+    .from('warroom_users')
+    .select('id, data')
+    .eq('data->>phone', phoneLocal)
+    .limit(1)
+    .maybeSingle();
+  if (error) throw error;
+  return data || null;
+}
+
+export async function findUserByPhoneOrNational({ phone, nationalCode }) {
+  // Prefer national_code lookup, fallback to phone
+  if (nationalCode) {
+    const byNational = await findUserByNationalCode(nationalCode);
+    if (byNational) return byNational;
+  }
+  if (phone) {
+    return findUserByPhone(phone);
+  }
+  return null;
+}
+
+export function getSupabaseAdmin() {
+  return assertDb();
+}

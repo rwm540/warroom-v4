@@ -3,14 +3,14 @@
   "version": "1.0.0",
   "description": "سرور امن ارسال و اعتبارسنجی کد تایید OTP برای پلتفرم اتاق جنگ",
   "main": "src/index.js",
-  "type": "commonjs",
+  "type": "module",
   "engines": {
     "node": ">=22"
   },
   "scripts": {
     "start": "node src/index.js",
     "dev": "nodemon src/index.js",
-    "test": "node --test"
+    "test": "node --test src/lib/identity.test.js src/lib/sms.test.js src/lib/security.test.js"
   },
   "keywords": ["otp", "sms", "jwt", "express", "ippanel"],
   "author": "WarRoom Team",

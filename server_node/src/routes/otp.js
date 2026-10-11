@@ -65,10 +65,17 @@ async function sendForNationalCode(nationalCode, req) {
 
   const userRow = await findUserByNationalCode(nationalCode);
   if (!userRow) {
+    // Anti-enumeration: generic success without challenge
     return {
       success: true,
       message: 'اگر حسابی با این کد ملی وجود داشته باشد، کد تأیید ارسال می‌شود.',
     };
+  }
+
+  // Blocked or inactive users should not receive OTP for login, but allow activation flow
+  const userData = userRow?.data || {};
+  if (userData.is_blocked === true) {
+    throw publicError('USER_BLOCKED', 'حساب کاربری مسدود شده است.', 403);
   }
 
   const phone = extractPhone(userRow);
@@ -247,6 +254,25 @@ router.post('/verify', async (req, res, next) => {
     if (verification?.result !== 'valid' || String(verification.user_id) !== challenge.sub) {
       throw publicError('OTP_EXPIRED', 'کد منقضی شده یا قبلاً مصرف شده است.');
     }
+
+    // If user was inactive (pending registration), activate after successful OTP verification
+    try {
+      const { data: userCheck } = await db.from('warroom_users').select('data').eq('id', challenge.sub).maybeSingle();
+      if (userCheck && userCheck.data && userCheck.data.is_active === false) {
+        const updatedData = { ...userCheck.data, is_active: true };
+        await db.from('warroom_users').update({ data: updatedData, updated_at: new Date().toISOString() }).eq('id', challenge.sub);
+      }
+    } catch {
+      // Non-critical, don't fail verification if activation fails - will be retried on next login
+    }
+
+    // Invalidate all other pending challenges for this national code to prevent replay
+    try {
+      await db.from('warroom_otp_codes').update({ is_used: true, used_at: new Date().toISOString() })
+        .eq('national_code', nationalCode)
+        .eq('is_used', false)
+        .neq('challenge_id', challenge.challengeId);
+    } catch {}
 
     res.json({
       success: true,

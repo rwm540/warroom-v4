@@ -74,10 +74,21 @@ function forwardEventToServer(event: AuditEvent): void {
   });
 }
 
+function secureId(): string {
+  try {
+    if (crypto?.randomUUID) return `audit_${Date.now()}_${crypto.randomUUID().slice(0, 8)}`;
+    const arr = new Uint8Array(6);
+    crypto.getRandomValues(arr);
+    return `audit_${Date.now()}_${Array.from(arr).map(b => b.toString(36)).join('').slice(0, 8)}`;
+  } catch {
+    return `audit_${Date.now()}_${String(performance.now()).replace('.', '').slice(0, 8)}`;
+  }
+}
+
 export async function logAudit(input: Omit<AuditEvent, 'id' | 'createdAt'>): Promise<AuditEvent> {
   const event: AuditEvent = {
     ...input,
-    id: `audit_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+    id: secureId(),
     createdAt: new Date().toISOString(),
     metadata: input.metadata ? sanitize(input.metadata) as Record<string, unknown> : undefined,
   };

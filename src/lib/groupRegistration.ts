@@ -3,10 +3,17 @@ import { Group, TeamRegistrationSession, User } from '../types';
 export const MAX_GROUP_MEMBERS = 4;
 export const SHARED_ACCESS_LIMIT = 3;
 
+function secureRandomSuffix(len: number): string {
+  const alphabet = 'abcdefghijklmnopqrstuvwxyz0123456789';
+  const arr = new Uint8Array(len);
+  crypto.getRandomValues(arr);
+  return Array.from(arr, (v) => alphabet[v % alphabet.length]).join('');
+}
+
 export function generateSharedCredentials(teamName: string): { username: string; password: string } {
   const seed = (teamName || 'warroom').toLowerCase().replace(/[^a-z0-9]+/g, '').slice(0, 6) || 'warroom';
-  const username = `team_${seed}_${Math.random().toString(36).slice(2, 6)}`;
-  const password = `Wr${seed.toUpperCase()}${Math.random().toString(36).slice(2, 7)}`;
+  const username = `team_${seed}_${secureRandomSuffix(4)}`;
+  const password = `Wr${seed.toUpperCase()}${secureRandomSuffix(5)}`;
   return { username, password };
 }
 
@@ -18,7 +25,7 @@ export function createGroupRegistrationSession(input: {
 }): TeamRegistrationSession {
   const { username, password } = generateSharedCredentials(input.teamName);
   const session: TeamRegistrationSession = {
-    id: `team_session_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+    id: `team_session_${Date.now()}_${crypto.randomUUID ? crypto.randomUUID().slice(0,8) : secureRandomSuffix(8)}`,
     group_id: input.groupId,
     team_name: input.teamName,
     leader_id: input.leaderId,
@@ -115,7 +122,7 @@ export function createGroupRecord(input: {
 }): Group {
   const { username, password } = generateSharedCredentials(input.groupName);
   return {
-    id: `group_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+    id: `group_${Date.now()}_${crypto.randomUUID ? crypto.randomUUID().slice(0,8) : secureRandomSuffix(8)}`,
     leader_id: input.leaderId,
     name: input.groupName || `${input.leaderName} تیم`,
     members_count: input.membersCount ?? 1,
@@ -123,7 +130,7 @@ export function createGroupRecord(input: {
     gender: 'پسر',
     province: input.province || 'تهران',
     city: input.city || 'تهران',
-    registration_code: `WR-${Math.random().toString(36).slice(2, 8).toUpperCase()}`,
+    registration_code: `WR-${secureRandomSuffix(6).toUpperCase()}`,
     created_at: new Date().toISOString(),
     shared_username: username,
     shared_password: password,

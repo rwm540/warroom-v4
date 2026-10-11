@@ -623,7 +623,7 @@ export function appendGroupChatMessage(payload: {
   const room = roomEntry?.room ?? ensureGroupChatRoom(canonical, canonical === 'general_headquarters' ? 'روم عمومی ستاد کل اتاق جنگ' : 'گروه تیم', [payload.userId]);
 
   const newMessage: GroupChatMessage = {
-    id: `msg_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+    id: `msg_${Date.now()}_${crypto.randomUUID ? crypto.randomUUID().slice(0, 8) : (() => { const a = new Uint8Array(4); crypto.getRandomValues(a); return Array.from(a).map(b=>b.toString(36)).join('').slice(0,8); })()}`,
     room_id: `room_${canonical}`,
     group_id: canonical === 'general_headquarters' ? 'general_headquarters' : canonical,
     user_id: payload.userId,

@@ -6,7 +6,8 @@ type RedisClientType = {
 };
 
 const redisUrl =
-  (typeof import.meta !== 'undefined' && import.meta.env && (import.meta.env.VITE_REDIS_URL as string | undefined)?.trim()) ||
+  (typeof process !== 'undefined' && (process.env as any)?.REDIS_URL?.trim()) ||
+  (typeof import.meta !== 'undefined' && import.meta.env && ((import.meta.env as any).REDIS_URL as string | undefined)?.trim()) ||
   'redis://localhost:6379';
 
 export const isRedisEnabled =

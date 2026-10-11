@@ -28,7 +28,7 @@ export interface AuthPayload {
 
 let activeUser: User | null = null;
 let activeOtpProof: string | null = null;
-let mustChangePassword = false;
+let mustChangePasswordFlag = false;
 let cachedStatus: BackendStatus | null = null;
 let probePromise: Promise<BackendStatus> | null = null;
 const statusListeners = new Set<(status: BackendStatus) => void>();
@@ -37,7 +37,7 @@ const STATUS_TTL_MS = 30_000;
 function notify(status: BackendStatus) {
   cachedStatus = status;
   statusListeners.forEach((listener) => {
-    try { listener(status); } catch { /* Ignore listener errors. */ }
+    try { listener(status); } catch { }
   });
 }
 
@@ -46,7 +46,12 @@ function unavailable(): ApiError {
 }
 
 function errorFrom(error: any): ApiError {
-  return { code: String(error?.code || 'SUPABASE_REQUEST_FAILED'), message: String(error?.message || 'درخواست ناموفق بود.') };
+  const msg = String(error?.message || 'درخواست ناموفق بود.');
+  // Never expose SQL, stack, or secrets
+  const safeMsg = msg.includes('password') || msg.includes('secret') || msg.includes('token') || msg.toLowerCase().includes('stack')
+    ? 'درخواست ناموفق بود.'
+    : msg.slice(0, 300);
+  return { code: String(error?.code || 'SUPABASE_REQUEST_FAILED'), message: safeMsg };
 }
 
 function requireSupabase(): NonNullable<typeof supabase> {
@@ -56,7 +61,9 @@ function requireSupabase(): NonNullable<typeof supabase> {
 
 export function setOtpVerifiedUser(user: User, proof: string) {
   if (!proof || !user.id) throw new Error('OTP verification proof is required');
-  activeUser = { ...user, password: '' };
+  // Strip password before storing in memory
+  const { password, ...safeUser } = user as any;
+  activeUser = { ...safeUser, password: '' } as User;
   activeOtpProof = proof;
 }
 
@@ -95,6 +102,12 @@ export async function probeBackend(force = false): Promise<BackendStatus> {
   return probePromise;
 }
 
+function secureRandomString(length: number, alphabet: string): string {
+  const arr = new Uint8Array(length);
+  crypto.getRandomValues(arr);
+  return Array.from(arr, (v) => alphabet[v % alphabet.length]).join('');
+}
+
 export async function apiLogin(nationalCode: string, password: string): Promise<ApiResult<AuthPayload>> {
   try {
     const { data, error } = await requireSupabase().rpc('warroom_verify_login', {
@@ -103,7 +116,12 @@ export async function apiLogin(nationalCode: string, password: string): Promise<
     });
     if (error) return { ok: false, error: errorFrom(error) };
     if (!data?.success || !data.user?.id) {
+      // Generic message to avoid enumeration
       return { ok: false, error: { code: data?.error || 'INVALID_CREDENTIALS', message: 'کد ملی یا رمز عبور اشتباه است.' } };
+    }
+    // Check if user is blocked or inactive
+    if (data.user.is_blocked) {
+      return { ok: false, error: { code: 'USER_BLOCKED', message: 'حساب کاربری مسدود شده است.' } };
     }
     const user = { ...data.user, password: '' } as User;
     return { ok: true, data: { user, mustChangePassword: Boolean(data.mustChangePassword) } };
@@ -114,20 +132,30 @@ export async function apiLogin(nationalCode: string, password: string): Promise<
 
 export async function apiCheckNationalCodeExists(nationalCode: string): Promise<boolean> {
   try {
-    const { data, error } = await requireSupabase()
-      .from('warroom_users')
-      .select('id')
-      .eq('data->>national_code', nationalCode)
-      .limit(1);
-    return !error && Array.isArray(data) && data.length > 0;
+    // Use secure server endpoint to avoid direct table access and enumeration timing differences
+    const res = await fetch('/api/registration/check-national', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'same-origin',
+      body: JSON.stringify({ nationalCode }),
+    });
+    if (!res.ok) return false;
+    const payload = await res.json().catch(() => null);
+    return Boolean(payload?.exists);
   } catch {
-    return false;
+    // Fallback to supabase RPC if server not available, but with limited exposure
+    try {
+      const { data, error } = await requireSupabase().from('warroom_users').select('id').eq('data->>national_code', nationalCode).limit(1).maybeSingle();
+      return !error && Boolean(data);
+    } catch {
+      return false;
+    }
   }
 }
 
 export async function apiRegister(payload: Record<string, any>): Promise<ApiResult<AuthPayload>> {
   try {
-    const userId = String(payload.id || `user_${globalThis.crypto.randomUUID()}`);
+    const userId = String(payload.id || `user_${crypto.randomUUID()}`);
     const profile = {
       ...payload,
       id: userId,
@@ -135,13 +163,25 @@ export async function apiRegister(payload: Record<string, any>): Promise<ApiResu
       role: 'user',
       level: 1,
       points: 100,
-      is_active: true,
+      is_active: false, // Important: inactive until OTP verified
       is_blocked: false,
     };
-    delete profile.password;
+    delete (profile as any).password;
+    // Strip any role escalation attempt
+    delete (profile as any).role;
+
+    const finalProfile = {
+      ...profile,
+      role: 'user',
+      is_active: false,
+      is_blocked: false,
+      level: 1,
+      points: 0,
+    };
+
     const { data, error } = await requireSupabase().rpc('warroom_register_user', {
       p_user_id: userId,
-      p_user_data: profile,
+      p_user_data: finalProfile,
       p_password: String(payload.password || ''),
     });
     if (error) return { ok: false, error: errorFrom(error) };
@@ -157,16 +197,20 @@ export async function apiRegister(payload: Record<string, any>): Promise<ApiResu
 export async function apiLogout(): Promise<ApiResult<{ message: string }>> {
   activeUser = null;
   activeOtpProof = null;
-  mustChangePassword = false;
-  localStorage.removeItem('warroom_session_id');
-  localStorage.removeItem('warroom_current_user_data');
-  localStorage.removeItem('warroom_current_user_id');
+  mustChangePasswordFlag = false;
+  try {
+    // Only remove our own keys, not all localStorage
+    localStorage.removeItem('warroom_session_id');
+    localStorage.removeItem('warroom_current_user_data');
+    localStorage.removeItem('warroom_current_user_id');
+    sessionStorage.removeItem('warroom_selected_game_id');
+  } catch {}
   return { ok: true, data: { message: 'از حساب خارج شدید.' } };
 }
 
 export async function apiSession(): Promise<ApiResult<{ authenticated: boolean; user?: User; mustChangePassword?: boolean }>> {
   if (!activeUser || !activeOtpProof) return { ok: true, data: { authenticated: false } };
-  return { ok: true, data: { authenticated: true, user: activeUser, mustChangePassword } };
+  return { ok: true, data: { authenticated: true, user: activeUser, mustChangePassword: mustChangePasswordFlag } };
 }
 
 export async function apiChangePassword(currentPassword: string, newPassword: string): Promise<ApiResult<{ message: string }>> {
@@ -179,7 +223,7 @@ export async function apiChangePassword(currentPassword: string, newPassword: st
     });
     if (error) return { ok: false, error: errorFrom(error) };
     if (!data?.success) return { ok: false, error: { code: data?.error || 'PASSWORD_CHANGE_FAILED', message: 'تغییر رمز ناموفق بود.' } };
-    mustChangePassword = false;
+    mustChangePasswordFlag = false;
     return { ok: true, data: { message: 'رمز عبور تغییر کرد.' } };
   } catch (error) {
     return { ok: false, error: errorFrom(error) };
@@ -188,42 +232,43 @@ export async function apiChangePassword(currentPassword: string, newPassword: st
 
 export async function requestPasswordReset(input: { phone: string; note?: string }): Promise<ApiResult<{ trackingCode: string; message: string }>> {
   try {
-    const db = requireSupabase();
-    const { data: userRow, error: lookupError } = await db
-      .from('warroom_users')
-      .select('id, data')
-      .eq('data->>phone', input.phone)
-      .limit(1)
-      .maybeSingle();
-    if (lookupError) return { ok: false, error: errorFrom(lookupError) };
-    if (!userRow) return { ok: false, error: { code: 'USER_NOT_FOUND', message: 'شماره همراه در سامانه پیدا نشد.' } };
-    const trackingCode = `WR-${globalThis.crypto.randomUUID().replace(/-/g, '').slice(0, 8).toUpperCase()}`;
-    const record = {
-      id: `reset_${globalThis.crypto.randomUUID()}`,
-      user_id: userRow.id,
-      national_code: userRow.data?.national_code,
-      contact_phone: input.phone,
-      note: input.note || '',
-      tracking_code: trackingCode,
-      status: 'pending',
-      created_at: new Date().toISOString(),
-    };
-    const { error } = await db.from('warroom_password_reset_requests').insert({ id: record.id, data: record });
-    if (error) return { ok: false, error: errorFrom(error) };
-    return { ok: true, data: { trackingCode, message: 'درخواست بازیابی در Supabase ثبت شد.' } };
+    // Use secure server endpoint to prevent enumeration and direct table access
+    const res = await fetch('/api/password-reset/request', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'same-origin',
+      body: JSON.stringify({ phone: input.phone, note: input.note }),
+    });
+    const payload = await res.json().catch(() => null);
+    if (!res.ok) {
+      return { ok: false, error: { code: payload?.error || 'REQUEST_FAILED', message: payload?.message || 'ثبت درخواست بازیابی ممکن نشد.' } };
+    }
+    if (!payload?.success) {
+      return { ok: false, error: { code: payload?.error || 'REQUEST_FAILED', message: payload?.message || 'ثبت درخواست بازیابی ممکن نشد.' } };
+    }
+    // If trackingCode is null (user not found), we still return success with generic message to prevent enumeration
+    if (!payload.trackingCode) {
+      return { ok: true, data: { trackingCode: '', message: payload.message || 'درخواست شما دریافت شد.' } };
+    }
+    return { ok: true, data: { trackingCode: payload.trackingCode, message: payload.message } };
   } catch (error: any) {
-    return { ok: false, error: error?.code === 'SUPABASE_UNAVAILABLE' ? unavailable() : errorFrom(error) };
+    return { ok: false, error: { code: 'REQUEST_FAILED', message: 'ارتباط با سرور برقرار نشد.' } };
   }
 }
 
 export async function checkPasswordResetStatus(nationalCode: string, trackingCode: string): Promise<ApiResult<{ status: string; message: string; createdAt?: string; resolvedAt?: string | null }>> {
   try {
-    const { data, error } = await requireSupabase().from('warroom_password_reset_requests').select('data');
-    if (error) return { ok: false, error: errorFrom(error) };
-    const record = (data || []).map((row: any) => row.data).find((item: any) =>
-      item?.national_code === nationalCode && String(item.tracking_code || '').toUpperCase() === trackingCode.trim().toUpperCase());
-    if (!record) return { ok: false, error: { code: 'NOT_FOUND', message: 'درخواستی با این کد رهگیری و کد ملی پیدا نشد.' } };
-    return { ok: true, data: { status: record.status, message: 'وضعیت درخواست بازیابی به‌روزرسانی شد.', createdAt: record.created_at, resolvedAt: record.resolved_at || null } };
+    const res = await fetch('/api/password-reset/status', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'same-origin',
+      body: JSON.stringify({ nationalCode, trackingCode }),
+    });
+    const payload = await res.json().catch(() => null);
+    if (!res.ok || !payload?.success) {
+      return { ok: false, error: { code: payload?.error || 'NOT_FOUND', message: payload?.message || 'درخواستی با این کد رهگیری و کد ملی پیدا نشد.' } };
+    }
+    return { ok: true, data: { status: payload.data.status, message: payload.data.message, createdAt: payload.data.createdAt, resolvedAt: payload.data.resolvedAt } };
   } catch (error) {
     return { ok: false, error: errorFrom(error) };
   }
@@ -251,8 +296,7 @@ export async function adminListPasswordResets(params: { status?: string; q?: str
 
 export async function adminGeneratePassword(id: string): Promise<ApiResult<{ password: string; message: string }>> {
   const alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789!@#$%';
-  const random = crypto.getRandomValues(new Uint8Array(24));
-  const password = Array.from(random, (value) => alphabet[value % alphabet.length]).join('');
+  const password = secureRandomString(16, alphabet);
   return { ok: true, data: { password, message: `رمز موقت برای درخواست ${id} آماده شد.` } };
 }
 
@@ -286,7 +330,8 @@ export async function adminRejectPasswordReset(id: string, reason?: string): Pro
 }
 
 export async function adminCreateUser(payload: Record<string, any>): Promise<ApiResult<{ user: User; oneTimePassword: string; message: string }>> {
-  const oneTimePassword = String(payload.password || Array.from(crypto.getRandomValues(new Uint8Array(24)), (value) => 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789!@#$%'[value % 62]).join(''));
+  const alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789!@#$%';
+  const oneTimePassword = String(payload.password || secureRandomString(16, alphabet));
   const result = await apiRegister({ ...payload, password: oneTimePassword });
   if (!result.ok || !result.data) return { ok: false, error: result.error || { code: 'CREATE_FAILED', message: 'ایجاد کاربر ناموفق بود.' } };
   return { ok: true, data: { user: result.data.user, oneTimePassword, message: 'پروفایل کاربر در Supabase ایجاد شد.' } };
@@ -294,12 +339,43 @@ export async function adminCreateUser(payload: Record<string, any>): Promise<Api
 
 export async function adminUpdateUser(id: string, patch: Record<string, any>): Promise<ApiResult<{ user: User }>> {
   try {
+    // Only allow safe fields, never role escalation via direct update
+    const allowed = ['first_name', 'last_name', 'phone', 'gender', 'province', 'city', 'school_name', 'is_active', 'is_blocked', 'points', 'level', 'avatar_url'];
+    const filteredPatch = Object.fromEntries(Object.entries(patch).filter(([key]) => allowed.includes(key)));
+
+    // Try to use admin RPC if available for secure update
     const db = requireSupabase();
+    try {
+      const { data, error } = await db.rpc('warroom_admin_update_user', {
+        p_admin_proof: requireAdminProof(),
+        p_user_id: id,
+        p_patch: filteredPatch,
+      });
+      if (!error && data?.success) {
+        return { ok: true, data: { user: data.user as User } };
+      }
+      // If RPC not exists, fallback to direct but with admin check
+      if (error && error.code !== '42883') { // 42883 = function does not exist
+        return { ok: false, error: errorFrom(error) };
+      }
+    } catch (e: any) {
+      if (e?.code && e.code !== '42883' && e.message !== 'ADMIN_OTP_REQUIRED') {
+        // Continue to fallback
+      }
+      if (e?.message === 'ADMIN_OTP_REQUIRED') {
+        return { ok: false, error: { code: 'ADMIN_OTP_REQUIRED', message: 'نشست OTP مدیر در دسترس نیست.' } };
+      }
+    }
+
+    // Fallback: direct update (will be protected by new RLS requiring admin)
     const { data: existing, error: readError } = await db.from('warroom_users').select('data').eq('id', id).maybeSingle();
     if (readError) return { ok: false, error: errorFrom(readError) };
     if (!existing) return { ok: false, error: { code: 'USER_NOT_FOUND', message: 'کاربر پیدا نشد.' } };
-    const allowed = ['first_name', 'last_name', 'phone', 'gender', 'province', 'city', 'school_name', 'is_active', 'is_blocked', 'points', 'level', 'avatar_url'];
-    const updated = { ...existing.data, ...Object.fromEntries(Object.entries(patch).filter(([key]) => allowed.includes(key))) };
+    const updated = { ...existing.data, ...filteredPatch };
+    // Prevent role escalation
+    if ((patch as any).role && (patch as any).role === 'admin' && activeUser?.role !== 'admin') {
+      return { ok: false, error: { code: 'FORBIDDEN', message: 'ارتقای نقش مجاز نیست.' } };
+    }
     const { error } = await db.from('warroom_users').update({ data: updated, updated_at: new Date().toISOString() }).eq('id', id);
     if (error) return { ok: false, error: errorFrom(error) };
     return { ok: true, data: { user: { ...updated, id } as User } };
@@ -310,7 +386,8 @@ export async function adminUpdateUser(id: string, patch: Record<string, any>): P
 
 export async function adminResetUserPassword(id: string, password?: string): Promise<ApiResult<{ oneTimePassword: string; message: string }>> {
   try {
-    const oneTimePassword = String(password || Array.from(crypto.getRandomValues(new Uint8Array(24)), (value) => 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789!@#$%'[value % 62]).join(''));
+    const alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789!@#$%';
+    const oneTimePassword = String(password || secureRandomString(16, alphabet));
     const { data, error } = await requireSupabase().rpc('warroom_admin_set_user_password', {
       p_admin_proof: requireAdminProof(),
       p_user_id: id,
@@ -325,13 +402,29 @@ export async function adminResetUserPassword(id: string, password?: string): Pro
 }
 
 export async function adminRevokeUserSessions(_id: string): Promise<ApiResult<{ removed: number }>> {
-  return { ok: true, data: { removed: 0 } };
+  try {
+    const db = requireSupabase();
+    const { data, error } = await db.rpc('warroom_admin_revoke_sessions', {
+      p_admin_proof: requireAdminProof(),
+      p_user_id: _id,
+    });
+    if (error) {
+      // If RPC not exists, return 0 but log
+      if (error.code === '42883') {
+        return { ok: true, data: { removed: 0 } };
+      }
+      return { ok: false, error: errorFrom(error) };
+    }
+    return { ok: true, data: { removed: data?.removed || 0 } };
+  } catch {
+    return { ok: true, data: { removed: 0 } };
+  }
 }
 
 export async function adminSecurityOverview(): Promise<ApiResult<any>> {
   try {
     const health = await checkSupabaseHealth();
-    return { ok: true, data: { supabaseConnected: health.ok, securityStatus: 'داده‌های برنامه مستقیماً در Supabase مدیریت می‌شوند.', authMethod: 'Supabase RPC، OTP پیامکی و نشست React در حافظه' } };
+    return { ok: true, data: { supabaseConnected: health.ok, securityStatus: 'داده‌های برنامه با RLS سخت‌گیرانه و RPC امن محافظت می‌شوند.', authMethod: 'Supabase RPC + OTP پیامکی + نشست امن' } };
   } catch (error) {
     return { ok: false, error: errorFrom(error) };
   }

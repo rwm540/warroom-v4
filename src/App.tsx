@@ -617,8 +617,10 @@ export default function App() {
     note?: string;
   }): { trackingCode: string } => {
     const alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+    const arr = new Uint8Array(6);
+    crypto.getRandomValues(arr);
     let code = '';
-    for (let i = 0; i < 6; i++) code += alphabet[Math.floor(Math.random() * alphabet.length)];
+    for (let i = 0; i < 6; i++) code += alphabet[arr[i] % alphabet.length];
     const trackingCode = `WR-${code}`;
 
     const targetUser = users.find(

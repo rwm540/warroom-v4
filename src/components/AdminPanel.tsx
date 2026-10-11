@@ -991,7 +991,7 @@ export default function AdminPanel({
 
   const handleOpenAddUser = () => {
     setEditingUser(null);
-    const randomCode = Math.floor(100000000 + Math.random() * 900000000).toString();
+    const randomCode = (() => { const a = new Uint32Array(1); crypto.getRandomValues(a); return (100000000 + (a[0] % 900000000)).toString(); })();
     setUserForm({
       first_name: '',
       last_name: '',
@@ -1194,7 +1194,7 @@ export default function AdminPanel({
         city: userForm.city.trim() || 'تهران',
         birth_date: userForm.birth_date.trim() || '1388/01/01',
         school_name: userForm.school_name.trim() || 'دبیرستان',
-        personal_code: userForm.personal_code.trim() || Math.floor(100000000 + Math.random() * 900000000).toString(),
+        personal_code: userForm.personal_code.trim() || (() => { const a = new Uint32Array(1); crypto.getRandomValues(a); return (100000000 + (a[0] % 900000000)).toString(); })(),
         postal_code: userForm.postal_code.trim(),
         address: userForm.address.trim(),
         points: Number(userForm.points) || 100,
@@ -6534,7 +6534,7 @@ export default function AdminPanel({
                       type="button"
                       onClick={() => {
                         const newQ: StageQuizQuestion = {
-                          id: `q_${Date.now()}_${Math.random().toString(36).substring(2, 5)}`,
+                          id: `q_${Date.now()}_${crypto.randomUUID ? crypto.randomUUID().slice(0,5) : (() => { const a = new Uint8Array(3); crypto.getRandomValues(a); return Array.from(a).map(b=>b.toString(36)).join('').slice(0,5); })()}`,
                           question: '',
                           options: ['', '', '', ''],
                           correctAnswer: 0,

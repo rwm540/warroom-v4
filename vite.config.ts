@@ -88,7 +88,7 @@ export default defineConfig(() => {
       cssCodeSplit: true,
       minify: 'esbuild',
       chunkSizeWarningLimit: 1000,
-      assetsInlineLimit: 4096, // فشرده‌سازی و درون‌خط کردن فایل‌های زیر ۴ کیلوبایت برای کاهش تعداد ریکوئست‌ها
+      assetsInlineLimit: 4096,
       modulePreload: {
         polyfill: false,
       },
@@ -119,15 +119,19 @@ export default defineConfig(() => {
       },
     },
     server: {
-      // HMR is disabled in AI Studio via DISABLE_HMR env var.
-      // Do not modifyâfile watching is disabled to prevent flickering during agent edits.
       hmr: process.env.DISABLE_HMR !== 'true',
-      // Disable file watching when DISABLE_HMR is true to save CPU during agent edits.
       watch: process.env.DISABLE_HMR === 'true' ? null : {},
       proxy: {
         '/api/otp': { target: process.env.WARROOM_API_TARGET || 'http://127.0.0.1:4010', changeOrigin: true },
         '/api/health': { target: process.env.WARROOM_API_TARGET || 'http://127.0.0.1:4010', changeOrigin: true },
+        '/api/password-reset': { target: process.env.WARROOM_API_TARGET || 'http://127.0.0.1:4010', changeOrigin: true },
+        '/api/registration': { target: process.env.WARROOM_API_TARGET || 'http://127.0.0.1:4010', changeOrigin: true },
       },
+    },
+    test: {
+      environment: 'jsdom',
+      globals: true,
+      include: ['src/**/*.{test,spec}.{ts,tsx,js,jsx}'],
     },
   };
 });

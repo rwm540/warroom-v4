@@ -1,6 +1,7 @@
 /**
  * سامانه جامع ذخیره‌سازی آفلاین و صف جهش‌ها (IndexedDB + Offline Mutation Queue)
  * پلتفرم اتاق جنگ — Offline First Architecture
+ * نسخه امن: فقط داده‌های عمومی و غیرحساس کش می‌شوند، از ذخیره رمز/توکن/OTP جلوگیری می‌شود.
  */
 
 export interface QueuedMutation {
@@ -19,8 +20,8 @@ export interface OfflineSyncStatus {
   lastSyncTime: number | null;
 }
 
-const DB_NAME = 'warroom_offline_v1';
-const DB_VERSION = 1;
+const DB_NAME = 'warroom_offline_v2';
+const DB_VERSION = 2;
 const STORE_TABLES = 'tables_cache';
 const STORE_MUTATIONS = 'mutation_queue';
 const STORE_KV = 'kv_store';
@@ -28,10 +29,133 @@ const STORE_KV = 'kv_store';
 let dbInstance: IDBDatabase | null = null;
 let dbPromise: Promise<IDBDatabase> | null = null;
 
+// جداول مجاز برای کش آفلاین - فقط داده‌های عمومی و غیرحساس
+const ALLOWED_CACHE_TABLES = new Set([
+  'warroom_missions',
+  'warroom_trainings',
+  'warroom_stages',
+  'warroom_prizes',
+  'warroom_announcements',
+  'warroom_news',
+  'warroom_home_announcements',
+  'warroom_faqs',
+  'warroom_game_portals',
+  'warroom_daily_challenges',
+  'warroom_soundtracks',
+  'warroom_vitrin_posts',
+  'warroom_vitrin_comments',
+  'warroom_medals',
+  'warroom_site_settings',
+  'warroom_groups', // public groups, but filtered
+  'warroom_kv', // only safe keys, filtered in supabaseData
+]);
+
+// جداول ممنوعه برای کش و صف آفلاین - حاوی PII یا اعتبارنامه
+const BLOCKED_TABLES = new Set([
+  'warroom_users',
+  'warroom_users_public', // use direct fetch, not offline cache for PII
+  'warroom_credentials',
+  'warroom_otp_codes',
+  'warroom_otp_rate_limits',
+  'warroom_refresh_tokens',
+  'warroom_sessions',
+  'warroom_password_resets',
+  'warroom_password_reset_requests',
+  'warroom_security_kv',
+  'warroom_payment_config',
+  'warroom_admin_settings',
+  'warroom_server_settings',
+  'warroom_session_log',
+  'warroom_wallet_transactions',
+  'warroom_point_transfers',
+  'warroom_payment_transactions',
+  'warroom_audit_log',
+  'warroom_pending_registrations',
+]);
+
+function isTableAllowedForCache(table: string): boolean {
+  if (BLOCKED_TABLES.has(table)) return false;
+  return ALLOWED_CACHE_TABLES.has(table);
+}
+
+function isTableAllowedForMutation(table: string): boolean {
+  // Mutations only for non-sensitive, user-owned content
+  if (BLOCKED_TABLES.has(table)) return false;
+  const allowedMutations = new Set([
+    'warroom_group_chat_messages',
+    'warroom_group_chat_rooms',
+    'warroom_vitrin_comments',
+    'warroom_support_tickets',
+    'warroom_support_replies',
+    'warroom_submissions',
+    'warroom_kv', // only safe keys
+  ]);
+  return allowedMutations.has(table);
+}
+
+function secureRandomId(): string {
+  try {
+    if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+      return `mut_${Date.now()}_${crypto.randomUUID().slice(0, 8)}`;
+    }
+    if (typeof crypto !== 'undefined' && crypto.getRandomValues) {
+      const arr = new Uint8Array(6);
+      crypto.getRandomValues(arr);
+      const hex = Array.from(arr).map(b => b.toString(36).padStart(2, '0')).join('').slice(0, 8);
+      return `mut_${Date.now()}_${hex}`;
+    }
+  } catch {}
+  // Fallback: use timestamp + performance.now if crypto unavailable (still better than Math.random)
+  return `mut_${Date.now()}_${String(performance.now()).replace('.', '').slice(0, 8)}`;
+}
+
+function containsSensitiveData(rows: any[]): boolean {
+  if (!Array.isArray(rows)) return false;
+  for (const row of rows) {
+    const data = row?.data || row;
+    if (!data || typeof data !== 'object') continue;
+    // Check for password, token, otp, secret fields
+    const keys = Object.keys(data).map(k => k.toLowerCase());
+    if (keys.some(k => k.includes('password') || k.includes('secret') || k.includes('token') || k.includes('otp') || k === 'code' || k.includes('credential'))) {
+      return true;
+    }
+    // Check nested data
+    if (data.data && typeof data.data === 'object') {
+      const nestedKeys = Object.keys(data.data).map(k => k.toLowerCase());
+      if (nestedKeys.some(k => k.includes('password') || k.includes('secret') || k.includes('token') || k.includes('otp'))) {
+        return true;
+      }
+    }
+  }
+  return false;
+}
+
+const OLD_DB_NAMES = ['warroom_offline', 'warroom_offline_v1', 'warroom_offline_v2_old', 'warroom_cache', 'warroom_db'];
+
+// Delete old IndexedDB databases that may contain sensitive data (controlled deletion on upgrade)
+function deleteOldDatabases(): void {
+  if (typeof window === 'undefined' || !window.indexedDB) return;
+  try {
+    // Delete known old DB names
+    OLD_DB_NAMES.forEach(oldName => {
+      if (oldName === DB_NAME) return;
+      try {
+        const delReq = window.indexedDB.deleteDatabase(oldName);
+        delReq.onsuccess = () => console.info(`[WarRoom Offline] Deleted old DB: ${oldName}`);
+        delReq.onerror = () => {};
+        delReq.onblocked = () => {};
+      } catch {}
+    });
+  } catch {}
+}
+
 /** باز کردن یا ایجاد پایگاه داده IndexedDB */
 export function openOfflineDb(): Promise<IDBDatabase> {
   if (dbInstance) return Promise.resolve(dbInstance);
   if (dbPromise) return dbPromise;
+
+  // Clean old DBs on first open
+  deleteOldDatabases();
 
   dbPromise = new Promise((resolve, reject) => {
     if (typeof window === 'undefined' || !window.indexedDB) {
@@ -43,6 +167,40 @@ export function openOfflineDb(): Promise<IDBDatabase> {
 
     request.onupgradeneeded = (event) => {
       const db = (event.target as IDBOpenDBRequest).result;
+      const oldVersion = (event as any).oldVersion || 0;
+      
+      // On upgrade from old version, clear all stores to remove potentially sensitive data
+      if (oldVersion > 0 && oldVersion < DB_VERSION) {
+        console.info(`[WarRoom Offline] Upgrading DB from v${oldVersion} to v${DB_VERSION}, clearing old sensitive caches`);
+        // Delete existing stores to force recreation without sensitive data
+        if (db.objectStoreNames.contains(STORE_TABLES)) {
+          db.deleteObjectStore(STORE_TABLES);
+        }
+        if (db.objectStoreNames.contains(STORE_MUTATIONS)) {
+          db.deleteObjectStore(STORE_MUTATIONS);
+        }
+        if (db.objectStoreNames.contains(STORE_KV)) {
+          db.deleteObjectStore(STORE_KV);
+        }
+        // Also clear localStorage sensitive keys on upgrade
+        try {
+          const sensitiveKeys = [
+            'warroom_offline_tbl_warroom_users',
+            'warroom_offline_tbl_warroom_credentials',
+            'warroom_offline_tbl_warroom_otp_codes',
+            'warroom_offline_tbl_warroom_password_reset_requests',
+            'warroom_offline_tbl_warroom_wallet_transactions',
+            'warroom_offline_tbl_warroom_payment_transactions',
+            'warroom_current_user_data',
+            'warroom_current_user_id',
+            'warroom_session_id',
+          ];
+          sensitiveKeys.forEach(k => {
+            try { localStorage.removeItem(k); } catch {}
+          });
+        } catch {}
+      }
+
       if (!db.objectStoreNames.contains(STORE_TABLES)) {
         db.createObjectStore(STORE_TABLES, { keyPath: 'table' });
       }
@@ -76,11 +234,18 @@ export function openOfflineDb(): Promise<IDBDatabase> {
 }
 
 /* ========================================================================== */
-/* ۱. کَش جداول داده (Table Cache)                                            */
+/* ۱. کَش جداول داده (Table Cache) - فقط داده‌های عمومی                        */
 /* ========================================================================== */
 
-/** ذخیره فوری آرایه‌ای از رکوردهای جدول در IndexedDB */
 export async function cacheTableData(table: string, rows: any[]): Promise<void> {
+  if (!isTableAllowedForCache(table)) {
+    // Silently ignore caching for sensitive tables
+    return;
+  }
+  if (containsSensitiveData(rows)) {
+    console.warn(`[WarRoom Offline] جلوگیری از کش داده حساس برای جدول ${table}`);
+    return;
+  }
   try {
     const db = await openOfflineDb();
     const tx = db.transaction(STORE_TABLES, 'readwrite');
@@ -90,18 +255,22 @@ export async function cacheTableData(table: string, rows: any[]): Promise<void> 
       rows: Array.isArray(rows) ? rows : [],
       updatedAt: Date.now()
     });
-  } catch (err) {
-    // بازگشت امن به LocalStorage در صورت بروز خطای IndexedDB
+  } catch {
+    // Fallback to localStorage only for allowed tables
     try {
-      localStorage.setItem(`warroom_offline_tbl_${table}`, JSON.stringify(rows));
+      if (isTableAllowedForCache(table)) {
+        localStorage.setItem(`warroom_offline_tbl_${table}`, JSON.stringify(rows));
+      }
     } catch {
       // ignore
     }
   }
 }
 
-/** بازیابی رکوردهای کَش‌شده جدول برای دسترسی بدون اینترنت */
 export async function getCachedTableData<T = any>(table: string): Promise<T[] | null> {
+  if (!isTableAllowedForCache(table)) {
+    return null;
+  }
   try {
     const db = await openOfflineDb();
     return new Promise((resolve) => {
@@ -112,7 +281,6 @@ export async function getCachedTableData<T = any>(table: string): Promise<T[] | 
         if (req.result && Array.isArray(req.result.rows) && req.result.rows.length > 0) {
           resolve(req.result.rows as T[]);
         } else {
-          // بررسی نسخه ذخیره در LocalStorage
           resolve(loadFromLocalStorageFallback<T>(table));
         }
       };
@@ -126,6 +294,7 @@ export async function getCachedTableData<T = any>(table: string): Promise<T[] | 
 }
 
 function loadFromLocalStorageFallback<T>(table: string): T[] | null {
+  if (!isTableAllowedForCache(table)) return null;
   try {
     const raw = localStorage.getItem(`warroom_offline_tbl_${table}`);
     if (!raw) return null;
@@ -137,16 +306,23 @@ function loadFromLocalStorageFallback<T>(table: string): T[] | null {
 }
 
 /* ========================================================================== */
-/* ۲. صف جهش‌های آفلاین (Offline Mutation Queue)                               */
+/* ۲. صف جهش‌های آفلاین (Offline Mutation Queue) - فقط جداول امن               */
 /* ========================================================================== */
 
-/** افزودن عملیات در حال انجام به صف آفلاین */
 export async function enqueueOfflineMutation(mutation: {
   table: string;
   operation: 'upsert' | 'delete';
   rows: any[];
 }): Promise<string> {
-  const id = `mut_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+  if (!isTableAllowedForMutation(mutation.table)) {
+    console.warn(`[WarRoom Offline] مسدودسازی جهش آفلاین برای جدول حساس: ${mutation.table}`);
+    throw new Error(`Offline mutation not allowed for table: ${mutation.table}`);
+  }
+  if (containsSensitiveData(mutation.rows)) {
+    throw new Error('Sensitive data cannot be queued offline');
+  }
+
+  const id = secureRandomId();
   const item: QueuedMutation = {
     id,
     table: mutation.table,
@@ -161,7 +337,6 @@ export async function enqueueOfflineMutation(mutation: {
     const tx = db.transaction(STORE_MUTATIONS, 'readwrite');
     tx.objectStore(STORE_MUTATIONS).put(item);
   } catch {
-    // پشتیبان در LocalStorage
     try {
       const q = getLocalStorageMutationQueue();
       q.push(item);
@@ -175,7 +350,6 @@ export async function enqueueOfflineMutation(mutation: {
   return id;
 }
 
-/** دریافت تمامی جهش‌های منتظر ارسال */
 export async function getPendingMutations(): Promise<QueuedMutation[]> {
   try {
     const db = await openOfflineDb();
@@ -184,39 +358,33 @@ export async function getPendingMutations(): Promise<QueuedMutation[]> {
       const store = tx.objectStore(STORE_MUTATIONS);
       const req = store.getAll();
       req.onsuccess = () => {
-        const idbMutations = req.result || [];
-        const lsMutations = getLocalStorageMutationQueue();
-        // ترکیب بدون تکرار
+        const idbMutations = (req.result || []).filter((m: QueuedMutation) => isTableAllowedForMutation(m.table));
+        const lsMutations = getLocalStorageMutationQueue().filter(m => isTableAllowedForMutation(m.table));
         const map = new Map<string, QueuedMutation>();
         idbMutations.forEach((m: QueuedMutation) => map.set(m.id, m));
         lsMutations.forEach((m: QueuedMutation) => map.set(m.id, m));
         resolve(Array.from(map.values()).sort((a, b) => a.timestamp - b.timestamp));
       };
       req.onerror = () => {
-        resolve(getLocalStorageMutationQueue());
+        resolve(getLocalStorageMutationQueue().filter(m => isTableAllowedForMutation(m.table)));
       };
     });
   } catch {
-    return getLocalStorageMutationQueue();
+    return getLocalStorageMutationQueue().filter(m => isTableAllowedForMutation(m.table));
   }
 }
 
-/** حذف یک جهش پس از ارسال موفقیت‌آمیز به سرور */
 export async function removePendingMutation(id: string): Promise<void> {
   try {
     const db = await openOfflineDb();
     const tx = db.transaction(STORE_MUTATIONS, 'readwrite');
     tx.objectStore(STORE_MUTATIONS).delete(id);
-  } catch {
-    // ignore
-  }
+  } catch {}
 
   try {
     const q = getLocalStorageMutationQueue().filter((m) => m.id !== id);
     localStorage.setItem('warroom_offline_mutations', JSON.stringify(q));
-  } catch {
-    // ignore
-  }
+  } catch {}
 
   notifySyncStatusChange();
 }
@@ -233,10 +401,38 @@ function getLocalStorageMutationQueue(): QueuedMutation[] {
 }
 
 /* ========================================================================== */
-/* ۳. ذخیره‌سازی کلید-مقدار آفلاین (KV Store)                                   */
+/* ۳. ذخیره‌سازی کلید-مقدار آفلاین (KV Store) - فقط کلیدهای عمومی              */
 /* ========================================================================== */
 
+const BLOCKED_KV_KEYS = new Set([
+  'payment_settings',
+  'payment_secrets',
+  'admin_config',
+  'api_keys',
+  'server_secrets',
+  'warroom_session_id',
+  'warroom_current_user_data',
+  'warroom_current_user_id',
+  'warroom_otp',
+  'password',
+  'token',
+  'secret',
+]);
+
+function isKvKeyAllowed(key: string): boolean {
+  const lower = key.toLowerCase();
+  if (BLOCKED_KV_KEYS.has(lower)) return false;
+  if (lower.includes('password') || lower.includes('secret') || lower.includes('token') || lower.includes('otp') || lower.includes('session')) {
+    return false;
+  }
+  return true;
+}
+
 export async function setOfflineKv(key: string, value: any): Promise<void> {
+  if (!isKvKeyAllowed(key)) {
+    console.warn(`[WarRoom Offline] مسدودسازی KV حساس: ${key}`);
+    return;
+  }
   try {
     const db = await openOfflineDb();
     const tx = db.transaction(STORE_KV, 'readwrite');
@@ -244,13 +440,12 @@ export async function setOfflineKv(key: string, value: any): Promise<void> {
   } catch {
     try {
       localStorage.setItem(`warroom_kv_${key}`, JSON.stringify(value));
-    } catch {
-      // ignore
-    }
+    } catch {}
   }
 }
 
 export async function getOfflineKv<T = any>(key: string): Promise<T | null> {
+  if (!isKvKeyAllowed(key)) return null;
   try {
     const db = await openOfflineDb();
     return new Promise((resolve) => {
@@ -273,6 +468,7 @@ export async function getOfflineKv<T = any>(key: string): Promise<T | null> {
 }
 
 function getLocalStorageKv<T>(key: string): T | null {
+  if (!isKvKeyAllowed(key)) return null;
   try {
     const raw = localStorage.getItem(`warroom_kv_${key}`);
     return raw ? (JSON.parse(raw) as T) : null;
@@ -316,6 +512,10 @@ export async function replayPendingMutations(
     console.info(`[WarRoom Sync] آغاز همگام‌سازی ${pending.length} تغییرات صف‌بندی‌شده آفلاین...`);
 
     for (const item of pending) {
+      if (!isTableAllowedForMutation(item.table)) {
+        await removePendingMutation(item.id);
+        continue;
+      }
       try {
         if (item.operation === 'upsert') {
           let rowsToUpload = item.rows;
@@ -323,6 +523,12 @@ export async function replayPendingMutations(
             rowsToUpload = await Promise.all(
               item.rows.map((r: any) => normalizeRowFn(item.table, { id: r.id, data: r }))
             );
+          }
+          if (containsSensitiveData(rowsToUpload)) {
+            console.warn(`[WarRoom Sync] جلوگیری از ارسال داده حساس به ${item.table}`);
+            await removePendingMutation(item.id);
+            failed++;
+            continue;
           }
           const { error } = await supabaseClient.from(item.table).upsert(rowsToUpload);
           if (error) {
@@ -378,17 +584,13 @@ export function notifySyncStatusChange(syncing: boolean = isCurrentlyReplaying):
     window.dispatchEvent(
       new CustomEvent(SYNC_STATUS_EVENT, { detail: status })
     );
-  }).catch(() => {
-    // ignore
-  });
+  }).catch(() => {});
 }
 
-// ثبت شنونده‌های تغییر اتصال شبکه
 if (typeof window !== 'undefined') {
   window.addEventListener('online', () => {
     console.info('[WarRoom Network] وضعیت شبکه: آنلاین شد. آغاز بررسی صف همگام‌سازی...');
     notifySyncStatusChange(false);
-    // تریگر رویداد سراسری آنلاین برای کامپوننت‌ها
     window.dispatchEvent(new CustomEvent('warroom_network_online'));
   });
 
@@ -396,4 +598,25 @@ if (typeof window !== 'undefined') {
     console.warn('[WarRoom Network] وضعیت شبکه: آفلاین شد. حالت آفلاین پایدار فعال گردید.');
     notifySyncStatusChange(false);
   });
+}
+
+// Cleanup legacy sensitive caches on load
+if (typeof window !== 'undefined') {
+  try {
+    // Remove old sensitive offline caches
+    const sensitiveKeys = [
+      'warroom_offline_tbl_warroom_users',
+      'warroom_offline_tbl_warroom_credentials',
+      'warroom_offline_tbl_warroom_otp_codes',
+      'warroom_offline_tbl_warroom_password_reset_requests',
+      'warroom_offline_tbl_warroom_wallet_transactions',
+      'warroom_offline_tbl_warroom_payment_transactions',
+      'warroom_current_user_data',
+      'warroom_current_user_id',
+      'warroom_session_id',
+    ];
+    sensitiveKeys.forEach(k => {
+      try { localStorage.removeItem(k); } catch {}
+    });
+  } catch {}
 }

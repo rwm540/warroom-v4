@@ -59,14 +59,14 @@ export async function registerUser(data: RegisterData): Promise<RegisterResponse
     city: data.city,
     school_name: data.schoolName,
   });
-  if (!result.ok || !result.data) return { success: false, error: result.error?.message || 'ثبت‌نام در Supabase ناموفق بود.' };
-  return { success: true, message: 'پروفایل در Supabase ذخیره شد.', user: result.data.user as RegisterResponse['user'], mustChangePassword: result.data.mustChangePassword };
+  if (!result.ok || !result.data) return { success: false, message: result.error?.message || 'ثبت‌نام در Supabase ناموفق بود.', error: result.error?.message || 'ثبت‌نام در Supabase ناموفق بود.' };
+  return { success: true, message: 'پروفایل در Supabase ذخیره شد.', user: result.data.user as unknown as RegisterResponse['user'], mustChangePassword: result.data.mustChangePassword };
 }
 
 export async function loginUser(nationalCode: string, password: string): Promise<RegisterResponse> {
   const result = await apiLogin(nationalCode, password);
-  if (!result.ok || !result.data) return { success: false, error: result.error?.message || 'ورود ناموفق بود.' };
-  return { success: true, message: 'رمز عبور در Supabase تأیید شد.', user: result.data.user as RegisterResponse['user'], mustChangePassword: result.data.mustChangePassword };
+  if (!result.ok || !result.data) return { success: false, message: result.error?.message || 'ورود ناموفق بود.', error: result.error?.message || 'ورود ناموفق بود.' };
+  return { success: true, message: 'رمز عبور در Supabase تأیید شد.', user: result.data.user as unknown as RegisterResponse['user'], mustChangePassword: result.data.mustChangePassword };
 }
 
 /**

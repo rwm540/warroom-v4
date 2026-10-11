@@ -292,7 +292,7 @@ export default function VitrinView({
     const defaultAvatar = getDefaultAvatar(currentUser?.gender);
 
     const newComment: VitrinComment = {
-      id: `c_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+      id: `c_${Date.now()}_${crypto.randomUUID ? crypto.randomUUID().slice(0,6) : (() => { const a = new Uint8Array(4); crypto.getRandomValues(a); return Array.from(a).map(b=>b.toString(36)).join('').slice(0,6); })()}`,
       postId,
       authorName,
       authorAvatar: currentUser?.avatar_url || defaultAvatar,

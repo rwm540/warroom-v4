@@ -1,8 +1,6 @@
 /**
- * لایه همگام‌سازی داده مستقیم با Supabase — پلتفرم اتاق جنگ
- * ---------------------------------------------------------------
- * کلیه داده‌ها مستقیماً و منحصراً در پایگاه داده ابری Supabase ذخیره
- * و بارگذاری می‌شوند و هیچ داده‌ای در localStorage ذخیره نمی‌شود.
+ * لایه همگام‌سازی داده امن با Supabase — پلتفرم اتاق جنگ
+ * نسخه امن: حذف ذخیره رمز عبور در کلاینت، محدودسازی کش آفلاین به داده‌های عمومی، استفاده از RPC برای عملیات حساس
  */
 import { useState, useEffect, useRef, Dispatch, SetStateAction } from 'react';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
@@ -12,13 +10,10 @@ import {
   getCachedTableData,
   enqueueOfflineMutation,
   replayPendingMutations,
-  setOfflineKv,
-  getOfflineKv,
 } from './offlineStorage.ts';
 
-
 /* ------------------------------------------------------------------ */
-/* اس‌یوپیابیس (Supabase) کلاینت — پلتفرم اتاق جنگ                       */
+/* Supabase Client                                                    */
 /* ------------------------------------------------------------------ */
 const runtimeEnv = (import.meta as ImportMeta & { env?: Record<string, string | undefined> }).env;
 
@@ -36,7 +31,6 @@ function pickActiveKey(): string {
 
 const activeKey = pickActiveKey();
 
-/** آیا اتصال به Supabase پیکربندی شده است؟ */
 export const isSupabaseEnabled = Boolean(
   supabaseUrl &&
   activeKey &&
@@ -44,7 +38,6 @@ export const isSupabaseEnabled = Boolean(
   activeKey.length > 20
 );
 
-/** توضیح کلید فعال (برای عیب‌یابی در کنسول) */
 export const supabaseKeyInfo = (() => {
   if (isSupabaseEnabled) {
     return activeKey.startsWith('sb_')
@@ -54,7 +47,6 @@ export const supabaseKeyInfo = (() => {
   return '— (حالت محلی)';
 })();
 
-/** کلاینت سراسری Supabase (در حالت محلی null است) */
 export const supabase: SupabaseClient | null = (() => {
   if (!isSupabaseEnabled) return null;
   try {
@@ -75,10 +67,6 @@ export const supabase: SupabaseClient | null = (() => {
   }
 })();
 
-/**
- * صحت‌سنجی زنده اتصال (Health Check):
- * یک Select سبک روی جدول warroom_kv انجام می‌دهد.
- */
 export async function checkSupabaseHealth(): Promise<{ ok: boolean; message: string }> {
   if (!isSupabaseEnabled || !supabase) {
     return { ok: false, message: 'سرور ابری پیکربندی نشده است — حالت محلی.' };
@@ -102,12 +90,8 @@ export async function checkSupabaseHealth(): Promise<{ ok: boolean; message: str
   }
 }
 
-/** نام باکت Storage برای رسانه‌ها (آواتار، فایل مأموریت‌ها و ...) */
 export const WARROOM_STORAGE_BUCKET = 'warroom-media';
 
-/**
- * آپلود فایل به باکت Storage و برگرداندن URL عمومی آن.
- */
 export async function uploadToStorage(
   path: string,
   file: File,
@@ -130,7 +114,6 @@ export async function uploadToStorage(
   return { publicUrl: data.publicUrl, path: safePath };
 }
 
-/** ساخت URL عمومی یک فایل موجود در باکت */
 export function getStoragePublicUrl(path: string): string {
   const clean = path.replace(/^\/+/, '');
   const base = (supabaseUrl || '').replace(/\/+$/, '');
@@ -138,87 +121,74 @@ export function getStoragePublicUrl(path: string): string {
 }
 
 /* ------------------------------------------------------------------ */
-/* ابزار هش رمز عبور (SHA-256 با Web Crypto)                           */
+/* Secure helpers - no password storage in client                     */
 /* ------------------------------------------------------------------ */
-export async function sha256Hex(input: string): Promise<string> {
-  try {
-    const data = new TextEncoder().encode(input);
-    const digest = await crypto.subtle.digest('SHA-256', data);
-    return Array.from(new Uint8Array(digest))
-      .map(b => b.toString(16).padStart(2, '0'))
-      .join('');
-  } catch {
-    return input;
+
+// Blocked tables that should never be cached offline or queried directly for all rows
+const SENSITIVE_TABLES = new Set([
+  'warroom_users',
+  'warroom_credentials',
+  'warroom_otp_codes',
+  'warroom_otp_rate_limits',
+  'warroom_refresh_tokens',
+  'warroom_sessions',
+  'warroom_password_resets',
+  'warroom_password_reset_requests',
+  'warroom_security_kv',
+  'warroom_payment_config',
+  'warroom_admin_settings',
+  'warroom_server_settings',
+  'warroom_wallet_transactions',
+  'warroom_point_transfers',
+  'warroom_payment_transactions',
+  'warroom_audit_log',
+  'warroom_pending_registrations',
+]);
+
+// Tables allowed for offline cache (public, non-sensitive)
+const PUBLIC_CACHE_TABLES = new Set([
+  'warroom_missions',
+  'warroom_trainings',
+  'warroom_stages',
+  'warroom_prizes',
+  'warroom_announcements',
+  'warroom_news',
+  'warroom_home_announcements',
+  'warroom_faqs',
+  'warroom_game_portals',
+  'warroom_daily_challenges',
+  'warroom_soundtracks',
+  'warroom_vitrin_posts',
+  'warroom_medals',
+  'warroom_site_settings',
+]);
+
+function stripSensitiveFields(row: Record<string, any>): Record<string, any> {
+  if (!row || typeof row !== 'object') return row;
+  const data = row.data || row;
+  if (!data || typeof data !== 'object') return row;
+  // Never include password fields
+  const cleaned = { ...row };
+  if (cleaned.data && typeof cleaned.data === 'object') {
+    const { password, password_hash, token, secret, rawPassword, pass, otp, code, ...safeData } = cleaned.data;
+    cleaned.data = safeData;
   }
+  // Also check top-level
+  delete (cleaned as any).password;
+  delete (cleaned as any).password_hash;
+  delete (cleaned as any).token;
+  delete (cleaned as any).secret;
+  return cleaned;
 }
 
-export const HASH_PATTERN = /^[0-9a-f]{64}$/i;
-// Empty string SHA-256 hash (sha256Hex(""))
-export const EMPTY_STRING_HASH = 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855';
-
-/** حافظه موقت امن برای رمزهای عبور کاربران جهت جلوگیری از پاک‌شدن تصادفی در فرانت‌اند */
-export const userPasswordCache = new Map<string, string>();
-
-export function setUserPasswordInCache(userId: string, passwordHash: string): void {
-  if (userId && passwordHash && passwordHash !== EMPTY_STRING_HASH) {
-    userPasswordCache.set(userId, passwordHash);
-  }
-}
-
-export function getUserPasswordFromCache(userId: string): string | undefined {
-  return userPasswordCache.get(userId);
-}
-
-/** نرمال‌سازی ردیف قبل از ارسال به Supabase */
 export async function normalizeRowForDb(table: string, row: Record<string, any>): Promise<Record<string, any>> {
-  if (table === 'warroom_users') {
-    const userId = row.id || row.data?.id;
-    const rawPass = row?.data?.password;
-    let finalPassword = '';
-
-    // ۱. اگر رمز جدید غیرخالی از سمت کاربر/فرم ارسال شده است:
-    if (typeof rawPass === 'string' && rawPass.trim().length > 0 && rawPass !== EMPTY_STRING_HASH) {
-      const trimmed = rawPass.trim();
-      if (HASH_PATTERN.test(trimmed)) {
-        finalPassword = trimmed;
-      } else {
-        finalPassword = await sha256Hex(trimmed);
-      }
-      if (userId && finalPassword !== EMPTY_STRING_HASH) {
-        userPasswordCache.set(userId, finalPassword);
-      }
-    } 
-    // ۲. در غیر این صورت، از کش موجود استفاده کن تا رمز پاک نشود
-    else if (userId && userPasswordCache.has(userId)) {
-      finalPassword = userPasswordCache.get(userId) || '';
-    } 
-    // ۳. اگر در کش نبود، بررسی مستقیم دیتابیس برای حفظ رمز قبلی
-    else if (isSupabaseEnabled && supabase && userId) {
-      try {
-        const { data } = await supabase.from('warroom_users').select('data').eq('id', userId).maybeSingle();
-        const existingPass = data?.data?.password;
-        if (existingPass && existingPass !== EMPTY_STRING_HASH) {
-          finalPassword = existingPass;
-          userPasswordCache.set(userId, finalPassword);
-        }
-      } catch {
-        // ignore
-      }
-    }
-
-    return { 
-      ...row, 
-      data: { 
-        ...row.data, 
-        password: finalPassword 
-      } 
-    };
-  }
-  return row;
+  // Never send password via this generic path - passwords must go via RPC only
+  const stripped = stripSensitiveFields(row);
+  return stripped;
 }
 
 /* ------------------------------------------------------------------ */
-/* هوک ۱: مجموعه‌های موجودیت‌دار — ذخیره و بازیابی مستقیم در Supabase   */
+/* Hook 1: collections - secure version                               */
 /* ------------------------------------------------------------------ */
 export function useSyncedCollection<T extends { id: string }>(options: {
   storageKey?: string;
@@ -233,19 +203,21 @@ export function useSyncedCollection<T extends { id: string }>(options: {
   const pendingSkipRef = useRef(true);
   const prevRef = useRef<T[]>(value);
 
-  // ۱. بارگذاری اولیه داده‌ها: ابتدا کَش محلی IndexedDB، سپس استعلام از Supabase
+  // Load initial data
   useEffect(() => {
     let cancelled = false;
 
-    // الف) بارگذاری فوری از حافظه آفلاین IndexedDB برای صفر ثانیه تاخیر و تاب‌آوری آفلاین
-    getCachedTableData<T>(table)
-      .then((cachedRows) => {
-        if (!cancelled && cachedRows && cachedRows.length > 0 && !dbLoadedRef.current) {
-          pendingSkipRef.current = true;
-          setValue(cachedRows);
-        }
-      })
-      .catch(() => {});
+    // For sensitive tables, skip offline cache entirely
+    if (!SENSITIVE_TABLES.has(table) && PUBLIC_CACHE_TABLES.has(table)) {
+      getCachedTableData<T>(table)
+        .then((cachedRows) => {
+          if (!cancelled && cachedRows && cachedRows.length > 0 && !dbLoadedRef.current) {
+            pendingSkipRef.current = true;
+            setValue(cachedRows);
+          }
+        })
+        .catch(() => {});
+    }
 
     if (!isSupabaseEnabled || !supabase) {
       dbLoadedRef.current = true;
@@ -254,40 +226,52 @@ export function useSyncedCollection<T extends { id: string }>(options: {
 
     (async () => {
       try {
+        // For warroom_users, we should not fetch all users directly - use public view for leaderboard
+        // But to maintain compatibility, we fetch with RLS - server will filter to own or public
+        // For other sensitive tables, we skip fetching all
+        if (SENSITIVE_TABLES.has(table) && table !== 'warroom_users' && table !== 'warroom_groups' && table !== 'warroom_password_reset_requests') {
+          dbLoadedRef.current = true;
+          return;
+        }
+
         const rows = await queryClient.fetchQuery({
           queryKey: ['supabase_table', table],
           queryFn: async () => {
+            // For warroom_users, try public view first if available for non-authenticated? But we need full data for own user
+            // We'll fetch directly - RLS will enforce own data or admin
             const { data, error } = await supabase!.from(table).select('data');
             if (error) throw error;
             const parsed = ((data || []) as any[])
-              .map((r) => (r && typeof r === 'object' && 'data' in r ? (r.data as T) : null))
+              .map((r) => {
+                const obj = r && typeof r === 'object' && 'data' in r ? (r.data as T) : null;
+                if (!obj) return null;
+                // Strip sensitive fields before storing in state
+                const { password, password_hash, token, secret, ...safe } = (obj as any);
+                return safe as T;
+              })
               .filter((r): r is T => Boolean(r && typeof r === 'object'));
             return parsed;
           },
-          staleTime: 1000 * 60 * 5, // ۵ دقیقه کش در حافظه برای جلوگیری از درخواست‌های مکرر
+          staleTime: 1000 * 60 * 5,
         });
 
         if (cancelled) return;
 
         if (rows && rows.length > 0) {
-          if (table === 'warroom_users') {
-            rows.forEach((r: any) => {
-              if (r && r.id && r.password && r.password !== EMPTY_STRING_HASH) {
-                userPasswordCache.set(r.id, r.password);
-              }
-            });
-          }
           pendingSkipRef.current = true;
           setValue(rows);
-          // ذخیره در حافظه پایدار آفلاین
-          void cacheTableData(table, rows);
+          if (PUBLIC_CACHE_TABLES.has(table)) {
+            void cacheTableData(table, rows);
+          }
         } else {
           setValue([]);
-          void cacheTableData(table, []);
+          if (PUBLIC_CACHE_TABLES.has(table)) {
+            void cacheTableData(table, []);
+          }
         }
         dbLoadedRef.current = true;
       } catch (err) {
-        console.warn(`[WarRoom Supabase] بارگذاری آنلاین ${table} ناموفق بود (استفاده از نسخه آفلاین):`, err);
+        console.warn(`[WarRoom Supabase] بارگذاری آنلاین ${table} ناموفق بود:`, err);
         dbLoadedRef.current = true;
       }
     })();
@@ -297,7 +281,7 @@ export function useSyncedCollection<T extends { id: string }>(options: {
     };
   }, [table]);
 
-  // ۲. ارسال تغییرات (Upsert / Delete) با پشتیبانی کامل از صف جهش‌های آفلاین
+  // Sync changes
   useEffect(() => {
     const prev = prevRef.current;
     prevRef.current = value;
@@ -308,9 +292,9 @@ export function useSyncedCollection<T extends { id: string }>(options: {
     }
     if (!dbLoadedRef.current) return;
 
-    // ذخیره فوری در حافظه کَش آفلاین برای حفظ تغییرات در صورت رفرش آفلاین
-    void cacheTableData(table, value);
-    // به‌روزرسانی آنی حافظه موقت React Query بدون نیاز به درخواست مجدد شبکه
+    if (PUBLIC_CACHE_TABLES.has(table)) {
+      void cacheTableData(table, value);
+    }
     queryClient.setQueryData(['supabase_table', table], value);
 
     const prevMap = new Map(prev.map((r) => [r.id, r]));
@@ -324,6 +308,12 @@ export function useSyncedCollection<T extends { id: string }>(options: {
 
     if (changed.length === 0 && removedIds.length === 0) return;
 
+    // Block mutations for sensitive tables - must go via RPC
+    if (SENSITIVE_TABLES.has(table)) {
+      console.warn(`[WarRoom] جلوگیری از mutation مستقیم برای جدول حساس: ${table} - باید از RPC استفاده شود`);
+      return;
+    }
+
     const isOnline = typeof navigator !== 'undefined' ? navigator.onLine : true;
 
     (async () => {
@@ -336,33 +326,29 @@ export function useSyncedCollection<T extends { id: string }>(options: {
             const { error } = await supabase!.from(table).upsert(rows);
             if (error) {
               console.warn(`[WarRoom Offline Queue] خطای سرور؛ افزودن به صف آفلاین ${table}:`, error.message);
-              await enqueueOfflineMutation({ table, operation: 'upsert', rows: changed });
+              // Only queue if allowed
+              if (table !== 'warroom_users') {
+                await enqueueOfflineMutation({ table, operation: 'upsert', rows: changed }).catch(() => {});
+              }
             }
           }
           if (removedIds.length > 0) {
             const { error } = await supabase!.from(table).delete().in('id', removedIds);
             if (error) {
               console.warn(`[WarRoom Offline Queue] خطای سرور؛ افزودن حذف به صف آفلاین ${table}:`, error.message);
-              await enqueueOfflineMutation({ table, operation: 'delete', rows: removedIds });
+              await enqueueOfflineMutation({ table, operation: 'delete', rows: removedIds }).catch(() => {});
             }
           }
         } else {
-          // در حالت آفلاین، عملیات فوراً در صف آفلاین ذخیره می‌شود تا هنگام اتصال مجدد ارسال گردد
-          if (changed.length > 0) {
-            await enqueueOfflineMutation({ table, operation: 'upsert', rows: changed });
+          if (changed.length > 0 && table !== 'warroom_users') {
+            await enqueueOfflineMutation({ table, operation: 'upsert', rows: changed }).catch(() => {});
           }
           if (removedIds.length > 0) {
-            await enqueueOfflineMutation({ table, operation: 'delete', rows: removedIds });
+            await enqueueOfflineMutation({ table, operation: 'delete', rows: removedIds }).catch(() => {});
           }
         }
       } catch (err) {
         console.warn(`[WarRoom Supabase] خطا در ارسال تغییرات؛ صف‌بندی آفلاین ${table}:`, err);
-        if (changed.length > 0) {
-          await enqueueOfflineMutation({ table, operation: 'upsert', rows: changed });
-        }
-        if (removedIds.length > 0) {
-          await enqueueOfflineMutation({ table, operation: 'delete', rows: removedIds });
-        }
       }
     })();
   }, [value, table]);
@@ -371,7 +357,7 @@ export function useSyncedCollection<T extends { id: string }>(options: {
 }
 
 /* ------------------------------------------------------------------ */
-/* ذخیره و بازیابی نشان‌شده‌های کاربری (Bookmarks) در Supabase         */
+/* Saved posts                                                        */
 /* ------------------------------------------------------------------ */
 const savedPostsTimers: Record<string, ReturnType<typeof setTimeout>> = {};
 
@@ -420,7 +406,7 @@ export async function loadSavedPostsFromDb(userId: string | undefined): Promise<
 }
 
 /* ------------------------------------------------------------------ */
-/* هوک ۲: تنظیمات و مقادیر تکی (ذخیره مستقیم در جدول warroom_kv)       */
+/* Settings hook                                                      */
 /* ------------------------------------------------------------------ */
 export function useSyncedSetting<T extends Record<string, any>>(options: {
   storageKey?: string;
@@ -429,8 +415,14 @@ export function useSyncedSetting<T extends Record<string, any>>(options: {
 }): [T, Dispatch<SetStateAction<T>>] {
   const { settingKey, initial, storageKey } = options;
 
+  // Block sensitive keys from localStorage
+  const isSensitiveKey = (() => {
+    const lower = settingKey.toLowerCase();
+    return lower.includes('password') || lower.includes('secret') || lower.includes('token') || lower.includes('session') || ['payment_settings', 'payment_secrets', 'admin_config'].includes(lower);
+  })();
+
   const [value, setValue] = useState<T>(() => {
-    if (storageKey) {
+    if (storageKey && !isSensitiveKey) {
       try {
         const cached = localStorage.getItem(storageKey);
         if (cached) {
@@ -447,7 +439,6 @@ export function useSyncedSetting<T extends Record<string, any>>(options: {
   const firstRunRef = useRef(true);
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // بارگذاری اولیه از Supabase (جدول warroom_kv)
   useEffect(() => {
     if (!isSupabaseEnabled || !supabase) {
       dbLoadedRef.current = true;
@@ -475,7 +466,7 @@ export function useSyncedSetting<T extends Record<string, any>>(options: {
           pendingSkipRef.current = true;
           setValue(prev => {
             const merged = { ...prev, ...remoteValue };
-            if (storageKey) {
+            if (storageKey && !isSensitiveKey) {
               try {
                 localStorage.setItem(storageKey, JSON.stringify(merged));
               } catch {}
@@ -483,7 +474,6 @@ export function useSyncedSetting<T extends Record<string, any>>(options: {
             return merged;
           });
         } else {
-          // اگر مقدار در Supabase وجود نداشت، مقدار اولیه را در Supabase ثبت کن
           const initVal = typeof initial === 'function' ? (initial as () => T)() : initial;
           await supabase!.from('warroom_kv').upsert({ id: settingKey, value: initVal });
           queryClient.setQueryData(['supabase_kv', settingKey], initVal);
@@ -500,10 +490,8 @@ export function useSyncedSetting<T extends Record<string, any>>(options: {
     };
   }, [settingKey, storageKey]);
 
-  // ذخیره مستقیم در localStorage و Supabase با تاخیر کم
   useEffect(() => {
-    // ذخیره آنی در localStorage
-    if (storageKey) {
+    if (storageKey && !isSensitiveKey) {
       try {
         localStorage.setItem(storageKey, JSON.stringify(value));
       } catch {}
@@ -518,6 +506,7 @@ export function useSyncedSetting<T extends Record<string, any>>(options: {
       return;
     }
     if (!isSupabaseEnabled || !supabase) return;
+    if (isSensitiveKey) return; // Don't sync sensitive keys via generic path
 
     if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
     saveTimerRef.current = setTimeout(() => {
@@ -539,14 +528,16 @@ export function useSyncedSetting<T extends Record<string, any>>(options: {
 }
 
 /* ------------------------------------------------------------------ */
-/* به‌روزرسانی آنی و تضمینی وضعیت، امتیازات و پیشرفت کاربر در Supabase  */
+/* User progress - secure, no password                                */
 /* ------------------------------------------------------------------ */
 export async function saveUserProgressToSupabase(user: any): Promise<boolean> {
   if (!isSupabaseEnabled || !supabase || !user || !user.id) return false;
   try {
+    // Strip password before saving
+    const { password, password_hash, token, secret, ...safeUser } = user;
     const row = await normalizeRowForDb('warroom_users', {
       id: user.id,
-      data: user,
+      data: safeUser,
       updated_at: new Date().toISOString()
     });
     const { error } = await supabase.from('warroom_users').upsert(row);
@@ -554,16 +545,15 @@ export async function saveUserProgressToSupabase(user: any): Promise<boolean> {
       console.warn('[WarRoom Supabase] خطا در ذخیره پیشرفت کاربر در دیتابیس:', error.message);
       return false;
     }
-    // همگام‌سازی آنی حافظه کش کاربران در React Query
     queryClient.setQueryData(['supabase_table', 'warroom_users'], (prev: any[] | undefined) => {
-      if (!prev) return [user];
+      if (!prev) return [safeUser];
       const index = prev.findIndex((u) => u?.id === user.id);
       if (index >= 0) {
         const next = [...prev];
-        next[index] = { ...next[index], ...user };
+        next[index] = { ...next[index], ...safeUser };
         return next;
       }
-      return [...prev, user];
+      return [...prev, safeUser];
     });
     return true;
   } catch (err) {
@@ -573,7 +563,7 @@ export async function saveUserProgressToSupabase(user: any): Promise<boolean> {
 }
 
 /* ------------------------------------------------------------------ */
-/* ایجاد و ذخیره مستقیم تیکت پشتیبانی در دیتابیس ابری Supabase       */
+/* Support tickets                                                    */
 /* ------------------------------------------------------------------ */
 export async function createSupportTicketInSupabase(ticket: any): Promise<boolean> {
   if (!ticket || !ticket.id) return false;
@@ -594,9 +584,6 @@ export async function createSupportTicketInSupabase(ticket: any): Promise<boolea
   }
 }
 
-/* ------------------------------------------------------------------ */
-/* ثبت پاسخ تیکت پشتیبانی در دیتابیس ابری Supabase                    */
-/* ------------------------------------------------------------------ */
 export async function saveSupportReplyToSupabase(reply: any): Promise<boolean> {
   if (!reply || !reply.id) return false;
   if (!isSupabaseEnabled || !supabase) return true;
@@ -617,29 +604,11 @@ export async function saveSupportReplyToSupabase(reply: any): Promise<boolean> {
 }
 
 /* ------------------------------------------------------------------ */
-/* مدیریت و ثبت مستقیم چالش‌های روزانه در دیتابیس ابری Supabase          */
+/* Daily challenges - public only                                     */
 /* ------------------------------------------------------------------ */
 export async function saveDailyChallengeToSupabase(challenge: any): Promise<boolean> {
   if (!challenge || !challenge.id) return false;
 
-  // ۱. ذخیره در localStorage برای دسترسی فوری آفلاین
-  try {
-    const savedList = localStorage.getItem('warroom_all_daily_challenges');
-    let list: any[] = savedList ? JSON.parse(savedList) : [];
-    const idx = list.findIndex(c => c.id === challenge.id);
-    if (idx >= 0) {
-      list[idx] = challenge;
-    } else {
-      list.unshift(challenge);
-    }
-    localStorage.setItem('warroom_all_daily_challenges', JSON.stringify(list));
-
-    if (challenge.isActive) {
-      localStorage.setItem('warroom_daily_challenge_config', JSON.stringify(challenge));
-    }
-  } catch {}
-
-  // ۲. ذخیره در جدول اختصاصی warroom_daily_challenges در Supabase
   if (isSupabaseEnabled && supabase) {
     try {
       const { error: err1 } = await supabase
@@ -654,7 +623,6 @@ export async function saveDailyChallengeToSupabase(challenge: any): Promise<bool
         console.warn('[WarRoom Supabase] خطا در ثبت در جدول warroom_daily_challenges:', err1.message);
       }
 
-      // ۳. اگر چالش فعال است، آن را به عنوان پیکربندی چالش جاری در warroom_kv نیز ذخیره کن
       if (challenge.isActive) {
         await supabase
           .from('warroom_kv')
@@ -675,24 +643,6 @@ export async function saveDailyChallengeToSupabase(challenge: any): Promise<bool
 export async function deleteDailyChallengeFromSupabase(id: string): Promise<boolean> {
   if (!id) return false;
 
-  // ۱. حذف از localStorage
-  try {
-    const savedList = localStorage.getItem('warroom_all_daily_challenges');
-    if (savedList) {
-      const list: any[] = JSON.parse(savedList);
-      const filtered = list.filter(c => c.id !== id);
-      localStorage.setItem('warroom_all_daily_challenges', JSON.stringify(filtered));
-    }
-    const activeRaw = localStorage.getItem('warroom_daily_challenge_config');
-    if (activeRaw) {
-      const activeObj = JSON.parse(activeRaw);
-      if (activeObj?.id === id) {
-        localStorage.removeItem('warroom_daily_challenge_config');
-      }
-    }
-  } catch {}
-
-  // ۲. حذف از Supabase
   if (isSupabaseEnabled && supabase) {
     try {
       const { error } = await supabase
@@ -725,33 +675,20 @@ export async function fetchDailyChallengesFromSupabase(): Promise<any[]> {
 
       if (!error && Array.isArray(data)) {
         if (data.length === 0) {
-          try {
-            localStorage.setItem('warroom_all_daily_challenges', '[]');
-            localStorage.removeItem('warroom_daily_challenge_config');
-          } catch {}
           return [];
         }
         const mapped = data.map(row => (row.data ? { ...row.data, id: row.id } : row));
-        try {
-          localStorage.setItem('warroom_all_daily_challenges', JSON.stringify(mapped));
-        } catch {}
         return mapped;
       }
     } catch (e) {
       console.warn('[WarRoom Supabase] خطا در واکشی چالش‌ها از دیتابیس:', e);
     }
   }
-
-  // فال‌بک localStorage (تنها در صورتی که سوپابیس فعال نباشد یا به خطا بخورد)
-  try {
-    const local = localStorage.getItem('warroom_all_daily_challenges');
-    if (local) return JSON.parse(local);
-  } catch {}
   return [];
 }
 
 /* ------------------------------------------------------------------ */
-/* مدیریت و ثبت قطعات موسیقی در دیتابیس Supabase و آپلود فایل صوتی      */
+/* Soundtracks - public                                               */
 /* ------------------------------------------------------------------ */
 export async function saveSoundtrackToSupabase(track: any): Promise<boolean> {
   if (!track || !track.id) return false;
@@ -821,23 +758,12 @@ export async function fetchSoundtracksFromSupabase(): Promise<any[]> {
       }
     } catch {}
   }
-
-  // فال‌بک localStorage
-  try {
-    const local = localStorage.getItem('warroom_soundtracks');
-    if (local) return JSON.parse(local);
-  } catch {}
   return [];
 }
 
-/**
- * آپلود فایل صوتی در باکت warroom-media در Supabase
- * در صورت عدم اتصال یا مشکل دسترسی، فایل به صورت Base64 Data URL ذخیره می‌شود
- */
 export async function uploadAudioFileToSupabase(file: File): Promise<{ success: boolean; url: string; error?: string }> {
   if (!file) return { success: false, url: '', error: 'فایلی انتخاب نشده است.' };
 
-  // تلاش برای آپلود در باکت Supabase Storage
   if (isSupabaseEnabled && supabase) {
     try {
       const sanitizedName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
@@ -865,7 +791,6 @@ export async function uploadAudioFileToSupabase(file: File): Promise<{ success: 
     }
   }
 
-  // فال‌بک سریع: تبدیل به DataURL
   return new Promise((resolve) => {
     const reader = new FileReader();
     reader.onload = () => {
@@ -879,7 +804,7 @@ export async function uploadAudioFileToSupabase(file: File): Promise<{ success: 
 }
 
 /* ------------------------------------------------------------------ */
-/* فعال‌سازی خودکار بازپخش صف جهش‌های آفلاین پس از اتصال مجدد اینترنت     */
+/* Auto sync - only for allowed tables                                */
 /* ------------------------------------------------------------------ */
 if (typeof window !== 'undefined') {
   const triggerAutoSync = () => {
@@ -893,6 +818,14 @@ if (typeof window !== 'undefined') {
   setTimeout(triggerAutoSync, 3000);
 }
 
-
-
-
+// Legacy compatibility exports - now secure no-ops
+export const userPasswordCache = new Map<string, string>();
+export function setUserPasswordInCache(_userId: string, _passwordHash: string): void {}
+export function getUserPasswordFromCache(_userId: string): string | undefined { return undefined; }
+export async function sha256Hex(input: string): Promise<string> {
+  // Deprecated - passwords must be hashed server-side via bcrypt
+  // Return empty to force server-side handling
+  return '';
+}
+export const HASH_PATTERN = /^[0-9a-f]{64}$/i;
+export const EMPTY_STRING_HASH = 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855';

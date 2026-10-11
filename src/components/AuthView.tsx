@@ -134,24 +134,38 @@ export default function AuthView({
   const [showRegisterPassword, setShowRegisterPassword] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Generate secure password containing uppercase, lowercase, and numbers
+  // Generate secure password containing uppercase, lowercase, and numbers - using crypto
   const handleGenerateRandomPassword = () => {
     const uppers = 'ABCDEFGHJKLMNPQRSTUVWXYZ';
     const lowers = 'abcdefghjkmnpqrstuvwxyz';
     const digits = '23456789';
     const all = uppers + lowers + digits;
 
-    // Guarantee characters from each group (avoid ambiguous chars like 0, O, 1, l)
-    let generated = [
-      uppers[Math.floor(Math.random() * uppers.length)],
-      uppers[Math.floor(Math.random() * uppers.length)],
-      lowers[Math.floor(Math.random() * lowers.length)],
-      lowers[Math.floor(Math.random() * lowers.length)],
-      digits[Math.floor(Math.random() * digits.length)],
-      digits[Math.floor(Math.random() * digits.length)],
-      all[Math.floor(Math.random() * all.length)],
-      all[Math.floor(Math.random() * all.length)]
-    ].sort(() => 0.5 - Math.random()).join('');
+    function secureRandomInt(max: number): number {
+      const arr = new Uint32Array(1);
+      crypto.getRandomValues(arr);
+      return arr[0] % max;
+    }
+
+    function secureShuffle<T>(array: T[]): T[] {
+      const arr = [...array];
+      for (let i = arr.length - 1; i > 0; i--) {
+        const j = secureRandomInt(i + 1);
+        [arr[i], arr[j]] = [arr[j], arr[i]];
+      }
+      return arr;
+    }
+
+    const generated = secureShuffle([
+      uppers[secureRandomInt(uppers.length)],
+      uppers[secureRandomInt(uppers.length)],
+      lowers[secureRandomInt(lowers.length)],
+      lowers[secureRandomInt(lowers.length)],
+      digits[secureRandomInt(digits.length)],
+      digits[secureRandomInt(digits.length)],
+      all[secureRandomInt(all.length)],
+      all[secureRandomInt(all.length)]
+    ]).join('');
 
     setRegisterForm(prev => ({ ...prev, password: generated }));
     setShowRegisterPassword(true);

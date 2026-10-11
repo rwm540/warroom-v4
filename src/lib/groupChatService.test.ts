@@ -1,26 +1,44 @@
-import assert from 'node:assert/strict';
+import { describe, it, expect, beforeEach } from 'vitest';
 import { appendGroupChatMessage, ensureGroupChatRoom, listAllGroupChats, deleteGroupChatMessage } from './groupChatService';
 
-const roomA = ensureGroupChatRoom('group_alpha', 'Alpha Squad', ['u1', 'u2']);
-const msg1 = appendGroupChatMessage({
-  roomId: roomA.id,
-  groupId: 'group_alpha',
-  userId: 'u1',
-  userName: 'Ali',
-  text: 'hello from alpha',
+describe('groupChatService', () => {
+  beforeEach(() => {
+    localStorage.clear();
+  });
+
+  it('creates room, appends message, and deletes it', () => {
+    const roomA = ensureGroupChatRoom('group_alpha', 'Alpha Squad', ['u1', 'u2']);
+    const msg1 = appendGroupChatMessage({
+      roomId: roomA.id,
+      groupId: 'group_alpha',
+      userId: 'u1',
+      userName: 'Ali',
+      text: 'hello from alpha',
+    });
+
+    expect(roomA.id).toBeTruthy();
+    expect(msg1).toBeTruthy();
+
+    const rooms = listAllGroupChats();
+    expect(rooms.some((entry) => entry.room.id === roomA.id)).toBe(true);
+
+    const removed = deleteGroupChatMessage(roomA.id, msg1!.id);
+    expect(removed).toBe(true);
+
+    const nextRooms = listAllGroupChats();
+    const roomEntry = nextRooms.find((entry) => entry.room.id === roomA.id);
+    expect(roomEntry && roomEntry.messages.length === 0).toBe(true);
+  });
+
+  it('rejects empty messages', () => {
+    const room = ensureGroupChatRoom('group_beta', 'Beta', ['u1']);
+    const msg = appendGroupChatMessage({
+      roomId: room.id,
+      groupId: 'group_beta',
+      userId: 'u1',
+      userName: 'Ali',
+      text: '   ',
+    });
+    expect(msg).toBeNull();
+  });
 });
-
-assert.ok(roomA.id, 'room should be created');
-assert.ok(msg1, 'message should be created');
-
-const rooms = listAllGroupChats();
-assert.ok(rooms.some((entry) => entry.room.id === roomA.id), 'chat room should be visible to admin');
-
-const removed = deleteGroupChatMessage(roomA.id, msg1!.id);
-assert.equal(removed, true, 'message should be deletable by admin');
-
-const nextRooms = listAllGroupChats();
-const roomEntry = nextRooms.find((entry) => entry.room.id === roomA.id);
-assert.ok(roomEntry && roomEntry.messages.length === 0, 'room should be empty after message deletion');
-
-console.log('group chat service test passed');

@@ -56,13 +56,20 @@ export function validateJalaliDate(dateStr: string | null | undefined): boolean 
   return true;
 }
 
+function secureRandomInt(min: number, max: number): number {
+  const range = max - min + 1;
+  const arr = new Uint32Array(1);
+  crypto.getRandomValues(arr);
+  return min + (arr[0] % range);
+}
+
 export function generatePersonalCode(prefix = 'WR'): string {
-  const rand = Math.floor(100000 + Math.random() * 900000);
+  const rand = secureRandomInt(100000, 999999);
   return `${prefix}-${rand}`;
 }
 
 export function generateRegistrationCode(prefix = 'REG'): string {
-  const rand = Math.floor(10000 + Math.random() * 90000);
+  const rand = secureRandomInt(10000, 99999);
   return `${prefix}-${rand}`;
 }
 

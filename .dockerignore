@@ -1,16 +1,58 @@
+# Dependencies - will be installed via npm ci
 node_modules
-**/node_modules
+npm-debug.log
+yarn-debug.log
+yarn-error.log
+.pnp
+.pnp.js
+
+# Build outputs - regenerated in multi-stage build
 dist
+build
+.next
+.nuxt
+.output
+.turbo
+.vite
+
+# Environment files with secrets - never baked into image
+.env
+.env.local
+.env.development.local
+.env.production.local
+.env.test.local
+# .env.example is allowed to be in context but not baked as secret (contains placeholders only)
+
+# Git
 .git
 .gitignore
-.env
-.env.*
-!.env.example
-**/.env
-**/.env.*
-!**/.env.example
-npm-debug.log*
-Dockerfile
-docker-compose.yml
-coverage
+
+# Logs and caches
+logs
 *.log
+.cache
+.parcel-cache
+coverage
+.nyc_output
+
+# IDE and OS
+.vscode
+.idea
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# Docker compose override for local dev (optional, not needed in build)
+docker-compose.override.yml
+
+# Supabase local temp
+supabase/.branches
+supabase/.temp
+
+# Keep these for build:
+# - package.json, package-lock.json (needed for npm ci)
+# - Dockerfile*, docker/, server_node/
+# - src/, public/, index.html, vite.config.ts, tsconfig.json, etc.
+# Do NOT ignore lockfiles, Dockerfiles, or config files

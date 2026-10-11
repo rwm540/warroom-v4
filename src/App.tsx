@@ -66,7 +66,7 @@ import {
   checkSupabaseHealth
 } from './lib/supabaseData';
 // 🛡️ لایه ارتباط امن با بک‌اند (احراز هویت، رمز عبور، درخواست‌های تغییر رمز)
-import { apiLogout, setOtpVerifiedUser } from './lib/backendApi';
+import { apiLogout, apiSession } from './lib/backendApi';
 import { installGlobalErrorAudit, logAudit } from './lib/auditLogger';
 
 // Vitrin (Showcase) data layer
@@ -701,6 +701,30 @@ export default function App() {
   const [mustChangePassword, setMustChangePassword] = useState<boolean>(false);
   const [authMode, setAuthMode] = useState<'login' | 'register_individual' | 'register_group'>('register_individual');
 
+  // Restore the login state from the server on start-up: only a valid HttpOnly session that
+  // the backend confirms may re-open the app as the authenticated user.
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      try {
+        const session = await apiSession();
+        if (cancelled || !session.ok || !session.data?.authenticated || !session.data.user) return;
+        const serverUser = session.data.user;
+        setCurrentUser(serverUser);
+        setMustChangePassword(Boolean(session.data.mustChangePassword));
+        if (serverUser.gender === 'دختر') setCampaignTheme('girls');
+        else if (serverUser.gender === 'پسر') setCampaignTheme('boys');
+        if (serverUser.role === 'admin') {
+          setIsAdminMode(true);
+          setActiveTab('Admin');
+        }
+      } catch {
+        // A failed validation simply keeps the app logged out.
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
   // Global active modal tracking (hides bottom nav & music bar with smooth exit animation when any modal opens)
   const [modalActiveCount, setModalActiveCount] = useState<number>(0);
 
@@ -996,15 +1020,10 @@ export default function App() {
     triggerAlert('خروج از سامانه اتاق جنگ با موفقیت انجام شد.');
   };
 
-  const handleLoginSuccess = async (user: User, _meta?: { mustChangePassword?: boolean; isNewRegistration?: boolean; otpProof?: string }) => {
+  const handleLoginSuccess = async (user: User, _meta?: { mustChangePassword?: boolean; isNewRegistration?: boolean }) => {
+    // The session already exists server-side (HttpOnly cookie) and `user` is the profile the
+    // backend returned for it; no client-held proof participates in authorization.
     const safeUser: User = { ...user, password: '' };
-    const otpProof = String(_meta?.otpProof || '');
-    if (!otpProof) {
-      triggerAlert('تأیید سرور برای ورود دریافت نشد. دوباره کد پیامکی را وارد کنید.');
-      return;
-    }
-    setOtpVerifiedUser(safeUser, otpProof);
-
     setCurrentUser(safeUser);
     setShowAuthScreen(false);
     setMustChangePassword(Boolean(_meta?.mustChangePassword || user.mustChangePassword));

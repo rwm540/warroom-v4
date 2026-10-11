@@ -10,7 +10,7 @@
   "scripts": {
     "start": "node src/index.js",
     "dev": "nodemon src/index.js",
-    "test": "node --test src/lib/identity.test.js src/lib/sms.test.js src/lib/security.test.js src/lib/redis.test.js"
+    "test": "node --test src/lib/*.test.js test/*.test.js"
   },
   "keywords": ["otp", "sms", "jwt", "express", "ippanel"],
   "author": "WarRoom Team",

@@ -1,83 +1,107 @@
-/** API calls for the same-origin Node OTP service. */
+/**
+ * OTP API facade.
+ *
+ * Every call goes through secureApi so credentials handling, CSRF headers and error
+ * normalisation stay in one place. The challenge token and the one-time OTP proof live only
+ * in React state - they are never written to localStorage/sessionStorage.
+ */
 
-const OTP_API_BASE = '/api/otp';
+import {
+  requestLoginOtpSecure,
+  requestRegistrationOtpSecure,
+  resendRegistrationOtpSecure,
+  verifyOtpSecure,
+} from './secureApi';
 
-interface ApiEnvelope {
-  success?: boolean;
-  message?: string;
-  error?: string;
-}
+export type OtpPurpose = 'login' | 'registration';
 
-async function postJson<T extends ApiEnvelope>(path: string, body: unknown): Promise<T> {
-  try {
-    const response = await fetch(`${OTP_API_BASE}/${path}`, {
-      method: 'POST',
-      credentials: 'same-origin',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body),
-    });
-
-    const payload: unknown = await response.json().catch(() => null);
-    if (!payload || typeof payload !== 'object' || Array.isArray(payload)) {
-      return {
-        success: false,
-        error: 'پاسخ معتبر از سرور دریافت نشد.',
-      } as T;
-    }
-
-    const data = payload as T;
-    if (!response.ok) {
-      return {
-        ...data,
-        success: false,
-        error: data.message || data.error || `درخواست ناموفق بود (${response.status}).`,
-      } as T;
-    }
-    return data;
-  } catch {
-    return {
-      success: false,
-      error: 'ارتباط با سرور برقرار نشد.',
-    } as T;
-  }
-}
-
-export interface OTPSendResponse extends ApiEnvelope {
+export interface OTPSendResponse {
   success: boolean;
   message?: string;
   error?: string;
   expiresIn?: number;
   maskedPhone?: string;
   challengeToken?: string;
+  purpose?: OtpPurpose;
 }
 
 export interface OTPVerifiedUser {
-  id: string;
   otpProof: string;
+  purpose?: OtpPurpose;
 }
 
-export interface OTPVerifyResponse extends ApiEnvelope {
+export interface OTPVerifyResponse {
   success: boolean;
   message?: string;
   error?: string;
   user?: OTPVerifiedUser;
 }
 
-/** The server resolves the registered phone number and never returns it in full. */
-export async function sendOtpByNationalCode(nationalCode: string): Promise<OTPSendResponse> {
-  return postJson<OTPSendResponse>('send', { nationalCode });
+/**
+ * Requests an OTP challenge.
+ *  - purpose 'login': the server verifies the password *before* any SMS is sent and never
+ *    reveals whether the account exists;
+ *  - purpose 'registration': only issued while an unexpired pending registration exists.
+ */
+export async function sendOtpByNationalCode(
+  nationalCode: string,
+  options: { purpose?: OtpPurpose; password?: string } = {},
+): Promise<OTPSendResponse> {
+  const purpose: OtpPurpose = options.purpose === 'login' ? 'login' : 'registration';
+  const result = purpose === 'login'
+    ? await requestLoginOtpSecure(nationalCode, String(options.password || ''))
+    : await requestRegistrationOtpSecure(nationalCode);
+  return {
+    success: result.success === true,
+    message: result.message,
+    error: result.error,
+    expiresIn: result.expiresIn,
+    maskedPhone: result.maskedPhone,
+    challengeToken: result.challengeToken,
+    purpose: result.purpose === 'login' || result.purpose === 'registration' ? result.purpose : purpose,
+  };
 }
 
-/** Verifies a six-digit code against the request identified by its challenge token. */
+/** Verifies a six-digit code against the challenge identified by its server-issued token. */
 export async function verifyOtp(
   nationalCode: string,
   code: string,
   challengeToken: string,
 ): Promise<OTPVerifyResponse> {
-  return postJson<OTPVerifyResponse>('verify', { nationalCode, code, challengeToken });
+  const result = await verifyOtpSecure(nationalCode, code, challengeToken);
+  if (!result.success || !result.otpProof) {
+    return {
+      success: false,
+      message: result.message,
+      error: result.error || 'کد تأیید نامعتبر است.',
+    };
+  }
+  return {
+    success: true,
+    message: result.message,
+    user: {
+      otpProof: result.otpProof,
+      purpose: result.purpose === 'login' || result.purpose === 'registration' ? result.purpose : undefined,
+    },
+  };
 }
 
-/** Requests a new OTP challenge for the same national code. */
-export async function resendOtp(nationalCode: string): Promise<OTPSendResponse> {
-  return postJson<OTPSendResponse>('resend', { nationalCode });
+/**
+ * Requests a fresh registration challenge. Login challenges are never silently re-issued:
+ * the password gate must run again, so callers restart the login flow instead.
+ */
+export async function resendOtp(nationalCode: string, purpose: OtpPurpose = 'registration'): Promise<OTPSendResponse> {
+  if (purpose === 'login') {
+    return { success: false, error: 'برای دریافت کد جدید، ورود را از ابتدا تکمیل کنید.' };
+  }
+  const result = await resendRegistrationOtpSecure(nationalCode);
+  return {
+    success: result.success === true,
+    message: result.message,
+    error: result.error,
+    expiresIn: result.expiresIn,
+    maskedPhone: result.maskedPhone,
+    challengeToken: result.challengeToken,
+    purpose: 'registration',
+  };
 }

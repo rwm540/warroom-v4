@@ -97,6 +97,7 @@ import AdminSoundtrackManager from './AdminSoundtrackManager';
 import AdminDailyChallengeManager from './AdminDailyChallengeManager';
 import { AdminEnamadManager } from './admin/AdminEnamadManager';
 import PasswordResetsAdmin from './PasswordResetsAdmin';
+import AdminOtpGate from './AdminOtpGate';
 import AdminPaymentsPanel from './AdminPaymentsPanel';
 import AdminGuideTutorialManager, { GuideTutorialConfig } from './AdminGuideTutorialManager';
 import AdminChatRoomsPanel from './AdminChatRoomsPanel';
@@ -1973,6 +1974,8 @@ export default function AdminPanel({
 
   return (
     <div className="space-y-6 dir-rtl pb-8">
+
+      <AdminOtpGate currentUser={currentUser} triggerAlert={triggerAlert} />
 
       {/* 🔐 نمایش یک‌باره رمز عبور تولیدشده (هرگز ذخیره/بازیابی نمی‌شود) */}
       {oneTimeCredential && (

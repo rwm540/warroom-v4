@@ -1,8 +1,23 @@
 /**
- * API برای ثبت‌نام و ورود کاربر
+ * Authentication API.
+ *
+ * The flow is entirely server-driven:
+ *   1. registration: start (pending record) -> registration OTP
+ *      login:       national code + password -> login OTP
+ *   2. verify the OTP code (server checks the challenge binding)
+ *   3. exchange the one-time OTP proof for an HttpOnly session cookie
+ *
+ * The client never decides identity or role, and never stores credentials, OTP proofs or
+ * session material in Web Storage.
  */
 
-import { apiCheckNationalCodeExists, apiLogin, apiRegister } from './backendApi';
+import {
+  createSessionSecure,
+  startSecureRegistration,
+  type RegistrationStartResponse,
+  type SessionUserResponse,
+} from './secureApi';
+import { sendOtpByNationalCode, type OTPSendResponse } from './otpApi';
 
 export interface RegisterData {
   firstName: string;
@@ -21,57 +36,59 @@ export interface RegisterData {
   schoolName?: string;
 }
 
-export interface RegisterResponse {
+export interface AuthResult {
   success: boolean;
-  message: string;
-  user?: {
-    id: string;
-    firstName: string;
-    lastName: string;
-    phone: string;
-    gender: string;
-    national_code?: string;
-    [field: string]: unknown;
-  };
-  group?: Record<string, unknown>;
-  mustChangePassword?: boolean;
-  otpProof?: string;
+  message?: string;
   error?: string;
+  user?: SessionUserResponse['user'];
+  mustChangePassword?: boolean;
+  isNewRegistration?: boolean;
 }
 
 /**
- * ثبت‌نام کاربر جدید
+ * Starts the registration flow. The response is intentionally uniform: it never reveals
+ * whether the national code already belongs to an account.
  */
-export async function registerUser(data: RegisterData): Promise<RegisterResponse> {
-  const result = await apiRegister({
-    first_name: data.firstName,
-    last_name: data.lastName,
-    national_code: data.nationalCode,
+export async function startRegistration(data: RegisterData): Promise<RegistrationStartResponse> {
+  return startSecureRegistration({
+    firstName: data.firstName,
+    lastName: data.lastName,
+    nationalCode: data.nationalCode,
     phone: data.phone,
-    birth_date: data.birthDate,
+    birthDate: data.birthDate,
     gender: data.gender,
     password: data.password,
-    group_name: data.groupName,
-    personal_code: data.personalCode,
-    education_level: data.educationLevel,
-    grade: data.grade,
+    groupName: data.groupName || '',
     province: data.province,
     city: data.city,
-    school_name: data.schoolName,
+    schoolName: data.schoolName,
   });
-  if (!result.ok || !result.data) return { success: false, message: result.error?.message || 'ثبت‌نام در Supabase ناموفق بود.', error: result.error?.message || 'ثبت‌نام در Supabase ناموفق بود.' };
-  return { success: true, message: 'پروفایل در Supabase ذخیره شد.', user: result.data.user as unknown as RegisterResponse['user'], mustChangePassword: result.data.mustChangePassword };
 }
 
-export async function loginUser(nationalCode: string, password: string): Promise<RegisterResponse> {
-  const result = await apiLogin(nationalCode, password);
-  if (!result.ok || !result.data) return { success: false, message: result.error?.message || 'ورود ناموفق بود.', error: result.error?.message || 'ورود ناموفق بود.' };
-  return { success: true, message: 'رمز عبور در Supabase تأیید شد.', user: result.data.user as unknown as RegisterResponse['user'], mustChangePassword: result.data.mustChangePassword };
+/** Requests the registration OTP. Only issued when an unexpired pending registration exists. */
+export async function requestRegistrationChallenge(nationalCode: string): Promise<OTPSendResponse> {
+  return sendOtpByNationalCode(nationalCode, { purpose: 'registration' });
+}
+
+/** Requests a login OTP. The password is verified by the server before any SMS is sent. */
+export async function requestLoginChallenge(nationalCode: string, password: string): Promise<OTPSendResponse> {
+  return sendOtpByNationalCode(nationalCode, { purpose: 'login', password });
 }
 
 /**
- * بررسی وجود کد ملی
+ * Exchanges a verified, one-time OTP proof for a server session.
+ * The returned user profile is the authoritative one produced by the server.
  */
-export async function checkNationalCodeExists(nationalCode: string): Promise<boolean> {
-  return apiCheckNationalCodeExists(nationalCode);
+export async function completeAuthentication(otpProof: string): Promise<AuthResult> {
+  const result = await createSessionSecure(otpProof);
+  if (!result.success || !result.user) {
+    return { success: false, error: result.error || result.message || 'ایجاد نشست امن ممکن نشد.' };
+  }
+  return {
+    success: true,
+    message: result.message,
+    user: result.user,
+    mustChangePassword: result.mustChangePassword === true,
+    isNewRegistration: result.isNewRegistration === true,
+  };
 }

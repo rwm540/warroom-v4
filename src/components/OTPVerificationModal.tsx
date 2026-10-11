@@ -31,7 +31,7 @@ export default function OTPVerificationModal({
   const [otpCode, setOtpCode] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [isVerifying, setIsVerifying] = useState(false);
-  const [timeLeft, setTimeLeft] = useState(120); // 120 ثانیه
+  const [timeLeft, setTimeLeft] = useState(180); // 180 ثانیه (3 دقیقه برای کد ۶ رقمی)
   const [canResend, setCanResend] = useState(false);
   const [isResending, setIsResending] = useState(false);
   const [activeChallengeToken, setActiveChallengeToken] = useState(challengeToken);
@@ -81,8 +81,8 @@ export default function OTPVerificationModal({
     const cleanCode = otpCode.trim();
 
     // بررسی طول کد
-    if (cleanCode.length !== 4) {
-      setError('کد تایید باید ۴ رقم باشد');
+    if (cleanCode.length !== 6) {
+      setError('کد تایید باید ۶ رقم باشد');
       setIsVerifying(false);
       return;
     }
@@ -252,9 +252,9 @@ export default function OTPVerificationModal({
               event.preventDefault();
               setOtpCode(pasted);
               setError(null);
-              inputRefs.current[Math.min(pasted.length, 3)]?.focus();
+              inputRefs.current[Math.min(pasted.length, 5)]?.focus();
             }}>
-              {Array.from({ length: 4 }, (_, index) => (
+              {Array.from({ length: 6 }, (_, index) => (
                 <input
                   key={index}
                   ref={(element) => { inputRefs.current[index] = element; }}
@@ -280,7 +280,7 @@ export default function OTPVerificationModal({
                     if (event.key === 'Backspace' && !otpCode[index] && index > 0) {
                       inputRefs.current[index - 1]?.focus();
                     }
-                    if (event.key === 'Enter' && otpCode.length === 4) handleVerifyOTP();
+                    if (event.key === 'Enter' && otpCode.length === 6) handleVerifyOTP();
                   }}
                   disabled={isVerifying || timeLeft === 0}
                   className={`h-14 w-14 rounded-xl border-2 text-center text-2xl font-black transition focus:outline-none focus:ring-4
@@ -310,9 +310,9 @@ export default function OTPVerificationModal({
           {/* دکمه تایید */}
           <button
             onClick={handleVerifyOTP}
-            disabled={otpCode.length !== 4 || isVerifying || timeLeft === 0}
+            disabled={otpCode.length !== 6 || isVerifying || timeLeft === 0}
             className={`w-full py-4 rounded-2xl font-black text-white text-lg transition-all transform
-              ${(isVerifying || otpCode.length !== 4 || timeLeft === 0)
+              ${(isVerifying || otpCode.length !== 6 || timeLeft === 0)
                 ? 'opacity-50 cursor-not-allowed'
                 : 'hover:scale-105 active:scale-95'
               }

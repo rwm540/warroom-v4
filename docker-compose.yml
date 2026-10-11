@@ -6,7 +6,33 @@ services:
       args:
         VITE_SUPABASE_URL: ${VITE_SUPABASE_URL:?VITE_SUPABASE_URL is required}
         VITE_SUPABASE_PUBLISHABLE_KEY: ${VITE_SUPABASE_PUBLISHABLE_KEY:?VITE_SUPABASE_PUBLISHABLE_KEY is required}
+        VITE_API_BASE_URL: ${VITE_API_BASE_URL:-http://localhost:5000}
     container_name: warroom-v4
     restart: unless-stopped
     ports:
       - "127.0.0.1:3100:80"
+  
+  sms-server:
+    build:
+      context: ./server_node
+      dockerfile: Dockerfile
+    container_name: warroom-sms-server
+    restart: unless-stopped
+    ports:
+      - "5000:4010"
+    environment:
+      - PORT=4010
+      - NODE_ENV=production
+      - SUPABASE_URL=${SUPABASE_URL}
+      - SUPABASE_SERVICE_ROLE_KEY=${SUPABASE_SERVICE_ROLE_KEY}
+      - SUPABASE_ANON_KEY=${SUPABASE_ANON_KEY}
+      - JWT_SECRET=${JWT_SECRET}
+      - OTP_SECRET=${OTP_SECRET}
+      - IPPANEL_API_KEY=${IPPANEL_API_KEY}
+      - IPPANEL_FROM_NUMBER=${IPPANEL_FROM_NUMBER}
+      - IPPANEL_API_URL=${IPPANEL_API_URL}
+      - CORS_ORIGINS=http://localhost:3100,http://127.0.0.1:3100
+    depends_on:
+      - warroom
+    env_file:
+      - .env

@@ -125,8 +125,8 @@ export default defineConfig(() => {
       // Disable file watching when DISABLE_HMR is true to save CPU during agent edits.
       watch: process.env.DISABLE_HMR === 'true' ? null : {},
       proxy: {
-        '/api/otp': { target: 'http://127.0.0.1:4010', changeOrigin: true },
-        '/api/auth': { target: 'http://127.0.0.1:4010', changeOrigin: true },
+        '/api/otp': { target: import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:4010', changeOrigin: true },
+        '/api/auth': { target: import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:4010', changeOrigin: true },
       },
     },
   };

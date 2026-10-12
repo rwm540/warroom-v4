@@ -781,6 +781,11 @@ export default function App() {
     setModalActiveCount(0);
   };
   const [showSquadModal, setShowSquadModal] = useState<boolean>(false);
+  const [squadModalMode, setSquadModalMode] = useState<'manage' | 'create_squad' | 'create_subgroup'>('manage');
+  const openSquadModal = (mode: 'manage' | 'create_squad' | 'create_subgroup' = 'manage') => {
+    setSquadModalMode(mode);
+    setShowSquadModal(true);
+  };
   const [showChatRoomModal, setShowChatRoomModal] = useState<boolean>(false);
   // Persistent web design floating chat state
   const [isFloatingChatOpen, setIsFloatingChatOpen] = useState<boolean>(() => {
@@ -870,7 +875,7 @@ export default function App() {
   }, [currentUser?.is_blocked]);
 
   useEffect(() => {
-    const openSquad = () => setShowSquadModal(true);
+    const openSquad = () => openSquadModal('manage');
     const openNotifications = () => setShowNotificationCenter(true);
     const openChat = () => {
       handleTabChange('Chat');
@@ -1290,7 +1295,7 @@ export default function App() {
               setActiveTab={handleTabChange}
               onOpenAuth={handleOpenAuth}
               onLogout={handleLogout}
-              onOpenSquadModal={() => setShowSquadModal(true)}
+              onOpenSquadModal={() => openSquadModal('manage')}
               onOpenGamePortal={() => setShowGamePortal(true)}
               triggerAlert={triggerAlert}
               siteSettings={siteSettings}
@@ -1417,7 +1422,7 @@ export default function App() {
               currentTab={activeTab}
               setCurrentTab={handleTabChange}
               onLogout={handleLogout}
-              onOpenSquadModal={() => setShowSquadModal(true)}
+              onOpenSquadModal={() => openSquadModal('manage')}
               onOpenNotifications={() => setShowNotificationCenter(true)}
               onOpenGamePortal={() => setShowGamePortal(true)}
               unreadNotificationsCount={unreadNotificationsCount}
@@ -1438,7 +1443,8 @@ export default function App() {
                   groups={groups}
                   groupJoinRequests={groupJoinRequests}
                   setGroupJoinRequests={setGroupJoinRequests}
-                  onOpenSquadModal={() => setShowSquadModal(true)}
+                  onOpenSquadModal={() => openSquadModal('manage')}
+                  onCreateSubgroup={() => openSquadModal('create_subgroup')}
                   onClose={handleCloseFloatingChat}
                 />
               </Suspense>
@@ -1621,7 +1627,7 @@ export default function App() {
                         medals={medals}
                         userMedals={userMedals}
                         onNavigate={(tab) => handleTabChange(tab)}
-                        onOpenSquadModal={() => setShowSquadModal(true)}
+                        onOpenSquadModal={() => openSquadModal('manage')}
                       />
                     )}
 
@@ -1676,7 +1682,8 @@ export default function App() {
                           groups={groups}
                           groupJoinRequests={groupJoinRequests}
                           setGroupJoinRequests={setGroupJoinRequests}
-                          onOpenSquadModal={() => setShowSquadModal(true)}
+                          onOpenSquadModal={() => openSquadModal('manage')}
+                          onCreateSubgroup={() => openSquadModal('create_subgroup')}
                           isModal
                           mobileMode
                         />
@@ -1691,6 +1698,7 @@ export default function App() {
             <Suspense fallback={null}>
               {showSquadModal && currentUser && (
                 <SquadManagementModal 
+                  initialMode={squadModalMode}
                   currentUser={currentUser}
                   setCurrentUser={setCurrentUser}
                   users={users}
@@ -1764,7 +1772,11 @@ export default function App() {
                   setGroupJoinRequests={setGroupJoinRequests}
                   onOpenSquadModal={() => {
                     setShowChatRoomModal(false);
-                    setShowSquadModal(true);
+                    openSquadModal('manage');
+                  }}
+                  onCreateSubgroup={() => {
+                    setShowChatRoomModal(false);
+                    openSquadModal('create_subgroup');
                   }}
                   isModal
                   onClose={() => setShowChatRoomModal(false)}

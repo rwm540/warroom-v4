@@ -10,7 +10,7 @@ import { createOtpRouter } from './routes/otp.js';
 import { createRegistrationRouter } from './routes/registration.js';
 import { createPasswordResetRouter } from './routes/passwordReset.js';
 import { createAdminRouter } from './routes/admin.js';
-import { createGroupRouter } from './routes/groups.js';
+import { createSquadsRouter } from './routes/squads.js';
 
 const SAFE_ERROR_MESSAGES = {
   SMS_NOT_CONFIGURED: 'سرویس پیامک پیکربندی نشده است.',
@@ -143,7 +143,7 @@ export function createApp({ store, sms, redis } = {}) {
   app.use('/api/session', createSessionRouter(deps));
   app.use('/api/password-reset', createPasswordResetRouter(deps));
   app.use('/api/admin', createAdminRouter(deps));
-  app.use('/api/groups', createGroupRouter(deps));
+  app.use('/api/squads', createSquadsRouter(deps));
 
   app.use((_req, res) => {
     res.status(404).json({ success: false, error: 'NOT_FOUND', message: 'مسیر یافت نشد.' });

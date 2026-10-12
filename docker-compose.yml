@@ -40,6 +40,9 @@ services:
       PORT: 4010
       HOST: 0.0.0.0
       TRUST_PROXY: 1
+      # Comma-separated public HTTPS origins allowed to call state-changing API routes.
+      # Set this to the final website origin, e.g. https://warroom.example.com
+      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:?ALLOWED_ORIGINS is required}
       SUPABASE_URL: ${SUPABASE_URL:?SUPABASE_URL is required}
       SUPABASE_SERVICE_ROLE_KEY: ${SUPABASE_SERVICE_ROLE_KEY:?SUPABASE_SERVICE_ROLE_KEY is required}
       OTP_CHALLENGE_SECRET: ${OTP_CHALLENGE_SECRET:?OTP_CHALLENGE_SECRET is required}

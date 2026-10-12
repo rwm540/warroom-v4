@@ -119,6 +119,8 @@ export default defineConfig(() => {
       },
     },
     server: {
+      // Allow the sandbox preview host (https://{port}-{id}.e2b.app) in dev.
+      allowedHosts: ['.e2b.app'],
       hmr: process.env.DISABLE_HMR !== 'true',
       watch: process.env.DISABLE_HMR === 'true' ? null : {},
       proxy: {

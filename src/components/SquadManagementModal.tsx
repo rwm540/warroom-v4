@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { 
   Users, 
   UserPlus, 
@@ -7,18 +7,30 @@ import {
   X, 
   Check, 
   AlertCircle, 
-  ShieldAlert, 
-  User as UserIcon,
-  Phone,
-  IdCard,
-  Calendar
+  KeyRound,
+  Copy,
+  Loader2,
+  Layers
 } from 'lucide-react';
 import { Group, GroupJoinRequest, SquadRank, User } from '../types';
 import { confirmInternal } from '../lib/appDialog';
-import { validateNationalCode, validateJalaliDate, generatePersonalCode, normalizeToEnglishDigits } from '../utils/jalali';
-import { apiCreateLeaderGroup, apiCreateSquadMember } from '../lib/backendApi';
-import { isSupabaseEnabled, saveUserProgressToSupabase } from '../lib/supabaseData';
+import { normalizeToEnglishDigits } from '../utils/jalali';
+import {
+  createSquad,
+  fetchUsersByIds,
+  listSquadMemberCredentials,
+  provisionSquadMembers,
+  reissueMemberPassword,
+  userFromProvisionedMember,
+  type ProvisionedMember,
+  type SquadMemberCredentialStatus,
+  type SquadMemberDraft,
+  squadApiErrorMessage,
+} from '../lib/squadApi';
+import { appendGroupChatMessage, ensureGroupChatRoom } from '../lib/groupChatService';
 import PersianDatePicker from './PersianDatePicker';
+
+export type SquadModalMode = 'manage' | 'create_squad' | 'create_subgroup';
 
 interface SquadManagementModalProps {
   currentUser: User;
@@ -31,7 +43,26 @@ interface SquadManagementModalProps {
   setGroupJoinRequests: React.Dispatch<React.SetStateAction<GroupJoinRequest[]>>;
   onClose: () => void;
   triggerAlert: (msg: string) => void;
+  /** وقتی از چت‌روم باز می‌شود، مشخص می‌کند کاربر قصد ساخت جوخه/زیرگروه دارد. */
+  initialMode?: SquadModalMode;
 }
+
+interface IssuedCredential {
+  full_name: string;
+  login_id: string;
+  password: string;
+}
+
+const EMPTY_MEMBER_FORM = {
+  first_name: '',
+  last_name: '',
+  national_code: '',
+  phone: '',
+  grade: 'یازدهم',
+  birth_date: '1387-05-15',
+  password: '',
+  squad_rank: 'soldier' as SquadRank,
+};
 
 export default function SquadManagementModal({
   currentUser,
@@ -43,16 +74,29 @@ export default function SquadManagementModal({
   groupJoinRequests,
   setGroupJoinRequests,
   onClose,
-  triggerAlert
+  triggerAlert,
+  initialMode = 'manage'
 }: SquadManagementModalProps) {
   // Find group
   const userGroup = groups.find(g => g.id === currentUser.group_id);
   const squadMembers = users.filter(u => u.group_id === currentUser.group_id);
-  const isLeader = currentUser.role === 'leader' || !userGroup || userGroup?.leader_id === currentUser.id;
+  const isLeader = currentUser.role === 'admin' || !userGroup || userGroup?.leader_id === currentUser.id;
+  const canCreateSubgroup = Boolean(userGroup) && (currentUser.role === 'admin' || userGroup?.leader_id === currentUser.id);
   const incomingRequests = groupJoinRequests.filter(request => request.target_group_id === currentUser.group_id && request.status === 'pending');
   const outgoingRequests = groupJoinRequests.filter(request => request.requester_id === currentUser.id && request.status === 'pending');
 
+  const [mode, setMode] = useState<SquadModalMode>(initialMode);
+
+  // وقتی از چت‌روم با قصد مشخص باز می‌شود، همان حالت فعال بماند.
+  useEffect(() => {
+    setMode(initialMode);
+  }, [initialMode]);
+
   const [newSquadNameInput, setNewSquadNameInput] = useState('');
+  const [isCreatingSquad, setIsCreatingSquad] = useState(false);
+  const [isSubmittingMember, setIsSubmittingMember] = useState(false);
+  const [issuedCredentials, setIssuedCredentials] = useState<IssuedCredential[]>([]);
+  const [memberStatuses, setMemberStatuses] = useState<SquadMemberCredentialStatus[]>([]);
 
   useEffect(() => {
     window.dispatchEvent(new CustomEvent('warroom_modal_active_change', { detail: { active: true } }));
@@ -71,62 +115,110 @@ export default function SquadManagementModal({
   const [showAddForm, setShowAddForm] = useState(false);
   const [editingUserId, setEditingUserId] = useState<string | null>(null);
 
-  // Add / Edit Member form state
   const [memberForm, setMemberForm] = useState({
-    first_name: '',
-    last_name: '',
-    national_code: '',
-    phone: '',
+    ...EMPTY_MEMBER_FORM,
     grade: currentUser.grade || 'یازدهم',
-    birth_date: '1387/05/15',
-    password: '',
-    squad_rank: 'soldier' as SquadRank
   });
 
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
-  const [isCreatingSquad, setIsCreatingSquad] = useState(false);
-  const [isSavingMember, setIsSavingMember] = useState(false);
 
-  // Create the squad on the server before updating client state.
+  /** پیام سیستمی در چت‌روم — فقط پس از تأیید موفقیت سمت سرور فراخوانی می‌شود. */
+  const announceInChat = useCallback((squad: Group, text: string) => {
+    ensureGroupChatRoom(squad.id, squad.name || 'جوخه', squad.member_ids || []);
+    appendGroupChatMessage({
+      roomId: `room_${squad.id}`,
+      groupId: squad.id,
+      userId: 'system',
+      userName: 'سامانه اتاق جنگ',
+      text,
+      isSystem: true,
+    });
+  }, []);
+
+  /** بارگذاری وضعیت اعتبارنامهٔ اعضا برای شناسایی حساب‌های قدیمی بدون رمز. */
+  const refreshMemberStatuses = useCallback(async (groupId?: string) => {
+    const target = groupId || currentUser.group_id;
+    if (!target) {
+      setMemberStatuses([]);
+      return;
+    }
+    const result = await listSquadMemberCredentials(target);
+    setMemberStatuses(result.ok && result.data ? result.data.members : []);
+  }, [currentUser.group_id]);
+
+  useEffect(() => {
+    void refreshMemberStatuses();
+  }, [refreshMemberStatuses, currentUser.group_id]);
+
+  /**
+   * ساخت جوخهٔ اصلی یا زیرگروه — از طریق API سرور.
+   * تا زمانی که سرور موفقیت را تأیید نکند، هیچ حالتی تغییر نمی‌کند و پیام موفقیت
+   * نمایش داده نمی‌شود.
+   */
   const handleCreateSquad = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (isCreatingSquad) return;
     setErrorMsg(null);
-    const name = newSquadNameInput.trim() || ('جوخه ' + (currentUser.last_name || 'عملیاتی'));
-    setIsCreatingSquad(true);
-    try {
-      const result = await apiCreateLeaderGroup({
-        name,
-        education_level: currentUser.education_level || 'متوسطه دوم',
-        gender: currentUser.gender || 'پسر',
-        province: currentUser.province || 'تهران',
-        city: currentUser.city || 'تهران',
-      });
-      if (!result.ok || !result.data) {
-        setErrorMsg(result.error?.message || 'ایجاد جوخه در سرور ناموفق بود.');
-        return;
-      }
-      const newGroup = result.data.group;
-      const updatedLeader: User = {
-        ...currentUser,
-        ...result.data.user,
-        id: currentUser.id,
-        group_id: newGroup.id,
-        role: 'leader',
-        squad_rank: 'commander',
-        password: '',
-      } as User;
-      setGroups(prev => [...prev.filter(group => group.id !== newGroup.id), newGroup]);
-      setUsers(prev => prev.map(user => user.id === currentUser.id ? updatedLeader : user));
-      if (setCurrentUser) setCurrentUser(updatedLeader);
-      try { localStorage.setItem('warroom_current_user_data', JSON.stringify(updatedLeader)); } catch {}
-      setNewSquadNameInput('');
-      triggerAlert('جوخه «' + newGroup.name + '» در پایگاه داده ثبت شد و حساب شما به فرمانده آن متصل شد.');
-    } catch {
-      setErrorMsg('ایجاد جوخه ناموفق بود؛ اتصال سرور را بررسی کنید.');
-    } finally {
-      setIsCreatingSquad(false);
+
+    const name = newSquadNameInput.trim();
+    if (name.length < 2) {
+      setErrorMsg('نام جوخه باید حداقل ۲ نویسه باشد.');
+      return;
     }
+
+    const isSubgroup = mode === 'create_subgroup' && Boolean(userGroup);
+    setIsCreatingSquad(true);
+    const result = await createSquad({
+      name,
+      parentSquadId: isSubgroup ? userGroup!.id : null,
+      metadata: {
+        educationLevel: currentUser.education_level,
+        gender: currentUser.gender,
+        province: currentUser.province,
+        city: currentUser.city,
+      },
+    });
+    setIsCreatingSquad(false);
+
+    if (!result.ok || !result.data) {
+      const message = squadApiErrorMessage(result);
+      setErrorMsg(message);
+      triggerAlert(message);
+      return;
+    }
+
+    const squad = result.data.squad;
+    setGroups(prev => [...prev.filter(item => item.id !== squad.id), squad]);
+
+    if (!isSubgroup) {
+      // سرور group_id و نقش سرگروه را تعیین کرده است؛ همان را از دیتابیس می‌خوانیم.
+      const [freshLeader] = await fetchUsersByIds([currentUser.id]);
+      const updatedLeader: User = freshLeader || {
+        ...currentUser,
+        group_id: squad.id,
+        role: currentUser.role === 'admin' ? currentUser.role : 'leader',
+        squad_rank: 'commander',
+      };
+      setUsers(prev => prev.map(u => (u.id === currentUser.id ? updatedLeader : u)));
+      setCurrentUser?.(updatedLeader);
+      try {
+        localStorage.setItem('warroom_current_user_data', JSON.stringify(updatedLeader));
+      } catch {}
+    }
+
+    setMode('manage');
+    setNewSquadNameInput('');
+    await refreshMemberStatuses(squad.id);
+    announceInChat(
+      squad,
+      isSubgroup
+        ? `🛡️ زیرگروه «${squad.name}» به فرماندهی ${currentUser.first_name} ${currentUser.last_name} در سامانه ثبت شد و اعضای آن می‌توانند با حساب کاربری مستقل خود وارد این چت‌روم شوند.`
+        : `🛡️ جوخه «${squad.name}» با موفقیت در سامانه ثبت شد و ${currentUser.first_name} ${currentUser.last_name} به عنوان فرمانده آن تعیین گردید.`
+    );
+    triggerAlert(
+      isSubgroup
+        ? `زیرگروه «${squad.name}» با موفقیت ثبت شد.`
+        : `جوخه «${squad.name}» تشکیل شد و شما به عنوان فرمانده آن تعیین شدید.`
+    );
   };
 
   const requestToJoinGroup = (targetGroup: Group) => {
@@ -169,10 +261,19 @@ export default function SquadManagementModal({
     }
   };
 
-  // Create member account and bcrypt credential atomically through the server API.
+  const openAddMemberForm = () => {
+    setEditingUserId(null);
+    setMemberForm({ ...EMPTY_MEMBER_FORM, grade: currentUser.grade || 'یازدهم' });
+    setErrorMsg(null);
+    setShowAddForm(true);
+  };
+
+  /**
+   * ثبت عضو جدید: حساب کاربری مستقل و قابل ورود توسط سرور ساخته می‌شود.
+   * در صورت شکست، هیچ عضویتی اضافه نمی‌شود و پیام موفقیت نمایش داده نمی‌شود.
+   */
   const handleSubmitMember = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (isSavingMember) return;
     setErrorMsg(null);
 
     const firstName = memberForm.first_name.trim();
@@ -182,34 +283,23 @@ export default function SquadManagementModal({
     const cleanBirthDate = normalizeToEnglishDigits(memberForm.birth_date).trim();
 
     if (!firstName || !lastName) {
-      setErrorMsg('لطفاً نام و نام خانوادگی عضو را وارد نمایید.');
+      setErrorMsg('لطفاً نام و نام خانوادگی عضو جدید را وارد نمایید.');
       return;
     }
-    if (!validateNationalCode(cleanNatCode)) {
-      setErrorMsg('کد ملی معتبر ۱۰ رقمی وارد کنید.');
+    if (cleanNatCode.length !== 10) {
+      setErrorMsg('کد ملی باید دقیقاً ۱۰ رقم باشد.');
       return;
     }
-    if (!editingUserId && !/^09\d{9}$/.test(cleanPhone)) {
-      setErrorMsg('برای عضو جدید شماره موبایل معتبر ۱۱ رقمی وارد کنید.');
-      return;
-    }
-    const duplicateInUsers = users.some(u => u.id !== editingUserId && (
-      (u.national_code && normalizeToEnglishDigits(u.national_code).replace(/\D/g, '') === cleanNatCode) ||
-      (u.personal_code && normalizeToEnglishDigits(u.personal_code).replace(/\D/g, '') === cleanNatCode)
-    ));
-    if (duplicateInUsers) {
-      setErrorMsg('این کد ملی قبلاً برای رزمنده دیگری ثبت شده است.');
+    if (!/^09\d{9}$/.test(cleanPhone)) {
+      setErrorMsg('شمارهٔ موبایل باید ۱۱ رقم و با ۰۹ آغاز شود؛ کد تأیید ورود عضو به همین شماره ارسال می‌شود.');
       return;
     }
 
+    // ویرایش پروفایل یک عضو موجود؛ رمز عبور از این مسیر تغییر نمی‌کند.
     if (editingUserId) {
       const existingMember = users.find(user => user.id === editingUserId);
       if (!existingMember) {
         setErrorMsg('حساب نیروی انتخاب‌شده پیدا نشد.');
-        return;
-      }
-      if (memberForm.password.trim()) {
-        setErrorMsg('تغییر رمز از این فرم انجام نمی‌شود؛ از مسیر امن تغییر یا بازیابی رمز استفاده کنید.');
         return;
       }
       const updatedMember: User = {
@@ -217,91 +307,141 @@ export default function SquadManagementModal({
         first_name: firstName,
         last_name: lastName,
         national_code: cleanNatCode,
-        phone: cleanPhone || existingMember.phone,
+        phone: cleanPhone,
         grade: memberForm.grade,
         birth_date: cleanBirthDate || existingMember.birth_date,
         squad_rank: memberForm.squad_rank,
-        role: existingMember.role,
+        role: memberForm.squad_rank === 'commander' ? 'leader' : memberForm.squad_rank === 'soldier' ? 'member' : 'user',
+        password: '',
       };
-      setUsers(prev => prev.map(user => user.id === editingUserId ? updatedMember : user));
-      if (isSupabaseEnabled) {
-        saveUserProgressToSupabase(updatedMember).catch(err => {
-          console.warn('[SquadManagement] Supabase member update note:', err);
-        });
-      }
-      triggerAlert('اطلاعات رزمنده «' + firstName + ' ' + lastName + '» به‌روزرسانی شد.');
+      setUsers(prev => prev.map(user => (user.id === editingUserId ? updatedMember : user)));
+      triggerAlert(`اطلاعات رزمنده «${firstName} ${lastName}» به‌روزرسانی شد.`);
       setEditingUserId(null);
-    } else {
-      const targetGroupId = currentUser.group_id;
-      if (!targetGroupId) {
-        setErrorMsg('ابتدا از همین پنل جوخه را ایجاد کنید؛ سپس عضو اضافه کنید.');
-        return;
-      }
-      if (squadMembers.length >= 6) {
-        setErrorMsg('سقف اعضای جوخه (حداکثر ۶ نفر) تکمیل است.');
-        return;
-      }
-      const password = memberForm.password.trim();
-      if (password.length < 8 || password.length > 128 || /\s/.test(password) ||
-          !/[A-Za-z]/.test(password) || !/\d/.test(password) ||
-          /123456|password|qwerty|111111|abc123/i.test(password)) {
-        setErrorMsg('رمز اولیه باید حداقل ۸ نویسه، شامل حرف لاتین و رقم و غیرقابل‌حدس باشد.');
-        return;
-      }
-
-      setIsSavingMember(true);
-      try {
-        const result = await apiCreateSquadMember(targetGroupId, {
-          first_name: firstName,
-          last_name: lastName,
-          national_code: cleanNatCode,
-          phone: cleanPhone,
-          grade: memberForm.grade || currentUser.grade || 'یازدهم',
-          birth_date: cleanBirthDate || '1387/05/15',
-          gender: currentUser.gender || 'پسر',
-          education_level: currentUser.education_level || 'متوسطه دوم',
-          province: currentUser.province || 'تهران',
-          city: currentUser.city || 'تهران',
-          school_name: currentUser.school_name || '',
-          personal_code: generatePersonalCode(),
-          squad_rank: memberForm.squad_rank,
-        }, password);
-        if (!result.ok || !result.data) {
-          setErrorMsg(result.error?.message || 'ایجاد حساب عضو در سرور ناموفق بود.');
-          return;
-        }
-        const newMember: User = { ...result.data.user, password: '' } as User;
-        setUsers(prev => [...prev.filter(user => user.id !== newMember.id), newMember]);
-        if (result.data.group) {
-          const updatedGroup = result.data.group;
-          setGroups(prev => prev.map(group => group.id === updatedGroup.id ? updatedGroup : group));
-        } else {
-          setGroups(prev => prev.map(group => group.id === targetGroupId ? {
-            ...group,
-            members_count: (group.members_count || 0) + 1,
-            member_ids: Array.from(new Set([...(group.member_ids || []), newMember.id])),
-          } : group));
-        }
-        triggerAlert('حساب «' + newMember.first_name + ' ' + newMember.last_name + '» ثبت شد. نام ورود کد ملی است؛ رمز اولیه را امن به عضو بدهید. تغییر رمز در اولین ورود اجباری است.');
-      } catch {
-        setErrorMsg('ارتباط با سرور برقرار نشد؛ عضو به‌صورت محلی اضافه نشد.');
-        return;
-      } finally {
-        setIsSavingMember(false);
-      }
+      setShowAddForm(false);
+      setMemberForm({ ...EMPTY_MEMBER_FORM, grade: currentUser.grade || 'یازدهم' });
+      return;
     }
 
-    setMemberForm({
-      first_name: '',
-      last_name: '',
-      national_code: '',
-      phone: '',
-      grade: currentUser.grade || 'یازدهم',
-      birth_date: '1387/05/15',
-      password: '',
-      squad_rank: 'soldier',
+    if (!currentUser.group_id) {
+      setErrorMsg('پیش از افزودن عضو، ابتدا جوخهٔ خود را ثبت کنید.');
+      setMode('create_squad');
+      return;
+    }
+    if (squadMembers.length >= 6) {
+      setErrorMsg('سقف اعضای جوخه (حداکثر ۶ نفر) تکمیل است.');
+      return;
+    }
+
+    const draft: SquadMemberDraft = {
+      first_name: firstName,
+      last_name: lastName,
+      national_code: cleanNatCode,
+      phone: cleanPhone,
+      birth_date: cleanBirthDate,
+      grade: memberForm.grade,
+      gender: currentUser.gender,
+      squad_rank: memberForm.squad_rank,
+      // خالی بودن یعنی سرور رمز قوی یک‌بارمصرف تولید کند.
+      password: memberForm.password.trim(),
+    };
+
+    setIsSubmittingMember(true);
+    const result = await provisionSquadMembers(currentUser.group_id, [draft]);
+    setIsSubmittingMember(false);
+
+    if (!result.ok || !result.data) {
+      const message = squadApiErrorMessage(result);
+      setErrorMsg(message);
+      triggerAlert(message);
+      return;
+    }
+
+    const { squad, members } = result.data;
+    setGroups(prev => prev.map(g => (g.id === squad.id ? squad : g)));
+
+    const created: ProvisionedMember[] = members.filter(member => member.status === 'created');
+    const fallbacks = new Map(
+      created.map(member => [member.user_id, userFromProvisionedMember(member, draft, squad)])
+    );
+    const fresh = await fetchUsersByIds(members.map(member => member.user_id));
+    const authoritative = new Map(fresh.map(user => [user.id, user]));
+
+    setUsers(prev => {
+      const byId = new Map(prev.map(user => [user.id, user]));
+      for (const member of members) {
+        if (member.status === 'unchanged') continue;
+        const next = authoritative.get(member.user_id) || fallbacks.get(member.user_id);
+        if (next) byId.set(member.user_id, next);
+      }
+      return Array.from(byId.values());
     });
+
+    setIssuedCredentials(
+      created
+        .filter(member => Boolean(member.initial_password))
+        .map(member => ({
+          full_name: `${firstName} ${lastName}`.trim(),
+          login_id: member.login_id,
+          password: member.initial_password as string,
+        }))
+    );
+
+    await refreshMemberStatuses(squad.id);
+    announceInChat(
+      squad,
+      members
+        .map(member => {
+          if (member.status === 'created') {
+            return `🪖 حساب کاربری «${firstName} ${lastName}» ساخته شد و به جوخه «${squad.name}» پیوست.`;
+          }
+          if (member.status === 'linked') {
+            return `🔗 حساب کاربری موجود «${firstName} ${lastName}» به جوخه «${squad.name}» متصل شد.`;
+          }
+          return `✅ «${firstName} ${lastName}» از قبل عضو این جوخه بود.`;
+        })
+        .join(' ')
+    );
+
+    const summary = result.data.summary;
+    triggerAlert(
+      `ثبت انجام شد: ${summary.created} حساب جدید، ${summary.linked} حساب متصل، ${summary.unchanged} عضو از قبل ثبت‌شده.`
+    );
+
+    setMemberForm({ ...EMPTY_MEMBER_FORM, grade: currentUser.grade || 'یازدهم' });
     setShowAddForm(false);
+  };
+
+  /** تعیین رمز اولیه برای اعضای قدیمی که اعتبارنامهٔ معتبر ندارند. */
+  const handleIssuePassword = async (member: User) => {
+    setErrorMsg(null);
+    if (!currentUser.group_id) return;
+
+    const result = await reissueMemberPassword(currentUser.group_id, member.national_code);
+    if (!result.ok || !result.data) {
+      const message = squadApiErrorMessage(result);
+      setErrorMsg(message);
+      triggerAlert(message);
+      return;
+    }
+    setIssuedCredentials([
+      {
+        full_name: `${member.first_name} ${member.last_name}`,
+        login_id: result.data.loginId,
+        password: result.data.initialPassword,
+      },
+    ]);
+    await refreshMemberStatuses(currentUser.group_id);
+    triggerAlert(`رمز اولیهٔ «${member.first_name} ${member.last_name}» تعیین شد.`);
+  };
+
+  const copyCredential = async (credential: IssuedCredential) => {
+    const text = `کد ملی (شناسهٔ ورود): ${credential.login_id}\nرمز اولیه: ${credential.password}`;
+    try {
+      await navigator.clipboard.writeText(text);
+      triggerAlert('اطلاعات ورود کپی شد.');
+    } catch {
+      triggerAlert('کپی خودکار ممکن نشد؛ اطلاعات را دستی یادداشت کنید.');
+    }
   };
 
   // Remove member handler
@@ -338,8 +478,19 @@ export default function SquadManagementModal({
       password: '',
       squad_rank: member.squad_rank || (member.role === 'leader' ? 'commander' : 'soldier')
     });
+    setErrorMsg(null);
     setShowAddForm(true);
   };
+
+  const showCreateForm = mode === 'create_squad' || (!userGroup && mode !== 'create_subgroup');
+  const createFormTitle = mode === 'create_subgroup'
+    ? 'ثبت زیرگروه جدید'
+    : 'تشکیل جوخه جدید';
+  const createFormHint = mode === 'create_subgroup'
+    ? `(زیرمجموعهٔ «${userGroup?.name || 'جوخهٔ شما'}» — اعضا حساب مستقل دریافت می‌کنند)`
+    : '(برای فرماندهی و افزودن نیروها)';
+
+  const credentialStatusOf = (userId: string) => memberStatuses.find(item => item.user_id === userId);
 
   return (
     <div 
@@ -376,36 +527,34 @@ export default function SquadManagementModal({
               </span>
             )}
           </div>
-          {squadMembers.length < 6 && (
-            <button
-              onClick={() => {
-                setEditingUserId(null);
-                setMemberForm({
-                  first_name: '',
-                  last_name: '',
-                  national_code: '',
-                  phone: '',
-                  grade: currentUser.grade || 'یازدهم',
-                  birth_date: '1387/05/15',
-                  password: '',
-                  squad_rank: 'soldier' as SquadRank
-                });
-                setShowAddForm(true);
-              }}
-              className="bg-red-700 hover:bg-red-600 text-white font-extrabold text-xs px-3.5 py-2 rounded-lg transition flex items-center gap-1.5 shadow-lg shadow-red-900/40 active:scale-95"
-            >
-              <UserPlus size={16} />
-              <span>افزودن عضو جدید به جوخه</span>
-            </button>
-          )}
+          <div className="flex items-center gap-2">
+            {canCreateSubgroup && (
+              <button
+                onClick={() => { setMode('create_subgroup'); setShowAddForm(false); setErrorMsg(null); }}
+                className="bg-cyan-800 hover:bg-cyan-700 text-white font-extrabold text-xs px-3 py-2 rounded-lg transition flex items-center gap-1.5"
+              >
+                <Layers size={15} />
+                <span>ثبت زیرگروه</span>
+              </button>
+            )}
+            {squadMembers.length < 6 && (
+              <button
+                onClick={openAddMemberForm}
+                className="bg-red-700 hover:bg-red-600 text-white font-extrabold text-xs px-3.5 py-2 rounded-lg transition flex items-center gap-1.5 shadow-lg shadow-red-900/40 active:scale-95"
+              >
+                <UserPlus size={16} />
+                <span>افزودن عضو جدید به جوخه</span>
+              </button>
+            )}
+          </div>
         </div>
 
-        {/* If user does not have a squad yet, allow instant creation */}
-        {!userGroup && (
+        {/* Create squad / subgroup — only reachable while the commander is authorised */}
+        {(showCreateForm || mode === 'create_subgroup') && (
           <form onSubmit={handleCreateSquad} className="rounded-xl border border-cyan-500/30 bg-cyan-500/10 p-3.5 space-y-2.5">
-            <h4 className="text-xs font-black text-cyan-300 flex items-center gap-1.5">
-              <span>تشکیل جوخه جدید</span>
-              <span className="text-[10px] text-slate-400 font-normal">(برای فرماندهی و افزودن نیروها)</span>
+            <h4 className="text-xs font-black text-cyan-300 flex items-center gap-1.5 flex-wrap">
+              <span>{createFormTitle}</span>
+              <span className="text-[10px] text-slate-400 font-normal">{createFormHint}</span>
             </h4>
             <div className="flex gap-2">
               <input
@@ -414,16 +563,62 @@ export default function SquadManagementModal({
                 value={newSquadNameInput}
                 onChange={(e) => setNewSquadNameInput(e.target.value)}
                 className="flex-1 bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white"
+                minLength={2}
+                maxLength={60}
               />
               <button
                 type="submit"
-                className="bg-cyan-600 hover:bg-cyan-500 text-white text-xs font-bold px-4 py-2 rounded-lg transition disabled:opacity-50"
                 disabled={isCreatingSquad}
+                className="bg-cyan-600 hover:bg-cyan-500 disabled:opacity-60 text-white text-xs font-bold px-4 py-2 rounded-lg transition flex items-center gap-1.5"
               >
-                {isCreatingSquad ? "در حال ایجاد..." : "تشکیل جوخه"}
+                {isCreatingSquad && <Loader2 size={14} className="animate-spin" />}
+                <span>{mode === 'create_subgroup' ? 'ثبت زیرگروه' : 'تشکیل جوخه'}</span>
               </button>
             </div>
+            <p className="text-[10px] leading-5 text-slate-400">
+              ثبت گروه و حساب اعضا فقط پس از تأیید سرور انجام می‌شود؛ در صورت بروز خطا هیچ تغییری ذخیره نمی‌گردد.
+            </p>
           </form>
+        )}
+
+        {/* One-time credentials issued by the server */}
+        {issuedCredentials.length > 0 && (
+          <div className="rounded-xl border border-emerald-500/40 bg-emerald-500/10 p-3.5 space-y-2.5">
+            <h4 className="text-xs font-black text-emerald-300 flex items-center gap-1.5">
+              <KeyRound size={15} />
+              <span>اطلاعات ورود اعضا — فقط یک بار نمایش داده می‌شود</span>
+            </h4>
+            <p className="text-[10px] leading-5 text-emerald-200/80">
+              هر عضو با کد ملی خود از صفحهٔ ورود سامانه وارد پنل شخصی‌اش می‌شود و در نخستین ورود ملزم به تغییر رمز است.
+              این رمز هیچ‌جا ذخیره نمی‌شود؛ آن را یادداشت کنید.
+            </p>
+            <div className="space-y-2">
+              {issuedCredentials.map((credential) => (
+                <div key={credential.login_id} className="flex items-center justify-between gap-2 rounded-lg border border-emerald-700/50 bg-slate-950 p-2.5">
+                  <div className="min-w-0 text-[11px] text-slate-200">
+                    <div className="font-bold text-white truncate">{credential.full_name || 'رزمنده جدید'}</div>
+                    <div className="font-mono text-emerald-300" dir="ltr">ID: {credential.login_id}</div>
+                    <div className="font-mono text-amber-300" dir="ltr">PASS: {credential.password}</div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => copyCredential(credential)}
+                    className="shrink-0 rounded-lg border border-emerald-600/50 bg-emerald-900/40 p-1.5 text-emerald-200 hover:bg-emerald-800/50"
+                    title="کپی اطلاعات ورود"
+                  >
+                    <Copy size={14} />
+                  </button>
+                </div>
+              ))}
+            </div>
+            <button
+              type="button"
+              onClick={() => setIssuedCredentials([])}
+              className="w-full rounded-lg bg-slate-800 py-1.5 text-[11px] font-bold text-slate-300"
+            >
+              اطلاعات را یادداشت کردم؛ بستن
+            </button>
+          </div>
         )}
 
         {/* Requests and Joint Squad Section */}
@@ -496,7 +691,7 @@ export default function SquadManagementModal({
 
             <div className="grid grid-cols-2 gap-2">
               <div>
-                <label className="block text-[11px] font-bold text-slate-300 mb-1">کد ملی ۱۰ رقمی:</label>
+                <label className="block text-[11px] font-bold text-slate-300 mb-1">کد ملی ۱۰ رقمی (شناسهٔ ورود عضو):</label>
                 <input
                   type="text"
                   maxLength={10}
@@ -507,13 +702,14 @@ export default function SquadManagementModal({
                 />
               </div>
               <div>
-                <label className="block text-[11px] font-bold text-slate-300 mb-1">شماره موبایل:</label>
+                <label className="block text-[11px] font-bold text-slate-300 mb-1">شماره موبایل (دریافت کد تأیید):</label>
                 <input
                   type="text"
                   maxLength={11}
                   value={memberForm.phone}
                   onChange={(e) => setMemberForm({ ...memberForm, phone: e.target.value })}
                   className="w-full bg-slate-900 border border-slate-800 rounded-lg px-2.5 py-1.5 text-xs font-mono text-white"
+                  placeholder="09123456789"
                   required
                 />
               </div>
@@ -543,15 +739,17 @@ export default function SquadManagementModal({
 
             <div className="grid grid-cols-2 gap-2">
               <div>
-                <label className="block text-[11px] font-bold text-slate-300 mb-1">رمز اولیه (تغییر در اولین ورود اجباری):</label>
+                <label className="block text-[11px] font-bold text-slate-300 mb-1">
+                  رمز اولیه {editingUserId ? '(برای تغییر از مسیر «تعیین رمز» استفاده کنید)' : '(اختیاری)'}:
+                </label>
                 <input
                   type="password"
                   value={memberForm.password}
                   onChange={(e) => setMemberForm({ ...memberForm, password: e.target.value })}
                   className="w-full bg-slate-900 border border-slate-800 rounded-lg px-2.5 py-1.5 text-xs text-white"
-                  required={!editingUserId}
-                  minLength={8}
-                  maxLength={128}
+                  disabled={Boolean(editingUserId)}
+                  minLength={editingUserId ? undefined : 8}
+                  placeholder={editingUserId ? '—' : 'خالی بگذارید تا رمز قوی ساخته شود'}
                 />
               </div>
               <div>
@@ -569,6 +767,13 @@ export default function SquadManagementModal({
               </div>
             </div>
 
+            {!editingUserId && (
+              <p className="text-[10px] leading-5 text-slate-400">
+                حساب عضو مستقیماً توسط سرور ساخته می‌شود؛ رمز سمت سرور هش می‌گردد و عضو می‌تواند با کد ملی خود از
+                صفحهٔ ورود سامانه وارد پنل شخصی‌اش شود.
+              </p>
+            )}
+
             <div className="flex gap-2 pt-2">
               <button
                 type="button"
@@ -579,10 +784,11 @@ export default function SquadManagementModal({
               </button>
               <button
                 type="submit"
-                className="w-2/3 bg-red-700 hover:bg-red-600 text-white text-xs font-bold py-2 rounded-lg transition disabled:opacity-50"
-                disabled={isSavingMember}
+                disabled={isSubmittingMember}
+                className="w-2/3 bg-red-700 hover:bg-red-600 disabled:opacity-60 text-white text-xs font-bold py-2 rounded-lg transition flex items-center justify-center gap-1.5"
               >
-                {isSavingMember ? "در حال ذخیره امن..." : editingUserId ? 'ثبت تغییرات' : 'افزودن و ساخت حساب کاربری'}
+                {isSubmittingMember && <Loader2 size={14} className="animate-spin" />}
+                <span>{editingUserId ? 'ثبت تغییرات' : 'ساخت حساب و افزودن به اعضا'}</span>
               </button>
             </div>
           </form>
@@ -593,59 +799,81 @@ export default function SquadManagementModal({
           <h4 className="text-xs font-bold text-slate-400">اعضای ثبت‌شده در جوخه:</h4>
 
           <div className="space-y-2">
-            {squadMembers.map(m => (
-              <div 
-                key={m.id}
-                className="bg-slate-950/80 border border-slate-800 p-3 rounded-xl flex items-center justify-between gap-3"
-              >
-                <div className="flex items-center gap-3">
-                  <div className={`w-8 h-8 rounded-lg flex items-center justify-center font-bold text-xs ${
-                    m.role === 'leader' ? 'bg-red-950 text-red-400 border border-red-800' : 'bg-slate-900 text-slate-300'
-                  }`}>
-                    {m.first_name[0]}
+            {squadMembers.map(m => {
+              const status = credentialStatusOf(m.id);
+              const needsCredential = Boolean(m.national_code) && status ? status.has_credentials === false : false;
+              return (
+                <div 
+                  key={m.id}
+                  className="bg-slate-950/80 border border-slate-800 p-3 rounded-xl flex items-center justify-between gap-3"
+                >
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className={`w-8 h-8 rounded-lg flex items-center justify-center font-bold text-xs shrink-0 ${
+                      m.role === 'leader' ? 'bg-red-950 text-red-400 border border-red-800' : 'bg-slate-900 text-slate-300'
+                    }`}>
+                      {m.first_name?.[0] || '؟'}
+                    </div>
+
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="font-extrabold text-xs text-white">{m.first_name} {m.last_name}</span>
+                        {m.personal_code && (
+                          <span className="text-[10px] bg-slate-900 text-slate-400 font-mono px-1.5 rounded">
+                            کد: {m.personal_code}
+                          </span>
+                        )}
+                        {m.role === 'leader' && (
+                          <span className="bg-red-950 text-red-300 text-[9px] font-bold px-1.5 rounded border border-red-800/60">
+                            فرمانده
+                          </span>
+                        )}
+                        {needsCredential && (
+                          <span className="bg-amber-950 text-amber-300 text-[9px] font-bold px-1.5 rounded border border-amber-800/60">
+                            بدون رمز ورود
+                          </span>
+                        )}
+                      </div>
+
+                      <div className="flex items-center gap-3 text-[11px] text-slate-400 mt-0.5 flex-wrap">
+                        <span>کد ملی: <span className="font-mono">{m.national_code}</span></span>
+                        <span>موبایل: <span className="font-mono">{m.phone}</span></span>
+                      </div>
+                    </div>
                   </div>
 
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <span className="font-extrabold text-xs text-white">{m.first_name} {m.last_name}</span>
-                      <span className="text-[10px] bg-slate-900 text-slate-400 font-mono px-1.5 rounded">
-                        کد: {m.personal_code}
-                      </span>
-                      {m.role === 'leader' && (
-                        <span className="bg-red-950 text-red-300 text-[9px] font-bold px-1.5 rounded border border-red-800/60">
-                          فرمانده
-                        </span>
-                      )}
-                    </div>
-
-                    <div className="flex items-center gap-3 text-[11px] text-slate-400 mt-0.5">
-                      <span>کد ملی: <span className="font-mono">{m.national_code}</span></span>
-                      <span>موبایل: <span className="font-mono">{m.phone}</span></span>
-                    </div>
+                  {/* Actions */}
+                  <div className="flex items-center gap-1 shrink-0">
+                    {needsCredential && (
+                      <button
+                        onClick={() => handleIssuePassword(m)}
+                        className="p-1.5 bg-amber-950/60 hover:bg-amber-900 text-amber-300 rounded-lg border border-amber-800"
+                        title="تعیین رمز اولیهٔ ورود"
+                      >
+                        <KeyRound size={14} />
+                      </button>
+                    )}
+                    {m.role !== 'leader' && (
+                      <>
+                        <button
+                          onClick={() => handleStartEdit(m)}
+                          className="p-1.5 bg-slate-900 hover:bg-slate-800 text-slate-300 rounded-lg border border-slate-700"
+                          title="ویرایش عضو"
+                        >
+                          <Edit3 size={14} />
+                        </button>
+                        <button
+                          onClick={() => handleRemoveMember(m)}
+                          className="p-1.5 bg-rose-950/60 hover:bg-rose-900 text-rose-300 rounded-lg border border-rose-800"
+                          title="حذف از جوخه"
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      </>
+                    )}
                   </div>
                 </div>
-
-                {/* Actions */}
-                {m.role !== 'leader' && (
-                  <div className="flex items-center gap-1">
-                    <button
-                      onClick={() => handleStartEdit(m)}
-                      className="p-1.5 bg-slate-900 hover:bg-slate-800 text-slate-300 rounded-lg border border-slate-700"
-                      title="ویرایش عضو"
-                    >
-                      <Edit3 size={14} />
-                    </button>
-                    <button
-                      onClick={() => handleRemoveMember(m)}
-                      className="p-1.5 bg-rose-950/60 hover:bg-rose-900 text-rose-300 rounded-lg border border-rose-800"
-                      title="حذف از جوخه"
-                    >
-                      <Trash2 size={14} />
-                    </button>
-                  </div>
-                )}
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
 

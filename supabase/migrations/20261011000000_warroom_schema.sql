@@ -880,7 +880,47 @@ end;
 $$;
 
 -- جستجو و فهرست‌گیری اتاق‌های گفتگو
-as $$
+create or replace function public.warroom_list_chat_rooms(
+  p_search text default null,
+  p_page integer default 0,
+  p_page_size integer default 5
+)
+returns table (room_id text, room_data jsonb, total_count bigint)
+language sql
+stable
+security definer
+set search_path = public, pg_temp
+as $
+  with filtered as (
+    select id, data, count(*) over () as total_count
+    from public.warroom_group_chat_rooms
+    where (
+      public.warroom_is_admin()
+      or (data->'member_ids') ? public.warroom_current_user_id()
+      or data->>'group_id' in (
+        select u.data->>'group_id' from public.warroom_users u
+        where u.id = public.warroom_current_user_id()
+      )
+    )
+    and (
+      nullif(trim(p_search), '') is null
+      or lower(coalesce(data->>'name', '')) like '%' || lower(trim(p_search)) || '%'
+      or lower(coalesce(data->>'group_id', '')) like '%' || lower(trim(p_search)) || '%'
+    )
+    order by updated_at desc
+    limit least(greatest(coalesce(p_page_size, 5), 1), 20)
+    offset greatest(coalesce(p_page, 0), 0) * least(greatest(coalesce(p_page_size, 5), 1), 20)
+  )
+  select id, data, total_count from filtered;
+$;
+
+-- حذف آبشاری متعلقات جوخه پس از حذف رهبر
+create or replace function public.warroom_delete_owned_group_after_user_delete()
+returns trigger
+language plpgsql
+security definer
+set search_path = public, pg_temp
+as $
 declare
   owned_group_id text;
 begin

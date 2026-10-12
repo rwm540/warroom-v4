@@ -15,9 +15,9 @@ import {
 } from 'lucide-react';
 import { Group, GroupJoinRequest, SquadRank, User } from '../types';
 import { confirmInternal } from '../lib/appDialog';
-import { validateNationalCode, validatePhoneNumber, validateJalaliDate, generatePersonalCode, normalizeToEnglishDigits, generateRegistrationCode } from '../utils/jalali';
-import { apiCheckNationalCodeExists } from '../lib/backendApi';
-import { isSupabaseEnabled, saveUserProgressToSupabase, sha256Hex } from '../lib/supabaseData';
+import { validateNationalCode, validateJalaliDate, generatePersonalCode, normalizeToEnglishDigits } from '../utils/jalali';
+import { apiCreateLeaderGroup, apiCreateSquadMember } from '../lib/backendApi';
+import { isSupabaseEnabled, saveUserProgressToSupabase } from '../lib/supabaseData';
 import PersianDatePicker from './PersianDatePicker';
 
 interface SquadManagementModalProps {
@@ -84,41 +84,49 @@ export default function SquadManagementModal({
   });
 
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [isCreatingSquad, setIsCreatingSquad] = useState(false);
+  const [isSavingMember, setIsSavingMember] = useState(false);
 
-  // Create squad on-the-fly if user doesn't have one
-  const handleCreateSquad = (e: React.FormEvent) => {
+  // Create the squad on the server before updating client state.
+  const handleCreateSquad = async (e: React.FormEvent) => {
     e.preventDefault();
-    const name = newSquadNameInput.trim() || `جوخه ${currentUser.last_name || 'عملیاتی'}`;
-    const newGroupId = `g-${Date.now()}`;
-    const newGroup: Group = {
-      id: newGroupId,
-      name,
-      leader_id: currentUser.id,
-      members_count: 1,
-      member_ids: [currentUser.id],
-      education_level: currentUser.education_level || 'متوسطه دوم',
-      gender: currentUser.gender || 'پسر',
-      province: currentUser.province || 'تهران',
-      city: currentUser.city || 'تهران',
-      registration_code: generateRegistrationCode(),
-      created_at: new Date().toISOString(),
-    };
-    setGroups(prev => [...prev, newGroup]);
-    const updatedLeader: User = {
-      ...currentUser,
-      group_id: newGroupId,
-      role: 'leader',
-      squad_rank: 'commander'
-    };
-    setUsers(prev => prev.map(u => u.id === currentUser.id ? updatedLeader : u));
-    if (setCurrentUser) {
-      setCurrentUser(updatedLeader);
-    }
+    if (isCreatingSquad) return;
+    setErrorMsg(null);
+    const name = newSquadNameInput.trim() || ('جوخه ' + (currentUser.last_name || 'عملیاتی'));
+    setIsCreatingSquad(true);
     try {
-      localStorage.setItem('warroom_current_user_data', JSON.stringify(updatedLeader));
-    } catch {}
-    setNewSquadNameInput('');
-    triggerAlert(`جوخه «${name}» تشکیل شد و شما به عنوان فرمانده آن تعیین شدید.`);
+      const result = await apiCreateLeaderGroup({
+        name,
+        education_level: currentUser.education_level || 'متوسطه دوم',
+        gender: currentUser.gender || 'پسر',
+        province: currentUser.province || 'تهران',
+        city: currentUser.city || 'تهران',
+      });
+      if (!result.ok || !result.data) {
+        setErrorMsg(result.error?.message || 'ایجاد جوخه در سرور ناموفق بود.');
+        return;
+      }
+      const newGroup = result.data.group;
+      const updatedLeader: User = {
+        ...currentUser,
+        ...result.data.user,
+        id: currentUser.id,
+        group_id: newGroup.id,
+        role: 'leader',
+        squad_rank: 'commander',
+        password: '',
+      } as User;
+      setGroups(prev => [...prev.filter(group => group.id !== newGroup.id), newGroup]);
+      setUsers(prev => prev.map(user => user.id === currentUser.id ? updatedLeader : user));
+      if (setCurrentUser) setCurrentUser(updatedLeader);
+      try { localStorage.setItem('warroom_current_user_data', JSON.stringify(updatedLeader)); } catch {}
+      setNewSquadNameInput('');
+      triggerAlert('جوخه «' + newGroup.name + '» در پایگاه داده ثبت شد و حساب شما به فرمانده آن متصل شد.');
+    } catch {
+      setErrorMsg('ایجاد جوخه ناموفق بود؛ اتصال سرور را بررسی کنید.');
+    } finally {
+      setIsCreatingSquad(false);
+    }
   };
 
   const requestToJoinGroup = (targetGroup: Group) => {
@@ -161,9 +169,10 @@ export default function SquadManagementModal({
     }
   };
 
-  // Submit Add or Edit Member
+  // Create member account and bcrypt credential atomically through the server API.
   const handleSubmitMember = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isSavingMember) return;
     setErrorMsg(null);
 
     const firstName = memberForm.first_name.trim();
@@ -173,16 +182,17 @@ export default function SquadManagementModal({
     const cleanBirthDate = normalizeToEnglishDigits(memberForm.birth_date).trim();
 
     if (!firstName || !lastName) {
-      setErrorMsg('لطفاً نام و نام خانوادگی عضو جدید را وارد نمایید.');
+      setErrorMsg('لطفاً نام و نام خانوادگی عضو را وارد نمایید.');
       return;
     }
-
-    if (cleanNatCode.length !== 10) {
-      setErrorMsg('کد ملی باید دقیقاً ۱۰ رقم باشد.');
+    if (!validateNationalCode(cleanNatCode)) {
+      setErrorMsg('کد ملی معتبر ۱۰ رقمی وارد کنید.');
       return;
     }
-
-    // Check duplicate in local state
+    if (!editingUserId && !/^09\d{9}$/.test(cleanPhone)) {
+      setErrorMsg('برای عضو جدید شماره موبایل معتبر ۱۱ رقمی وارد کنید.');
+      return;
+    }
     const duplicateInUsers = users.some(u => u.id !== editingUserId && (
       (u.national_code && normalizeToEnglishDigits(u.national_code).replace(/\D/g, '') === cleanNatCode) ||
       (u.personal_code && normalizeToEnglishDigits(u.personal_code).replace(/\D/g, '') === cleanNatCode)
@@ -192,44 +202,14 @@ export default function SquadManagementModal({
       return;
     }
 
-    // Determine target group
-    let targetGroupId = currentUser.group_id;
-    if (!targetGroupId) {
-      targetGroupId = `g-${Date.now()}`;
-      const autoGroup: Group = {
-        id: targetGroupId,
-        name: `جوخه ${currentUser.last_name || 'عملیاتی'}`,
-        leader_id: currentUser.id,
-        members_count: 1,
-        member_ids: [currentUser.id],
-        education_level: currentUser.education_level || 'متوسطه دوم',
-        gender: currentUser.gender || 'پسر',
-        province: currentUser.province || 'تهران',
-        city: currentUser.city || 'تهران',
-        registration_code: generateRegistrationCode(),
-        created_at: new Date().toISOString(),
-      };
-      setGroups(prev => [...prev, autoGroup]);
-      const updatedLeader: User = {
-        ...currentUser,
-        group_id: targetGroupId,
-        role: 'leader',
-        squad_rank: 'commander'
-      };
-      setUsers(prev => prev.map(u => u.id === currentUser.id ? updatedLeader : u));
-      if (setCurrentUser) {
-        setCurrentUser(updatedLeader);
-      }
-      try {
-        localStorage.setItem('warroom_current_user_data', JSON.stringify(updatedLeader));
-      } catch {}
-    }
-
     if (editingUserId) {
-      // Edit existing member
       const existingMember = users.find(user => user.id === editingUserId);
       if (!existingMember) {
         setErrorMsg('حساب نیروی انتخاب‌شده پیدا نشد.');
+        return;
+      }
+      if (memberForm.password.trim()) {
+        setErrorMsg('تغییر رمز از این فرم انجام نمی‌شود؛ از مسیر امن تغییر یا بازیابی رمز استفاده کنید.');
         return;
       }
       const updatedMember: User = {
@@ -241,68 +221,74 @@ export default function SquadManagementModal({
         grade: memberForm.grade,
         birth_date: cleanBirthDate || existingMember.birth_date,
         squad_rank: memberForm.squad_rank,
-        password: memberForm.password ? await sha256Hex(memberForm.password) : existingMember.password,
-        role: memberForm.squad_rank === 'commander' ? 'leader' : memberForm.squad_rank === 'soldier' ? 'member' : 'user'
+        role: existingMember.role,
       };
       setUsers(prev => prev.map(user => user.id === editingUserId ? updatedMember : user));
-      
-      // Attempt background save without blocking
       if (isSupabaseEnabled) {
         saveUserProgressToSupabase(updatedMember).catch(err => {
           console.warn('[SquadManagement] Supabase member update note:', err);
         });
       }
-
-      triggerAlert(`اطلاعات رزمنده "${firstName} ${lastName}" به‌روزرسانی شد.`);
+      triggerAlert('اطلاعات رزمنده «' + firstName + ' ' + lastName + '» به‌روزرسانی شد.');
       setEditingUserId(null);
     } else {
-      // Add new member (check max 6 limit)
+      const targetGroupId = currentUser.group_id;
+      if (!targetGroupId) {
+        setErrorMsg('ابتدا از همین پنل جوخه را ایجاد کنید؛ سپس عضو اضافه کنید.');
+        return;
+      }
       if (squadMembers.length >= 6) {
         setErrorMsg('سقف اعضای جوخه (حداکثر ۶ نفر) تکمیل است.');
         return;
       }
-
-      const defaultPass = memberForm.password.trim() || '123456';
-      const newMember: User = {
-        id: `u-mem-${Date.now()}`,
-        first_name: firstName,
-        last_name: lastName,
-        national_code: cleanNatCode,
-        phone: cleanPhone || '09120000000',
-        password: await sha256Hex(defaultPass),
-        role: memberForm.squad_rank === 'commander' ? 'leader' : memberForm.squad_rank === 'soldier' ? 'member' : 'user',
-        education_level: currentUser.education_level || 'متوسطه دوم',
-        grade: memberForm.grade || currentUser.grade || 'یازدهم',
-        gender: currentUser.gender,
-        province: currentUser.province,
-        city: currentUser.city,
-        birth_date: cleanBirthDate || '1387/05/15',
-        school_name: currentUser.school_name,
-        personal_code: generatePersonalCode(),
-        group_id: targetGroupId,
-        squad_rank: memberForm.squad_rank
-      };
-
-      // Instantly add to local users state
-      setUsers(prev => [...prev, newMember]);
-      
-      // Update group members count
-      setGroups(prev => prev.map(g => 
-        g.id === targetGroupId ? { 
-          ...g, 
-          members_count: (g.members_count || 0) + 1,
-          member_ids: Array.from(new Set([...(g.member_ids || []), newMember.id]))
-        } : g
-      ));
-
-      // Attempt background save without blocking
-      if (isSupabaseEnabled) {
-        saveUserProgressToSupabase(newMember).catch(err => {
-          console.warn('[SquadManagement] Supabase member save note:', err);
-        });
+      const password = memberForm.password.trim();
+      if (password.length < 8 || password.length > 128 || /\s/.test(password) ||
+          !/[A-Za-z]/.test(password) || !/\d/.test(password) ||
+          /123456|password|qwerty|111111|abc123/i.test(password)) {
+        setErrorMsg('رمز اولیه باید حداقل ۸ نویسه، شامل حرف لاتین و رقم و غیرقابل‌حدس باشد.');
+        return;
       }
 
-      triggerAlert(`رزمنده جدید "${newMember.first_name} ${newMember.last_name}" با موفقیت ایجاد و به جوخه افزوده شد.`);
+      setIsSavingMember(true);
+      try {
+        const result = await apiCreateSquadMember(targetGroupId, {
+          first_name: firstName,
+          last_name: lastName,
+          national_code: cleanNatCode,
+          phone: cleanPhone,
+          grade: memberForm.grade || currentUser.grade || 'یازدهم',
+          birth_date: cleanBirthDate || '1387/05/15',
+          gender: currentUser.gender || 'پسر',
+          education_level: currentUser.education_level || 'متوسطه دوم',
+          province: currentUser.province || 'تهران',
+          city: currentUser.city || 'تهران',
+          school_name: currentUser.school_name || '',
+          personal_code: generatePersonalCode(),
+          squad_rank: memberForm.squad_rank,
+        }, password);
+        if (!result.ok || !result.data) {
+          setErrorMsg(result.error?.message || 'ایجاد حساب عضو در سرور ناموفق بود.');
+          return;
+        }
+        const newMember: User = { ...result.data.user, password: '' } as User;
+        setUsers(prev => [...prev.filter(user => user.id !== newMember.id), newMember]);
+        if (result.data.group) {
+          const updatedGroup = result.data.group;
+          setGroups(prev => prev.map(group => group.id === updatedGroup.id ? updatedGroup : group));
+        } else {
+          setGroups(prev => prev.map(group => group.id === targetGroupId ? {
+            ...group,
+            members_count: (group.members_count || 0) + 1,
+            member_ids: Array.from(new Set([...(group.member_ids || []), newMember.id])),
+          } : group));
+        }
+        triggerAlert('حساب «' + newMember.first_name + ' ' + newMember.last_name + '» ثبت شد. نام ورود کد ملی است؛ رمز اولیه را امن به عضو بدهید. تغییر رمز در اولین ورود اجباری است.');
+      } catch {
+        setErrorMsg('ارتباط با سرور برقرار نشد؛ عضو به‌صورت محلی اضافه نشد.');
+        return;
+      } finally {
+        setIsSavingMember(false);
+      }
     }
 
     setMemberForm({
@@ -313,7 +299,7 @@ export default function SquadManagementModal({
       grade: currentUser.grade || 'یازدهم',
       birth_date: '1387/05/15',
       password: '',
-      squad_rank: 'soldier'
+      squad_rank: 'soldier',
     });
     setShowAddForm(false);
   };
@@ -431,9 +417,10 @@ export default function SquadManagementModal({
               />
               <button
                 type="submit"
-                className="bg-cyan-600 hover:bg-cyan-500 text-white text-xs font-bold px-4 py-2 rounded-lg transition"
+                className="bg-cyan-600 hover:bg-cyan-500 text-white text-xs font-bold px-4 py-2 rounded-lg transition disabled:opacity-50"
+                disabled={isCreatingSquad}
               >
-                تشکیل جوخه
+                {isCreatingSquad ? "در حال ایجاد..." : "تشکیل جوخه"}
               </button>
             </div>
           </form>
@@ -556,14 +543,15 @@ export default function SquadManagementModal({
 
             <div className="grid grid-cols-2 gap-2">
               <div>
-                <label className="block text-[11px] font-bold text-slate-300 mb-1">رمز عبور:</label>
+                <label className="block text-[11px] font-bold text-slate-300 mb-1">رمز اولیه (تغییر در اولین ورود اجباری):</label>
                 <input
                   type="password"
                   value={memberForm.password}
                   onChange={(e) => setMemberForm({ ...memberForm, password: e.target.value })}
                   className="w-full bg-slate-900 border border-slate-800 rounded-lg px-2.5 py-1.5 text-xs text-white"
                   required={!editingUserId}
-                  minLength={6}
+                  minLength={8}
+                  maxLength={128}
                 />
               </div>
               <div>
@@ -591,9 +579,10 @@ export default function SquadManagementModal({
               </button>
               <button
                 type="submit"
-                className="w-2/3 bg-red-700 hover:bg-red-600 text-white text-xs font-bold py-2 rounded-lg transition"
+                className="w-2/3 bg-red-700 hover:bg-red-600 text-white text-xs font-bold py-2 rounded-lg transition disabled:opacity-50"
+                disabled={isSavingMember}
               >
-                {editingUserId ? 'ثبت تغییرات' : 'افزودن به اعضا'}
+                {isSavingMember ? "در حال ذخیره امن..." : editingUserId ? 'ثبت تغییرات' : 'افزودن و ساخت حساب کاربری'}
               </button>
             </div>
           </form>

@@ -7,6 +7,10 @@ LOCK_FILE="/run/lock/deploy-warroom.lock"
 HEALTH_URL="http://127.0.0.1:3100/api/ready"
 HEALTH_FILE="/tmp/warroom-api-ready.json"
 
+SOURCE_SWITCHED=0
+CUTOVER_STARTED=0
+ROLLBACK_IN_PROGRESS=0
+
 echo
 echo "========================================"
 echo "      WARROOM DIRECT SERVER DEPLOY"
@@ -62,14 +66,13 @@ chmod 600 .env
 
 # Fail early without disclosing environment values.
 for key in REDIS_PASSWORD SUPABASE_URL SUPABASE_SERVICE_ROLE_KEY OTP_CHALLENGE_SECRET OTP_SECRET SESSION_SECRET VITE_SUPABASE_URL VITE_SUPABASE_PUBLISHABLE_KEY IPPANEL_API_KEY; do
-  if ! grep -Eq "^${key}=.+" .env; then
+  if ! grep -Eq "^\${key}=.+" .env; then
     echo "ERROR: required environment variable is missing or empty: $key" >&2
     exit 1
   fi
 done
 
-# Save the currently deployed image IDs and tags BEFORE building new images.
-# This lets rollback restore exact old images even after Docker tags are replaced.
+# Capture exact currently deployed image IDs and references before building replacements.
 CURRENT_SERVICES="$(docker compose config --services)"
 if grep -Fxq 'web' <<< "$CURRENT_SERVICES" && grep -Fxq 'api' <<< "$CURRENT_SERVICES"; then
   PREVIOUS_MODE="compose"
@@ -107,55 +110,67 @@ restore_previous_image_tags() {
 }
 
 rollback_deployment() {
+  ROLLBACK_IN_PROGRESS=1
+  SOURCE_SWITCHED=0
+  CUTOVER_STARTED=0
   echo "Deployment failed; attempting rollback to $PREVIOUS_COMMIT." >&2
   set +e
   git reset --hard "$PREVIOUS_COMMIT"
-
-  # Restore exact previous image tags before recreating containers.
   restore_previous_image_tags
-
-  # Remove only named application containers, never volumes. Redis data remains persisted.
+  # Remove application containers, never volumes; persistent Redis data is retained.
   docker rm -f warroom-web warroom-api warroom-redis >/dev/null 2>&1
   docker compose up -d --remove-orphans
   docker compose ps
   set -e
 }
 
+handle_exit() {
+  local status=$?
+  if [[ "$status" -ne 0 && "$SOURCE_SWITCHED" -eq 1 && "$ROLLBACK_IN_PROGRESS" -eq 0 ]]; then
+    if [[ "$CUTOVER_STARTED" -eq 1 ]]; then
+      rollback_deployment
+    else
+      echo "Deployment stopped before cutover; restoring source and image tags." >&2
+      set +e
+      git reset --hard "$PREVIOUS_COMMIT"
+      restore_previous_image_tags
+      set -e
+      SOURCE_SWITCHED=0
+    fi
+  fi
+  return "$status"
+}
+trap handle_exit EXIT
+trap 'exit 130' INT
+trap 'exit 143' TERM
+
 echo "[2/7] Switching source to target commit..."
 git reset --hard "$TARGET_COMMIT"
+SOURCE_SWITCHED=1
 
 echo "[3/7] Validating Compose configuration..."
 if ! docker compose config -q; then
-  echo "ERROR: Compose configuration failed; restoring source and image tags." >&2
-  git reset --hard "$PREVIOUS_COMMIT"
-  restore_previous_image_tags
+  echo "ERROR: Compose configuration failed." >&2
   exit 1
 fi
 
 echo "[4/7] Building images before touching the running site..."
 if ! docker compose build --pull; then
-  echo "ERROR: image build failed; running containers remain untouched. Restoring source and image tags." >&2
-  git reset --hard "$PREVIOUS_COMMIT"
-  restore_previous_image_tags
+  echo "ERROR: image build failed; running containers have not been intentionally stopped." >&2
   exit 1
 fi
 
-# Release port 3100 from the legacy frontend only after successful image builds.
+# From this point, an interruption triggers a rollback as well.
+CUTOVER_STARTED=1
 if [[ "$PREVIOUS_MODE" == "legacy" ]] &&
    docker ps --format '{{.Names}}' | grep -Fxq 'warroom-v4'; then
   echo "Stopping legacy frontend container..."
-  if ! docker stop warroom-v4 >/dev/null; then
-    echo "ERROR: could not stop the legacy frontend; restoring source and image tags." >&2
-    git reset --hard "$PREVIOUS_COMMIT"
-    restore_previous_image_tags
-    exit 1
-  fi
+  docker stop warroom-v4 >/dev/null
 fi
 
 echo "[5/7] Starting updated services..."
 if ! docker compose up -d --remove-orphans; then
   docker compose logs --tail=80 api web >&2 || true
-  rollback_deployment
   exit 1
 fi
 
@@ -193,9 +208,12 @@ if [[ "$READY" -ne 1 ]]; then
   echo "ERROR: readiness did not pass. The deployment will be rolled back." >&2
   docker compose ps >&2 || true
   docker compose logs --tail=80 api web >&2 || true
-  rollback_deployment
   exit 1
 fi
+
+# Health is confirmed; do not roll back for a later cosmetic/reporting failure.
+CUTOVER_STARTED=0
+SOURCE_SWITCHED=0
 
 echo "[7/7] Deployment successful."
 docker compose ps

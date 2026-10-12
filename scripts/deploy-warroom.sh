@@ -61,7 +61,7 @@ chmod 600 .env
 
 # Fail early without disclosing secret values.
 for key in REDIS_PASSWORD SUPABASE_URL SUPABASE_SERVICE_ROLE_KEY OTP_CHALLENGE_SECRET OTP_SECRET SESSION_SECRET VITE_SUPABASE_URL VITE_SUPABASE_PUBLISHABLE_KEY IPPANEL_API_KEY; do
-  if ! grep -Eq "^\${key}=.+" .env; then
+  if ! grep -Eq "^${key}=.+" .env; then
     echo "ERROR: required environment variable is missing or empty: $key" >&2
     exit 1
   fi

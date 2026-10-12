@@ -1617,6 +1617,7 @@ export default function App() {
                             saveUserProgressToSupabase(updated);
                           }
                         }}
+                        setGroups={setGroups}
                       />
                     )}
 

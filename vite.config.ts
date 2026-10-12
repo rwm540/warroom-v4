@@ -126,6 +126,7 @@ export default defineConfig(() => {
         '/api/health': { target: process.env.WARROOM_API_TARGET || 'http://127.0.0.1:4010', changeOrigin: true },
         '/api/password-reset': { target: process.env.WARROOM_API_TARGET || 'http://127.0.0.1:4010', changeOrigin: true },
         '/api/registration': { target: process.env.WARROOM_API_TARGET || 'http://127.0.0.1:4010', changeOrigin: true },
+        '/api/squads': { target: process.env.WARROOM_API_TARGET || 'http://127.0.0.1:4010', changeOrigin: true },
       },
     },
     test: {

@@ -17,6 +17,8 @@ interface GroupChatPanelProps {
   isModal?: boolean;
   onClose?: () => void;
   onOpenSquadModal?: () => void;
+  /** باز کردن فرم ثبت زیرگروه — فقط برای سرگروه جوخهٔ فعال */
+  onCreateSubgroup?: () => void;
 }
 
 export default function GroupChatPanel({ 
@@ -31,7 +33,8 @@ export default function GroupChatPanel({
   mobileMode = false, 
   isModal = false,
   onClose,
-  onOpenSquadModal 
+  onOpenSquadModal,
+  onCreateSubgroup
 }: GroupChatPanelProps) {
   const isAdminUser = currentUser?.role === 'admin';
   const adminGroupOptions = useMemo(
@@ -197,6 +200,15 @@ export default function GroupChatPanel({
     return groups.filter(g => connectedGroupIds.has(g.id) && Boolean(g?.id));
   }, [groups, groupJoinRequests, syncedUserGroupId, currentUser?.group_id, currentUser?.id, currentGroup]);
   
+  // سرگروه جوخهٔ فعال می‌تواند از داخل همین چت‌روم زیرگروه ثبت کند.
+  const canCreateSubgroup = useMemo(() => {
+    if (!onCreateSubgroup || effectiveGroupId === 'general_headquarters') return false;
+    const squad = groups.find(group => group?.id === effectiveGroupId);
+    if (!squad) return false;
+    if (squad.status === 'merged') return false;
+    return isAdminUser || squad.leader_id === currentUser?.id;
+  }, [onCreateSubgroup, effectiveGroupId, groups, isAdminUser, currentUser?.id]);
+
   // All pending requests addressed to user's squad or to user directly
   const pendingIncoming = useMemo(() => {
     const targetIds = new Set([syncedUserGroupId, currentUser?.group_id, currentUser?.id].filter(Boolean));
@@ -720,6 +732,32 @@ export default function GroupChatPanel({
                   </span>
                 )}
               </div>
+
+              {/* Create a subgroup straight from this chat room */}
+              {canCreateSubgroup && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsGroupMenuOpen(false);
+                    onCreateSubgroup?.();
+                  }}
+                  className="w-full flex items-center justify-between gap-2 rounded-xl border border-dashed border-cyan-500/40 bg-cyan-500/5 p-2.5 text-right transition hover:bg-cyan-500/15"
+                  title="ثبت زیرگروه جدید و ساخت حساب کاربری مستقل برای اعضای آن"
+                >
+                  <span className="flex items-center gap-2 min-w-0">
+                    <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-cyan-500/20 text-cyan-300">
+                      <UserPlus size={15} />
+                    </span>
+                    <span className="min-w-0">
+                      <span className="block text-[11px] font-bold text-white">ثبت زیرگروه جدید</span>
+                      <span className="block text-[9px] text-slate-400">
+                        برای هر عضو حساب ورود مستقل ساخته می‌شود
+                      </span>
+                    </span>
+                  </span>
+                  <Sparkles size={14} className="shrink-0 text-cyan-300" />
+                </button>
+              )}
 
               {/* Connected / Approved Squads */}
               {approvedSquads.map(squad => {

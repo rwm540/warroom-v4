@@ -241,6 +241,34 @@ export async function checkPasswordResetStatusSecure(
 }
 
 /* ------------------------------------------------------------------ */
+/* Leader group management (server session + CSRF; authorization is server-side) */
+/* ------------------------------------------------------------------ */
+
+export interface GroupMutationResponse extends ApiEnvelope {
+  success: boolean;
+  group?: Record<string, unknown>;
+  user?: ApiSessionUser;
+  mustChangePassword?: boolean;
+}
+
+export async function createLeaderGroupSecure(
+  group: Record<string, unknown>,
+): Promise<GroupMutationResponse> {
+  return apiRequest<GroupMutationResponse>('/api/groups', { body: group });
+}
+
+export async function createLeaderGroupMemberSecure(
+  groupId: string,
+  user: Record<string, unknown>,
+  password: string,
+): Promise<GroupMutationResponse> {
+  return apiRequest<GroupMutationResponse>(
+    `/api/groups/${encodeURIComponent(groupId)}/members`,
+    { body: { ...user, password } },
+  );
+}
+
+/* ------------------------------------------------------------------ */
 /* Admin (server-side session + admin role + operation-bound OTP proof) */
 /* ------------------------------------------------------------------ */
 

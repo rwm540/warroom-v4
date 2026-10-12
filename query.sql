@@ -907,7 +907,12 @@ begin
 end;
 $$;
 
--- جستجو و فهرست‌گیری اتاق‌های گفتگو
+-- حذف گروه‌های متعلق به کاربر پس از حذف او
+create or replace function public.warroom_delete_owned_group_after_user_delete()
+returns trigger
+language plpgsql
+security definer
+set search_path = public, pg_temp
 as $$
 declare
   owned_group_id text;
@@ -918,23 +923,32 @@ begin
     where data->>'leader_id' = old.id
   loop
     update public.warroom_users
-      set data = data - 'group_id' - 'is_group_member', updated_at = now()
+      set data = data - 'group_id' - 'is_group_member',
+          updated_at = now()
       where data->>'group_id' = owned_group_id;
+
     delete from public.warroom_group_chat_messages
       where data->>'group_id' = owned_group_id;
+
     delete from public.warroom_group_chat_rooms
       where data->>'group_id' = owned_group_id;
+
     delete from public.warroom_group_join_requests
       where data->>'target_group_id' = owned_group_id
          or data->>'source_group_id' = owned_group_id;
+
     delete from public.warroom_team_registration_sessions
       where data->>'group_id' = owned_group_id;
+
     delete from public.warroom_groups
       where id = owned_group_id;
   end loop;
+
   return old;
 end;
 $$;
+
+
 
 drop trigger if exists trg_warroom_delete_owned_group_after_user_delete on public.warroom_users;
 create trigger trg_warroom_delete_owned_group_after_user_delete

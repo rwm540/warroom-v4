@@ -56,6 +56,7 @@ import StageQuizModal from './StageQuizModal';
 import DailyChallengeModal from './DailyChallengeModal';
 import GameCharacterGuideModal from './common/GameCharacterGuideModal';
 import CountdownTimerCard from './home/CountdownTimerCard';
+import GroupTimerBar from './GroupTimerBar';
 import { getAvatarsByGender, getDefaultAvatar } from '../data/avatars';
 
 // Project commander character avatars
@@ -87,6 +88,7 @@ interface JourneyViewProps {
   onAwardDailyPoints?: (points: number) => void;
   dailyChallengeConfig?: DailyChallengeConfig | null;
   siteSettings?: SiteSettings;
+  setGroups?: React.Dispatch<React.SetStateAction<Group[]>>;
 }
 
 export default function JourneyView({
@@ -109,7 +111,8 @@ export default function JourneyView({
   onStageCompleted,
   onAwardDailyPoints,
   dailyChallengeConfig,
-  siteSettings
+  siteSettings,
+  setGroups
 }: JourneyViewProps) {
   // ⏰ وضعیت شمارش معکوس مسابقات و قفل مراحل بازی
   const isTimerDisabled = siteSettings?.showCountdownTimer === false;
@@ -266,6 +269,20 @@ export default function JourneyView({
 
   const userGroup = groups.find(g => g.id === currentUser?.group_id);
   const earnedUserMedals = userMedals.filter(um => um.personal_code === currentUser?.personal_code);
+
+  // تشخیص اینکه آیا کاربر فعلی سرگروه است
+  const isGroupLeader = currentUser?.role === 'leader' || currentUser?.role === 'admin' || (userGroup && userGroup.leader_id === currentUser?.id);
+
+  // شروع تایمر ۱۴ روزه گروه (فقط برای سرگروه و فقط یک بار)
+  const handleGroupTimerStart = (groupId: string) => {
+    if (!setGroups) return;
+    setGroups((prev: Group[]) => prev.map((g: Group) => {
+      if (g.id === groupId && !g.timer_started_at) {
+        return { ...g, timer_started_at: new Date().toISOString() };
+      }
+      return g;
+    }));
+  };
 
   const handleCopyPersonalCode = () => {
     if (!currentUser?.personal_code) return;
@@ -734,6 +751,21 @@ export default function JourneyView({
               onExpire={(expired) => setIsTimerExpired(expired)}
             />
           </div>
+        )}
+
+        {/* ========================================================================= */}
+        {/* ⏱️ GROUP LEADER 14-DAY TIMER (تایمر ۱۴ روزه سرگروه - زیرگره‌ها همان تایمر را می‌بینند) */}
+        {/* ========================================================================= */}
+        {currentUser && (
+          <GroupTimerBar
+            currentGroup={userGroup}
+            groups={groups}
+            isLeader={!!isGroupLeader}
+            isGirls={isGirls}
+            onTimerStart={handleGroupTimerStart}
+            enabled={siteSettings?.enableGroupTimer !== false}
+            timerDays={siteSettings?.groupTimerDays || 14}
+          />
         )}
 
         {/* ========================================================================= */}

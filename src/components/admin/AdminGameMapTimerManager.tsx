@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Clock, Calendar, Save, Sparkles, Check, AlertCircle, ShieldAlert, Zap, Timer, RefreshCw } from 'lucide-react';
+import { Clock, Calendar, Save, Sparkles, Check, AlertCircle, ShieldAlert, Zap, Timer, RefreshCw, Users, Shield, Settings } from 'lucide-react';
 import { SiteSettings } from '../../types';
 import { formatToPersianDigits, normalizeToEnglishDigits } from '../../utils/jalali';
 import { CountdownTimerCard } from '../home/CountdownTimerCard';
@@ -15,7 +15,7 @@ export const AdminGameMapTimerManager: React.FC<AdminGameMapTimerManagerProps> =
   setSiteSettings,
   triggerAlert
 }) => {
-  // Local state synced with siteSettings
+  // ── تایمر کلی مسابقه ──
   const [timerDeadline, setTimerDeadline] = useState<string>(
     siteSettings?.gameMapTimerDeadline || siteSettings?.countdownTargetDate || '2026-11-01T23:59:59Z'
   );
@@ -25,6 +25,20 @@ export const AdminGameMapTimerManager: React.FC<AdminGameMapTimerManagerProps> =
   const [showCountdownTimer, setShowCountdownTimer] = useState<boolean>(
     siteSettings?.showCountdownTimer !== false
   );
+
+  // ── تنظیمات امتیاز سخت‌گیرانه (منتقل شده از بخش نقشه) ──
+  const [enforcePoints, setEnforcePoints] = useState<boolean>(
+    siteSettings?.gameMapEnforcePoints !== false
+  );
+
+  // ── تنظیمات تایمر ۱۴ روزه سرگروه ──
+  const [enableGroupTimer, setEnableGroupTimer] = useState<boolean>(
+    siteSettings?.enableGroupTimer !== false
+  );
+  const [groupTimerDays, setGroupTimerDays] = useState<number>(
+    siteSettings?.groupTimerDays || 14
+  );
+
   const [isSaving, setIsSaving] = useState(false);
 
   // Live countdown breakdown calculation in JavaScript
@@ -69,12 +83,15 @@ export const AdminGameMapTimerManager: React.FC<AdminGameMapTimerManagerProps> =
   const handleSaveTimerSettings = async () => {
     setIsSaving(true);
     try {
-      const updatedSettings = {
+      const updatedSettings: SiteSettings = {
         ...siteSettings,
         gameMapTimerDeadline: timerDeadline,
         countdownTargetDate: timerDeadline,
         heroCountdown: heroCountdown.trim(),
         showCountdownTimer: showCountdownTimer,
+        gameMapEnforcePoints: enforcePoints,
+        enableGroupTimer: enableGroupTimer,
+        groupTimerDays: groupTimerDays,
         updatedAt: new Date().toISOString()
       };
 
@@ -94,7 +111,7 @@ export const AdminGameMapTimerManager: React.FC<AdminGameMapTimerManagerProps> =
         console.warn('Supabase timer update warning:', err);
       }
 
-      triggerAlert('⏰ تنظیمات تایمر و مهلت مسابقه با موفقیت در سیستم ذخیره گردید.');
+      triggerAlert('⏰ تمام تنظیمات تایمر و مهلت‌ها با موفقیت در سیستم ذخیره گردید.');
     } catch (err) {
       triggerAlert('خطا در ذخیره تنظیمات تایمر!');
     } finally {
@@ -127,7 +144,10 @@ export const AdminGameMapTimerManager: React.FC<AdminGameMapTimerManagerProps> =
 
   return (
     <div className="space-y-6 dir-rtl font-sans">
-      {/* Header Banner */}
+
+      {/* ============================================================ */}
+      {/* HEADER BANNER                                                 */}
+      {/* ============================================================ */}
       <div className="bg-gradient-to-r from-amber-950/80 via-[#0a1630] to-[#080d21] border border-amber-500/40 rounded-3xl p-5 sm:p-7 shadow-2xl relative overflow-hidden">
         <div className="absolute -left-10 -top-10 w-48 h-48 bg-amber-500/10 rounded-full blur-3xl pointer-events-none" />
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 relative z-10">
@@ -140,7 +160,7 @@ export const AdminGameMapTimerManager: React.FC<AdminGameMapTimerManagerProps> =
               مدیریت تایمر مراحل و نقشه بازی
             </h2>
             <p className="text-xs text-slate-300 leading-relaxed max-w-2xl">
-              در این بخش می‌توانید مهلت زمانی پایانی مسابقه (DeadLine) را مشخص فرمایید. این زمان در بالای نقشه بازی به صورت زنده (محاسبه در کلاینت) نمایش داده می‌شود. پس از انقضای تایمر، صعود به مراحل بعدی مسدود می‌شود.
+              تنظیم مهلت زمانی کلی مسابقه، تایمر اختصاصی سرگروه‌ها و قوانین سخت‌گیرانه امتیاز مراحل. تمام زمان‌سنج‌ها در این بخش مدیریت می‌شوند.
             </p>
           </div>
 
@@ -150,15 +170,17 @@ export const AdminGameMapTimerManager: React.FC<AdminGameMapTimerManagerProps> =
             className="flex items-center justify-center gap-2 px-6 py-3.5 rounded-2xl bg-gradient-to-r from-amber-500 via-yellow-400 to-amber-500 text-slate-950 font-black text-sm shadow-[0_0_25px_rgba(245,158,11,0.4)] hover:brightness-110 active:scale-95 transition cursor-pointer shrink-0 disabled:opacity-50"
           >
             <Save size={18} />
-            <span>{isSaving ? 'در حال ذخیره‌سازی...' : 'ذخیره تنظیمات تایمر'}</span>
+            <span>{isSaving ? 'در حال ذخیره‌سازی...' : 'ذخیره تمام تنظیمات تایمر'}</span>
           </button>
         </div>
       </div>
 
-      {/* Main Settings Grid */}
+      {/* ============================================================ */}
+      {/* SECTION 1: تایمر کلی مسابقه + پیش‌نمایش زنده                  */}
+      {/* ============================================================ */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         
-        {/* Left Column: Form Controls */}
+        {/* ستون راست: فرم تنظیمات تایمر کلی */}
         <div className="bg-[#080d21] border border-slate-800 rounded-3xl p-5 sm:p-6 space-y-6 shadow-xl">
           <div className="flex items-center gap-2.5 pb-3 border-b border-slate-800">
             <Timer className="text-amber-400" size={20} />
@@ -205,34 +227,16 @@ export const AdminGameMapTimerManager: React.FC<AdminGameMapTimerManagerProps> =
           <div className="space-y-2">
             <label className="text-xs font-black text-slate-300 block">تمدید سریع مهلت مسابقه:</label>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-              <button
-                type="button"
-                onClick={() => applyPresetTime(1)}
-                className="px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 hover:border-amber-500/50 text-slate-300 hover:text-amber-300 text-xs font-bold transition cursor-pointer"
-              >
-                + ۱ روز
-              </button>
-              <button
-                type="button"
-                onClick={() => applyPresetTime(3)}
-                className="px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 hover:border-amber-500/50 text-slate-300 hover:text-amber-300 text-xs font-bold transition cursor-pointer"
-              >
-                + ۳ روز
-              </button>
-              <button
-                type="button"
-                onClick={() => applyPresetTime(7)}
-                className="px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 hover:border-amber-500/50 text-slate-300 hover:text-amber-300 text-xs font-bold transition cursor-pointer"
-              >
-                + ۷ روز (۱ هفته)
-              </button>
-              <button
-                type="button"
-                onClick={() => applyPresetTime(30)}
-                className="px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 hover:border-amber-500/50 text-slate-300 hover:text-amber-300 text-xs font-bold transition cursor-pointer"
-              >
-                + ۳۰ روز (۱ ماه)
-              </button>
+              {[1, 3, 7, 30].map(days => (
+                <button
+                  key={days}
+                  type="button"
+                  onClick={() => applyPresetTime(days)}
+                  className="px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 hover:border-amber-500/50 text-slate-300 hover:text-amber-300 text-xs font-bold transition cursor-pointer"
+                >
+                  + {formatToPersianDigits(days)} روز{days === 7 ? ' (۱ هفته)' : days === 30 ? ' (۱ ماه)' : ''}
+                </button>
+              ))}
             </div>
           </div>
 
@@ -252,7 +256,7 @@ export const AdminGameMapTimerManager: React.FC<AdminGameMapTimerManagerProps> =
 
         </div>
 
-        {/* Right Column: Live JS Preview */}
+        {/* ستون چپ: پیش‌نمایش زنده */}
         <div className="bg-[#080d21] border border-slate-800 rounded-3xl p-5 sm:p-6 space-y-6 shadow-xl flex flex-col justify-between">
           <div className="space-y-4">
             <div className="flex items-center justify-between pb-3 border-b border-slate-800">
@@ -315,8 +319,160 @@ export const AdminGameMapTimerManager: React.FC<AdminGameMapTimerManagerProps> =
             <span>با انقضای مهلت مسابقه، دکمه ورود به مراحل جدید غیرفعال می‌گردد ولی دسترسی به مراحل تکمیل شده و نقشه حفظ خواهد شد.</span>
           </div>
         </div>
-
       </div>
+
+      {/* ============================================================ */}
+      {/* SECTION 2: تایمر ۱۴ روزه سرگروه‌ها                             */}
+      {/* ============================================================ */}
+      <div className="bg-[#080d21] border border-cyan-500/40 rounded-3xl p-5 sm:p-6 space-y-5 shadow-xl relative overflow-hidden">
+        <div className="absolute -right-10 -bottom-10 w-40 h-40 bg-cyan-500/10 rounded-full blur-3xl pointer-events-none" />
+
+        <div className="flex items-center gap-3 pb-4 border-b border-slate-800/80 relative z-10">
+          <div className="w-10 h-10 rounded-xl bg-cyan-500/20 border border-cyan-500/40 text-cyan-400 flex items-center justify-center shrink-0 shadow-[0_0_15px_rgba(6,182,212,0.3)]">
+            <Users size={20} />
+          </div>
+          <div>
+            <h3 className="text-sm font-black text-white">تایمر اختصاصی سرگروه‌ها (مهلت انجام مراحل)</h3>
+            <p className="text-[11px] text-slate-400 mt-0.5">
+              هر سرگروه از زمان ورود، مهلت مشخصی برای انجام مراحل دارد. زیرگره‌ها همان تایمر سرگروه خود را می‌بینند.
+            </p>
+          </div>
+        </div>
+
+        <div className="space-y-4 relative z-10">
+
+          {/* فعال/غیرفعال تایمر گروه */}
+          <div className="flex items-center justify-between p-4 rounded-2xl bg-slate-950 border border-slate-800">
+            <div className="space-y-0.5">
+              <label className="text-xs font-black text-white flex items-center gap-2">
+                <Shield size={14} className="text-cyan-400" />
+                فعال‌سازی تایمر ۱۴ روزه سرگروه‌ها
+              </label>
+              <p className="text-[11px] text-slate-400">
+                با فعال‌سازی، هر سرگروه از لحظه ورود {formatToPersianDigits(groupTimerDays)} روز فرصت انجام مراحل خواهد داشت
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setEnableGroupTimer(!enableGroupTimer)}
+              className={`w-12 h-6 rounded-full transition-colors relative cursor-pointer ${
+                enableGroupTimer ? 'bg-cyan-500' : 'bg-slate-800'
+              }`}
+            >
+              <div className={`w-5 h-5 rounded-full bg-white transition-transform ${
+                enableGroupTimer ? 'translate-x-1' : 'translate-x-6'
+              }`} />
+            </button>
+          </div>
+
+          {/* تنظیم تعداد روزها */}
+          {enableGroupTimer && (
+            <>
+              <div className="space-y-2">
+                <label className="text-xs font-black text-slate-300 flex items-center gap-1.5">
+                  <Timer size={14} className="text-cyan-400" />
+                  <span>تعداد روزهای مهلت سرگروه:</span>
+                </label>
+                <div className="flex items-center gap-3">
+                  <input
+                    type="range"
+                    min="3"
+                    max="30"
+                    step="1"
+                    value={groupTimerDays}
+                    onChange={(e) => setGroupTimerDays(Number(e.target.value))}
+                    className="flex-1 accent-cyan-500 cursor-pointer"
+                  />
+                  <div className="bg-slate-950 border border-cyan-500/40 rounded-xl px-4 py-2 min-w-[80px] text-center">
+                    <span className="text-lg font-black font-mono text-cyan-300">{formatToPersianDigits(groupTimerDays)}</span>
+                    <span className="text-[10px] text-slate-400 block">روز</span>
+                  </div>
+                </div>
+                <div className="flex justify-between text-[9px] text-slate-500 font-mono">
+                  <span>۳ روز</span>
+                  <span>۷ روز</span>
+                  <span>۱۴ روز (پیش‌فرض)</span>
+                  <span>۳۰ روز</span>
+                </div>
+              </div>
+
+              {/* دکمه‌های پیش‌فرض سریع */}
+              <div className="flex items-center gap-2">
+                <span className="text-[11px] text-slate-400 font-bold">تنظیم سریع:</span>
+                {[7, 14, 21, 30].map(d => (
+                  <button
+                    key={d}
+                    type="button"
+                    onClick={() => setGroupTimerDays(d)}
+                    className={`px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer border ${
+                      groupTimerDays === d
+                        ? 'bg-cyan-500/20 text-cyan-300 border-cyan-500/40'
+                        : 'bg-slate-950 text-slate-400 border-slate-800 hover:text-cyan-300'
+                    }`}
+                  >
+                    {formatToPersianDigits(d)} روز
+                  </button>
+                ))}
+              </div>
+
+              {/* توضیحات عملکرد */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2 border-t border-slate-800/80">
+                <div className="p-3 rounded-xl bg-slate-950/80 border border-slate-800 space-y-1">
+                  <div className="flex items-center gap-1.5 text-xs font-bold text-cyan-300">
+                    <Shield size={13} />
+                    <span>سرگروه</span>
+                  </div>
+                  <p className="text-[10px] text-slate-400 leading-relaxed">
+                    تایمر از لحظه اولین ورود سرگروه شروع می‌شود و {formatToPersianDigits(groupTimerDays)} روز فرصت دارد.
+                  </p>
+                </div>
+                <div className="p-3 rounded-xl bg-slate-950/80 border border-slate-800 space-y-1">
+                  <div className="flex items-center gap-1.5 text-xs font-bold text-purple-300">
+                    <Users size={13} />
+                    <span>زیرگره‌ها</span>
+                  </div>
+                  <p className="text-[10px] text-slate-400 leading-relaxed">
+                    زیرگره‌ها تایمر جداگانه ندارند و دقیقاً تایمر سرگروه خود را مشاهده می‌کنند.
+                  </p>
+                </div>
+              </div>
+            </>
+          )}
+
+        </div>
+      </div>
+
+      {/* ============================================================ */}
+      {/* SECTION 3: قوانین سخت‌گیرانه امتیاز مراحل                      */}
+      {/* ============================================================ */}
+      <div className="bg-[#080d21] border border-emerald-500/40 rounded-3xl p-5 sm:p-6 space-y-4 shadow-xl">
+        <div className="flex items-center gap-3 pb-3 border-b border-slate-800/80">
+          <div className="w-10 h-10 rounded-xl bg-emerald-500/20 border border-emerald-500/40 text-emerald-400 flex items-center justify-center shrink-0 shadow-[0_0_15px_rgba(16,185,129,0.3)]">
+            <Settings size={20} />
+          </div>
+          <div>
+            <h3 className="text-sm font-black text-white">قوانین عبور از مراحل</h3>
+            <p className="text-[11px] text-slate-400 mt-0.5">کنترل سخت‌گیرانه امتیاز و پیش‌نیاز مراحل</p>
+          </div>
+        </div>
+
+        <div className="flex items-center justify-between p-4 rounded-2xl bg-slate-950 border border-slate-800">
+          <div className="space-y-0.5">
+            <span className="font-bold text-white text-xs block">اجبار سخت‌گیرانه امتیاز (نیاز به امتیاز کافی / پیش‌نیاز)</span>
+            <span className="text-[10px] text-slate-400">کاربر بدون کسب امتیاز مرحله یا تکمیل مرحله قبل نمی‌تواند وارد بازی شود</span>
+          </div>
+          <button
+            type="button"
+            onClick={() => setEnforcePoints(!enforcePoints)}
+            className={`px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer ${
+              enforcePoints ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40' : 'bg-slate-900 text-slate-400 border border-slate-700'
+            }`}
+          >
+            {enforcePoints ? 'فعال (سخت‌گیرانه) ✓' : 'غیرفعال'}
+          </button>
+        </div>
+      </div>
+
     </div>
   );
 };

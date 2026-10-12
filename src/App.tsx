@@ -657,10 +657,37 @@ export default function App() {
     }
   }, [currentUser]);
 
+  const ONBOARDING_COMPLETED_PREFIX = 'warroom_onboarding_completed:';
+  const selectedGameStorageKey = 'warroom_selected_game_id';
+
+  const hasCompletedOnboarding = (userId: string) => {
+    try {
+      return localStorage.getItem(`${ONBOARDING_COMPLETED_PREFIX}${userId}`) === 'true';
+    } catch {
+      return false;
+    }
+  };
+
+  const markOnboardingCompleted = (userId: string) => {
+    try {
+      localStorage.setItem(`${ONBOARDING_COMPLETED_PREFIX}${userId}`, 'true');
+    } catch {
+      // A restricted browser may deny storage; completing the guide must still close it.
+    }
+  };
+
   const clearAllAppStorage = () => {
     try {
-      const keys = [...Object.keys(localStorage)];
-      keys.forEach((key) => localStorage.removeItem(key));
+      // Keep per-user onboarding completion markers so the guide is shown only once,
+      // even after the user logs out and signs in again on this device.
+      const onboardingMarkers = Object.keys(localStorage)
+        .filter((key) => key.startsWith(ONBOARDING_COMPLETED_PREFIX))
+        .map((key) => [key, localStorage.getItem(key)] as const);
+      localStorage.clear();
+      onboardingMarkers.forEach(([key, value]) => {
+        if (value !== null) localStorage.setItem(key, value);
+      });
+      sessionStorage.removeItem(selectedGameStorageKey);
     } catch {
       // Ignore storage access issues in restricted contexts.
     }
@@ -1021,6 +1048,14 @@ export default function App() {
   };
 
   const handleLoginSuccess = async (user: User, _meta?: { mustChangePassword?: boolean; isNewRegistration?: boolean }) => {
+    // Every successful user login starts with a fresh mandatory game selection. This also
+    // prevents a game selected by a previous account in the same tab from skipping the portal.
+    try {
+      sessionStorage.removeItem(selectedGameStorageKey);
+    } catch {
+      // Continue when browser storage is restricted.
+    }
+
     // The session already exists server-side (HttpOnly cookie) and `user` is the profile the
     // backend returned for it; no client-held proof participates in authorization.
     const safeUser: User = { ...user, password: '' };
@@ -1086,7 +1121,7 @@ export default function App() {
     setIsGamePortalMandatory(false);
     setShowGamePortal(false);
     if (typeof window !== 'undefined') {
-      sessionStorage.setItem('warroom_selected_game_id', game?.id || 'warroom');
+      sessionStorage.setItem(selectedGameStorageKey, game?.id || 'warroom');
     }
     const user = currentUser;
 
@@ -1097,7 +1132,9 @@ export default function App() {
       } else {
         setIsAdminMode(false);
         setActiveTab('Journey');
-        setShowOnboardingTutorial(true); // Launch Commander Guided Tutorial
+        // Leaders, regular users, and enlisted subgroup members all receive the same entry
+        // sequence. The guide appears only until that specific user completes it once.
+        setShowOnboardingTutorial(!hasCompletedOnboarding(user.id));
       }
       triggerAlert(`ورود موفقیت‌آمیز به سامانه بازی «${game?.title || 'اتاق جنگ'}»`);
     } else {
@@ -1727,7 +1764,10 @@ export default function App() {
                 <OnboardingCommanderTutorial 
                   currentUser={currentUser}
                   guideConfig={guideConfig}
-                  onComplete={() => setShowOnboardingTutorial(false)}
+                  onComplete={() => {
+                    if (currentUser) markOnboardingCompleted(currentUser.id);
+                    setShowOnboardingTutorial(false);
+                  }}
                   onNavigateTab={(tab) => handleTabChange(tab)}
                 />
               )}

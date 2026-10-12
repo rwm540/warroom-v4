@@ -11,10 +11,8 @@
  *    for destructive operations, a fresh one-time admin OTP proof held in memory only.
  */
 
-import type { User, Group, PasswordResetRequest } from '../types';
+import type { User, PasswordResetRequest } from '../types';
 import {
-  createLeaderGroupSecure,
-  createLeaderGroupMemberSecure,
   adminAuditLogSecure,
   adminCreateUserSecure,
   adminListPasswordResetsSecure,
@@ -88,43 +86,6 @@ export function isBackendAvailable(): boolean {
 
 export async function ensureCsrfToken(): Promise<string | null> {
   return getCsrfToken();
-}
-
-/** Creates the current leader's first squad through the authenticated server session. */
-export async function apiCreateLeaderGroup(
-  payload: Record<string, unknown>,
-): Promise<ApiResult<{ group: Group; user: User }>> {
-  const result = await createLeaderGroupSecure(payload);
-  if (!result.success || !result.group || !result.user) {
-    return { ok: false, error: fromSecureError(result.error, 'GROUP_CREATE_FAILED', 'ایجاد جوخه ناموفق بود.') };
-  }
-  return {
-    ok: true,
-    data: {
-      group: result.group as unknown as Group,
-      user: { ...(result.user as unknown as User), password: '' } as User,
-    },
-  };
-}
-
-/** Persists a member account and its credential atomically on the server. */
-export async function apiCreateSquadMember(
-  groupId: string,
-  user: Record<string, unknown>,
-  password: string,
-): Promise<ApiResult<{ user: User; group?: Group; mustChangePassword: boolean }>> {
-  const result = await createLeaderGroupMemberSecure(groupId, user, password);
-  if (!result.success || !result.user) {
-    return { ok: false, error: fromSecureError(result.error, 'GROUP_MEMBER_CREATE_FAILED', 'افزودن عضو ناموفق بود.') };
-  }
-  return {
-    ok: true,
-    data: {
-      user: { ...(result.user as unknown as User), password: '' } as User,
-      group: result.group as unknown as Group | undefined,
-      mustChangePassword: result.mustChangePassword === true,
-    },
-  };
 }
 
 /** Probes the same-origin Node backend (never Supabase directly). */

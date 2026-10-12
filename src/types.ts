@@ -98,6 +98,7 @@ export interface Group {
   member_ids?: string[];
   parent_group_id?: string;
   status?: 'pending' | 'active' | 'complete' | 'merged';
+  timer_started_at?: string; // ISO timestamp when the 14-day group timer started (set on first login of leader)
 }
 
 export interface WalletTransaction {
@@ -707,6 +708,8 @@ export interface SiteSettings {
   gameMapConnectStagesWithRoad?: boolean; // اتصال خودکار خط جاده از روی مراحل درگ شده
   gameMapTimerDeadline?: string; // مهلت / زمان‌سنج انقضای نقشه بازی و مراحل
   gameMapEnforcePoints?: boolean; // اجبار سخت‌گیرانه امتیاز و پیش‌نیاز مرحله
+  enableGroupTimer?: boolean; // فعال‌سازی تایمر ۱۴ روزه سرگروه
+  groupTimerDays?: number; // تعداد روزهای مهلت سرگروه (پیش‌فرض: ۱۴)
 }
 
 

@@ -975,6 +975,9 @@ create index if not exists idx_warroom_users_personal_code on public.warroom_use
 create index if not exists idx_warroom_users_role          on public.warroom_users ((data->>'role'));
 create index if not exists idx_warroom_users_group_id      on public.warroom_users ((data->>'group_id'));
 
+-- ایندکس تایمر سرگروه (timer_started_at در data JSONB گروه‌ها)
+create index if not exists idx_warroom_groups_timer_started on public.warroom_groups ((data->>'timer_started_at'));
+
 create index if not exists idx_warroom_submissions_user    on public.warroom_submissions ((data->>'personal_code'));
 create index if not exists idx_warroom_submissions_mission on public.warroom_submissions ((data->>'mission_id'));
 create index if not exists idx_warroom_tickets_status      on public.warroom_support_tickets ((data->>'status'));
@@ -1733,6 +1736,9 @@ insert into public.warroom_site_settings (id, data) values (
     "heroTitle": "مأموریت اصلی: مسابقه بزرگ اتاق جنگ",
     "showCountdownTimer": true,
     "gameMapTimerDeadline": "2026-11-01T23:59:59Z",
+    "gameMapEnforcePoints": true,
+    "enableGroupTimer": true,
+    "groupTimerDays": 14,
     "countdownTargetDate": "2026-11-01T23:59:59Z",
     "heroCountdown": "۰۲:۱۴:۳۹:۱۵",
     "customLogoUrl": "/images/logos/warroom_logo.webp",

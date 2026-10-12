@@ -4,7 +4,7 @@ set -Eeuo pipefail
 APP_DIR="/opt/apps/warroom-v4"
 BRANCH="main"
 LOCK_FILE="/run/lock/deploy-warroom.lock"
-HEALTH_URL="http://127.0.0.1:3100/api/health"
+HEALTH_URL="http://127.0.0.1:3100/api/ready"
 
 echo
 echo "========================================"
@@ -114,7 +114,7 @@ READY=0
 for attempt in $(seq 1 30); do
   content_type="$(curl --connect-timeout 2 --max-time 4 -fsS -o /tmp/warroom-api-health.json -w '%{content_type}' "$HEALTH_URL" 2>/dev/null || true)"
   if [[ "$content_type" == application/json* ]] &&
-     grep -Eq '"ok"[[:space:]]*:[[:space:]]*true' /tmp/warroom-api-health.json 2>/dev/null; then
+     grep -Eq '"ready"[[:space:]]*:[[:space:]]*true' /tmp/warroom-api-health.json 2>/dev/null; then
     READY=1
     break
   fi

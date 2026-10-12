@@ -907,8 +907,13 @@ begin
 end;
 $$;
 
--- جستجو و فهرست‌گیری اتاق‌های گفتگو
-as $$
+-- حذف گروه‌های متعلق به کاربر پس از حذف او
+create or replace function public.warroom_delete_owned_group_after_user_delete()
+returns trigger
+language plpgsql
+security definer
+set search_path = public, pg_temp
+as $
 declare
   owned_group_id text;
 begin

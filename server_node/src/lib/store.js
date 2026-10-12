@@ -294,6 +294,18 @@ export function createSupabaseStore(client) {
       if (consumeError && String(consumeError.code || '') === '42883') {
         missing.push('function warroom_consume_otp_proof(uuid,text)');
       }
+      const { error: createGroupError } = await client.rpc('warroom_leader_create_group_service', {
+        p_leader_id: null, p_group_id: null, p_group_data: null,
+      });
+      if (createGroupError && String(createGroupError.code || '') === '42883') {
+        missing.push('function warroom_leader_create_group_service(text,text,jsonb)');
+      }
+      const { error: createMemberError } = await client.rpc('warroom_leader_create_group_member_service', {
+        p_leader_id: null, p_group_id: null, p_user_id: null, p_user_data: null, p_password: null,
+      });
+      if (createMemberError && String(createMemberError.code || '') === '42883') {
+        missing.push('function warroom_leader_create_group_member_service(text,text,text,jsonb,text)');
+      }
       return { ok: missing.length === 0, missing };
     },
 
@@ -351,6 +363,28 @@ export function createSupabaseStore(client) {
       });
       assertNoError(error);
       return data || { success: false, error: 'ADMIN_OPERATION_FAILED' };
+    },
+
+    async createLeaderGroup({ leaderId, groupId, groupData }) {
+      const { data, error } = await client.rpc('warroom_leader_create_group_service', {
+        p_leader_id: leaderId,
+        p_group_id: groupId,
+        p_group_data: groupData,
+      });
+      assertNoError(error);
+      return data || { success: false, error: 'GROUP_CREATE_FAILED' };
+    },
+
+    async createLeaderGroupMember({ leaderId, groupId, userId, userData, password }) {
+      const { data, error } = await client.rpc('warroom_leader_create_group_member_service', {
+        p_leader_id: leaderId,
+        p_group_id: groupId,
+        p_user_id: userId,
+        p_user_data: userData,
+        p_password: password,
+      });
+      assertNoError(error);
+      return data || { success: false, error: 'GROUP_MEMBER_CREATE_FAILED' };
     },
 
     async adminCreateUser({ adminId, userId, userData, password }) {

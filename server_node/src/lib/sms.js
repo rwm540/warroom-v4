@@ -38,10 +38,13 @@ function configuredEndpoint() {
 }
 
 function assertSmsConfiguration() {
-  if (!config.ippanelKey || !config.ippanelFrom) {
+  if (!config.ippanelKey || !config.ippanelFrom || !config.ippanelPatternCode) {
     throw smsError('SMS_NOT_CONFIGURED', 503);
   }
   if (!/^\+[1-9]\d{1,14}$/.test(config.ippanelFrom)) {
+    throw smsError('SMS_CONFIGURATION_INVALID', 503);
+  }
+  if (!/^[a-zA-Z0-9]+$/.test(config.ippanelPatternCode)) {
     throw smsError('SMS_CONFIGURATION_INVALID', 503);
   }
   return configuredEndpoint();
@@ -64,8 +67,8 @@ function acceptedMessageIds(payload) {
 }
 
 /**
- * Sends one SMS through IPPanel's documented Webservice endpoint.
- * See: https://ippanelcom.github.io/Edge-Document/docs/send/webservice/
+ * Sends one pattern SMS through IPPanel's documented Edge endpoint.
+ * See: https://ippanelcom.github.io/Edge-Document/docs/send/pattern/
  */
 export async function sendOtpSms(e164Phone, otp, { issuedAtMs, expiresAtMs } = {}) {
   const endpoint = assertSmsConfiguration();
@@ -85,7 +88,6 @@ export async function sendOtpSms(e164Phone, otp, { issuedAtMs, expiresAtMs } = {
     throw smsError('OTP_EXPIRY_INVALID', 503);
   }
 
-  const message = `کد تأیید اتاق جنگ: ${otp}\nاعتبار کد: ${validitySeconds} ثانیه از زمان صدور.`;
   let response;
   try {
     response = await fetch(endpoint, {
@@ -97,10 +99,11 @@ export async function sendOtpSms(e164Phone, otp, { issuedAtMs, expiresAtMs } = {
       },
       signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
       body: JSON.stringify({
-        sending_type: 'webservice',
+        sending_type: 'pattern',
         from_number: config.ippanelFrom,
-        message,
-        params: { recipients: [e164Phone] },
+        code: config.ippanelPatternCode,
+        recipients: [e164Phone],
+        params: { code: otp },
       }),
     });
   } catch {

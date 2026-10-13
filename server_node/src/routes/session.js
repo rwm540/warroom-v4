@@ -165,6 +165,7 @@ export function createSessionRouter({ store, limiter, auth, config }) {
         expires_at: expiresAt,
       });
 
+      const mustChangePassword = await store.mustChangePassword(userId);
       issueSessionCookies(res, { token, csrfToken, ttlSeconds });
 
       const user = { id: String(userRow.id), ...sanitizeUserData(userRow.data) };
@@ -175,7 +176,7 @@ export function createSessionRouter({ store, limiter, auth, config }) {
         csrfToken,
         expiresAt,
         isNewRegistration,
-        mustChangePassword: await store.mustChangePassword(userId),
+        mustChangePassword,
         user,
       });
     } catch (error) {

@@ -173,6 +173,11 @@ export function createMemoryStore({ latencyMs = 0 } = {}) {
       return { success: true, user_id: newUser.id };
     },
 
+    async issueOtpChallenge(row) {
+      await this.invalidateActiveOtpChallenges({ nationalCode: row.national_code, keepChallengeId: null });
+      await this.insertOtpChallenge(row);
+    },
+
     async insertOtpChallenge(row) {
       const challengeId = String(row.challenge_id);
       state.otpCodes.set(challengeId, {
@@ -226,7 +231,7 @@ export function createMemoryStore({ latencyMs = 0 } = {}) {
     async verifyOtp({ challengeId, nationalCode, codeHash }) {
       await wait();
       const row = state.otpCodes.get(String(challengeId));
-      if (!row || row.is_used || new Date(row.expires_at) <= new Date() || String(row.national_code) !== String(nationalCode)) {
+      if (!row || row.is_used || !row.sms_message_id || new Date(row.expires_at) <= new Date() || String(row.national_code) !== String(nationalCode)) {
         return { result: 'missing' };
       }
       row.attempt_count += 1;

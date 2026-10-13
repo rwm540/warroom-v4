@@ -6,8 +6,10 @@ import { sendOtpSms } from './sms.js';
 test('SMS adapter fails explicitly when IPPanel is not configured', async () => {
   const originalKey = config.ippanelKey;
   const originalFrom = config.ippanelFrom;
+  const originalPattern = config.ippanelPatternCode;
   config.ippanelKey = '';
   config.ippanelFrom = '';
+  config.ippanelPatternCode = '';
   try {
     await assert.rejects(
       sendOtpSms('+989120000000', '123456', { issuedAtMs: Date.now(), expiresAtMs: Date.now() + 300_000 }),
@@ -16,6 +18,7 @@ test('SMS adapter fails explicitly when IPPanel is not configured', async () => 
   } finally {
     config.ippanelKey = originalKey;
     config.ippanelFrom = originalFrom;
+    config.ippanelPatternCode = originalPattern;
   }
 });
 
@@ -24,10 +27,12 @@ test('SMS adapter sends the documented payload and accepts only a successful res
     key: config.ippanelKey,
     from: config.ippanelFrom,
     url: config.ippanelUrl,
+    pattern: config.ippanelPatternCode,
     fetch: globalThis.fetch,
   };
   config.ippanelKey = 'test-key-not-a-secret';
   config.ippanelFrom = '+983000505';
+  config.ippanelPatternCode = 'mf31w8ng9vnoqy5';
   config.ippanelUrl = 'https://edge.ippanel.com/v1/api/send';
 
   try {
@@ -53,10 +58,11 @@ test('SMS adapter sends the documented payload and accepts only a successful res
 
     const body = JSON.parse(requestOptions.body);
     assert.deepEqual(body, {
-      sending_type: 'webservice',
+      sending_type: 'pattern',
       from_number: '+983000505',
-      message: 'کد تأیید اتاق جنگ: 123456\nاعتبار کد: 300 ثانیه از زمان صدور.',
-      params: { recipients: ['+989120000000'] },
+      code: 'mf31w8ng9vnoqy5',
+      recipients: ['+989120000000'],
+      params: { code: '123456' },
     });
 
     globalThis.fetch = async () => new Response(JSON.stringify({
@@ -71,6 +77,45 @@ test('SMS adapter sends the documented payload and accepts only a successful res
     config.ippanelKey = original.key;
     config.ippanelFrom = original.from;
     config.ippanelUrl = original.url;
+    config.ippanelPatternCode = original.pattern;
     globalThis.fetch = original.fetch;
   }
+});
+
+test('pattern sender preserves leading zero and rejects missing pattern, malformed response and network failure without retry', async () => {
+  const before = { key: config.ippanelKey, from: config.ippanelFrom, pattern: config.ippanelPatternCode, fetch: globalThis.fetch };
+  let calls = 0;
+  try {
+    config.ippanelKey = 'unit-test-token';
+    config.ippanelFrom = '+983000505';
+    config.ippanelPatternCode = '';
+    globalThis.fetch = async () => { calls++; throw new Error('should not fetch'); };
+    await assert.rejects(sendOtpSms('+989121112233', '004217', { issuedAtMs: Date.now(), expiresAtMs: Date.now() + 120_000 }), e => e.code === 'SMS_NOT_CONFIGURED');
+    assert.equal(calls, 0);
+    config.ippanelPatternCode = 'mf31w8ng9vnoqy5';
+    globalThis.fetch = async (_url, options) => {
+      calls++;
+      const body = JSON.parse(options.body);
+      assert.equal(body.params.code, '004217');
+      assert.equal(body.code, config.ippanelPatternCode);
+      assert.equal(body.sending_type, 'pattern');
+      return new Response('not json', { status: 200 });
+    };
+    await assert.rejects(sendOtpSms('+989121112233', '004217', { issuedAtMs: Date.now(), expiresAtMs: Date.now() + 120_000 }), e => e.code === 'SMS_SEND_FAILED' && !e.message.includes('004217'));
+    assert.equal(calls, 1);
+    globalThis.fetch = async () => { calls++; throw new Error('network with private token'); };
+    await assert.rejects(sendOtpSms('+989121112233', '004217', { issuedAtMs: Date.now(), expiresAtMs: Date.now() + 120_000 }), e => e.code === 'SMS_SEND_FAILED' && !e.message.includes('token'));
+    assert.equal(calls, 2, 'no automatic retry on ambiguous delivery');
+  } finally {
+    config.ippanelKey = before.key;
+    config.ippanelFrom = before.from;
+    config.ippanelPatternCode = before.pattern;
+    globalThis.fetch = before.fetch;
+  }
+});
+
+test('approved pattern text is 28 Unicode code points, not within a 25-character product limit', () => {
+  const sample = 'کد ورود هیئت نوالهدا: %code%'.replace('%code%', '123456');
+  assert.equal([...sample].length, 28);
+  assert.equal([...sample].length <= 25, false);
 });

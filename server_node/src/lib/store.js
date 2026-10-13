@@ -173,6 +173,11 @@ export function createSupabaseStore(client) {
       return data || { success: false, error: 'REGISTRATION_FINALIZE_FAILED' };
     },
 
+    async issueOtpChallenge(row) {
+      const { error } = await client.rpc('warroom_issue_otp_challenge', { p_row: row });
+      assertNoError(error);
+    },
+
     async insertOtpChallenge(row) {
       const { error } = await client.from('warroom_otp_codes').insert(row);
       assertNoError(error);
@@ -293,6 +298,11 @@ export function createSupabaseStore(client) {
       });
       if (consumeError && String(consumeError.code || '') === '42883') {
         missing.push('function warroom_consume_otp_proof(uuid,text)');
+      }
+      // Null JSONB fails the new issuance RPC's validation without writing any row.
+      const { error: issueError } = await client.rpc('warroom_issue_otp_challenge', { p_row: null });
+      if (issueError && ['42883', 'PGRST202'].includes(String(issueError.code || ''))) {
+        missing.push('function warroom_issue_otp_challenge(jsonb)');
       }
       return { ok: missing.length === 0, missing };
     },

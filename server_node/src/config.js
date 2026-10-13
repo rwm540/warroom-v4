@@ -93,16 +93,15 @@ export const config = {
   // Sessions must never be signed with an OTP secret - dedicated secret required.
   sessionSecret: secretValue('SESSION_SECRET'),
   sessionTtlSeconds: intEnv('SESSION_TTL_SECONDS', 24 * 60 * 60, 300, 30 * 24 * 60 * 60),
-  otpTtlSeconds: intEnv('OTP_TTL_SECONDS', 300, 60, 900),
+  otpTtlSeconds: intEnv('OTP_TTL_SECONDS', 120, 60, 900),
   otpProofMaxAgeSeconds: intEnv('OTP_PROOF_MAX_AGE_SECONDS', 300, 60, 900),
   otpMaxSend: intEnv('OTP_MAX_SEND_PER_15MIN', 3, 1, 10),
-  otpResendCooldown: intEnv('OTP_RESEND_COOLDOWN_SECONDS', 60, 10, 600),
+  otpResendCooldown: intEnv('OTP_RESEND_COOLDOWN_SECONDS', 120, 10, 600),
   otpMaxAttempts: intEnv('OTP_MAX_VERIFY_ATTEMPTS', 5, 3, 10),
   ippanelKey: secretValue('IPPANEL_API_KEY'),
   ippanelFrom: String(process.env.IPPANEL_FROM_NUMBER || '').trim(),
+  ippanelPatternCode: String(process.env.IPPANEL_PATTERN_CODE || '').trim(),
   ippanelUrl: String(process.env.IPPANEL_API_URL || 'https://edge.ippanel.com/v1/api/send').trim(),
-  // Mock SMS is only permitted outside production.
-  allowMockSms: !isProduction && boolEnv('ALLOW_MOCK_SMS', true),
   passwordResetRateLimitPerHour: intEnv('PASSWORD_RESET_RATE_LIMIT_PER_HOUR', 3, 1, 20),
   registrationRateLimitPerHour: intEnv('REGISTRATION_RATE_LIMIT_PER_HOUR', 5, 1, 20),
   // Destructive admin operations require a fresh, operation-bound admin OTP proof.
@@ -150,10 +149,12 @@ export function collectConfigProblems() {
     problems.push('SESSION_SECRET!=OTP_SECRET');
   }
   if (config.isProduction && config.cookieSecure === false) problems.push('COOKIE_SECURE=true in production');
-  if (config.isProduction && !config.allowMockSms && !config.ippanelKey) {
+  if (config.isProduction && !config.ippanelKey) {
     // SMS is required in production because OTP delivery is the only login factor.
     problems.push('IPPANEL_API_KEY');
   }
+  if (config.isProduction && !config.ippanelPatternCode) problems.push('IPPANEL_PATTERN_CODE');
+  if (config.isProduction && !config.ippanelFrom) problems.push('IPPANEL_FROM_NUMBER');
   if (config.nodeEnv === 'production' && config.redisUrl && !config.redisPassword) {
     problems.push('REDIS_PASSWORD required when REDIS_URL is set in production');
   }

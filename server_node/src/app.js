@@ -91,7 +91,7 @@ export function createApp({ store, sms, redis } = {}) {
     const dependencies = {
       database: { configured: true, reachable: false },
       redis: { configured: Boolean(config.redisUrl), available: false },
-      sms: { configured: config.allowMockSms ? false : true, mockAllowed: config.allowMockSms },
+      sms: { configured: sms.configured?.() === true, mockAllowed: false },
       secrets: { valid: true },
       schema: { ready: false },
     };
@@ -126,7 +126,7 @@ export function createApp({ store, sms, redis } = {}) {
       }
     }
 
-    const ready = dependencies.database.reachable && dependencies.schema.ready && configMissingForReady().length === 0;
+    const ready = dependencies.database.reachable && dependencies.schema.ready && dependencies.sms.configured && configMissingForReady().length === 0;
     if (!ready) notes.push('service not ready');
     res.status(ready ? 200 : 503).json({
       ready,

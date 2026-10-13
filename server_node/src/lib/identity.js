@@ -69,7 +69,7 @@ export function createOtp() {
     error.code = 'OTP_TTL_INVALID';
     throw error;
   }
-  return String(randomInt(100000, 1000000));
+  return String(randomInt(0, 1000000)).padStart(6, '0');
 }
 
 export function hashOtp(nationalCode, phone, otp) {

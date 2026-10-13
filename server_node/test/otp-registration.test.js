@@ -404,3 +404,48 @@ test('registration validation rejects malformed data before touching the databas
     await server.close();
   }
 });
+
+test('120-second server deadline, fresh resend, single consumption and matching stored hash', async () => {
+  const store = createMemoryStore();
+  const sms = createFakeSms();
+  const server = await startTestServer({ store, sms, redis: createFakeRedis({ available: false }) });
+  try {
+    store.seedUser({ id: 'user_ttl', data: { national_code: NATIONAL, phone: PHONE }, password: PASSWORD });
+    const body = { nationalCode: NATIONAL, purpose: 'login', password: PASSWORD };
+    const first = await server.request('/api/otp/send', { body });
+    assert.equal(first.status, 200);
+    assert.equal(new Date(first.json.expiresAt).getTime() - sms.sent[0].meta.issuedAtMs, 120_000);
+    assert.equal(sms.sent[0].phone, '+989121112233');
+    const oldRow = [...store.state.otpCodes.values()][0];
+    assert.equal(oldRow.purpose, 'login');
+    assert.equal(oldRow.user_id, 'user_ttl');
+    assert.equal(oldRow.sms_message_id, 'test-1');
+    assert.notEqual(oldRow.code_hash, sms.lastCode());
+    const { hashOtp } = await import('../src/lib/identity.js');
+    assert.equal(oldRow.code_hash, hashOtp(NATIONAL, oldRow.phone, sms.lastCode()));
+
+    const early = await server.request('/api/otp/resend', { body });
+    assert.equal(early.status, 429);
+    assert.equal(sms.sent.length, 1);
+    // Controlled DB rate-limit clock: no 120-second sleep; the server deadline is unchanged.
+    for (const [key, value] of store.state.rateLimits) {
+      if (key.includes('otp:cooldown:')) value.windowEnd = Date.now() - 1;
+    }
+    const second = await server.request('/api/otp/resend', { body });
+    assert.equal(second.status, 200);
+    assert.equal(sms.sent.length, 2);
+    assert.equal(oldRow.is_used, true);
+    const oldVerify = await server.request('/api/otp/verify', {
+      body: { nationalCode: NATIONAL, code: sms.sent[0].otp, challengeToken: first.json.challengeToken },
+    });
+    assert.notEqual(oldVerify.status, 200);
+    const currentRow = [...store.state.otpCodes.values()][1];
+    currentRow.expires_at = new Date(Date.now() - 1).toISOString();
+    const expired = await server.request('/api/otp/verify', {
+      body: { nationalCode: NATIONAL, code: sms.lastCode(), challengeToken: second.json.challengeToken },
+    });
+    assert.notEqual(expired.status, 200, 'database expiry is authoritative');
+  } finally {
+    await server.close();
+  }
+});

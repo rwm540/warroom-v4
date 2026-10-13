@@ -186,7 +186,7 @@ export function createSupabaseStore(client) {
     async getOtpByChallenge(challengeId) {
       const { data, error } = await client
         .from('warroom_otp_codes')
-        .select('challenge_id, user_id, national_code, phone, purpose, pending_id, verified, is_used, used_at, expires_at, attempt_count, max_attempts')
+        .select('challenge_id, user_id, national_code, phone, purpose, pending_id, verified, is_used, used_at, revoked_at, expires_at, attempt_count, max_attempts')
         .eq('challenge_id', challengeId)
         .maybeSingle();
       assertNoError(error);
@@ -291,7 +291,7 @@ export function createSupabaseStore(client) {
         const { error } = await client.from(name).select(columns).limit(1);
         if (error) missing.push(`${name}: ${String(error.message || '').slice(0, 80)}`);
       };
-      await probeTable('warroom_otp_codes', 'challenge_id, purpose, pending_id, verified, is_used');
+      await probeTable('warroom_otp_codes', 'challenge_id, purpose, pending_id, verified, is_used, revoked_at');
       await probeTable('warroom_pending_registrations', 'id, national_code, is_verified');
       await probeTable('warroom_refresh_tokens', 'id, token_hash, revoked_at');
       await probeTable('warroom_security_kv', 'id');

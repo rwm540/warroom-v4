@@ -1,6 +1,7 @@
 -- Required: the old invalidate-then-insert sequence is two transactions over PostgREST.
 -- This RPC serializes issuances per national code and atomically replaces the old challenge.
 -- Apply separately after 20261014000000; no new table or browser privileges.
+alter table public.warroom_otp_codes add column if not exists revoked_at timestamptz;
 create or replace function public.warroom_issue_otp_challenge(p_row jsonb)
 returns void language plpgsql security definer set search_path = public, pg_temp as $$
 declare
@@ -21,8 +22,10 @@ begin
   v_challenge := (p_row->>'challenge_id')::uuid;
   perform pg_advisory_xact_lock(hashtextextended(v_national, 0));
   update public.warroom_otp_codes
-    set is_used = true, used_at = now()
-    where national_code = v_national and is_used = false;
+    set is_used = true,
+        used_at = case when verified then used_at else now() end,
+        revoked_at = now()
+    where national_code = v_national and revoked_at is null;
   insert into public.warroom_otp_codes
     (challenge_id, user_id, national_code, phone, code_hash, attempt_count,
      max_attempts, expires_at, is_used, ip_hash, purpose, pending_id)
@@ -59,6 +62,7 @@ begin
   where o.challenge_id = p_challenge_id
     and o.national_code = p_national_code
     and o.is_used = false
+    and o.revoked_at is null
     and o.sms_message_id is not null
     and o.expires_at > now()
   for update;
@@ -89,3 +93,91 @@ end;
 $$;
 revoke all on function public.warroom_verify_otp(uuid, text, text) from public, anon, authenticated;
 grant execute on function public.warroom_verify_otp(uuid, text, text) to service_role;
+
+
+-- A proof verified before a later resend must no longer mint a session.
+create or replace function public.warroom_consume_otp_proof(
+  p_challenge_id uuid,
+  p_purpose text
+)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public, pg_temp
+as $$
+declare
+  v_otp public.warroom_otp_codes%rowtype;
+  v_key text;
+  v_expected_otp_purpose text;
+  v_is_admin boolean := false;
+  v_inserted boolean := false;
+begin
+  if p_challenge_id is null or p_purpose is null or length(p_purpose) = 0 then
+    return jsonb_build_object('success', false, 'error', 'INVALID_INPUT');
+  end if;
+
+  -- The operation must be one we know, and it must map onto the OTP purpose it consumes.
+  if p_purpose = 'session:login' then
+    v_expected_otp_purpose := 'login';
+  elsif p_purpose = 'session:registration' then
+    v_expected_otp_purpose := 'registration';
+  elsif p_purpose like 'admin:%' then
+    v_expected_otp_purpose := 'admin';
+  else
+    return jsonb_build_object('success', false, 'error', 'PROOF_PURPOSE_MISMATCH');
+  end if;
+
+  select * into v_otp
+  from public.warroom_otp_codes
+  where challenge_id = p_challenge_id
+    and verified = true
+    and revoked_at is null
+    and is_used = true
+    and used_at > now() - interval '5 minutes'
+  for update;
+
+  if not found then
+    return jsonb_build_object('success', false, 'error', 'INVALID_OR_EXPIRED_PROOF');
+  end if;
+
+  if coalesce(v_otp.purpose, 'login') <> v_expected_otp_purpose then
+    return jsonb_build_object('success', false, 'error', 'PROOF_PURPOSE_MISMATCH');
+  end if;
+
+  if v_expected_otp_purpose = 'admin' then
+    select coalesce(u.data->>'role', 'user') = 'admin' into v_is_admin
+    from public.warroom_users u
+    where u.id = v_otp.user_id;
+    if not coalesce(v_is_admin, false) then
+      return jsonb_build_object('success', false, 'error', 'ADMIN_PROOF_REQUIRED');
+    end if;
+  end if;
+
+  v_key := 'otp_proof_consumed:' || p_challenge_id::text || ':' || p_purpose;
+
+  insert into public.warroom_security_kv (id, value, updated_at)
+  values (
+    v_key,
+    jsonb_build_object('user_id', v_otp.user_id, 'purpose', p_purpose, 'consumed_at', now()),
+    now()
+  )
+  on conflict (id) do nothing;
+
+  get diagnostics v_inserted = row_count;
+
+  if v_inserted = 0 then
+    return jsonb_build_object('success', false, 'error', 'PROOF_ALREADY_CONSUMED');
+  end if;
+
+  return jsonb_build_object(
+    'success', true,
+    'user_id', v_otp.user_id,
+    'national_code', v_otp.national_code,
+    'pending_id', v_otp.pending_id,
+    'purpose', p_purpose
+  );
+end;
+$$;
+
+revoke execute on function public.warroom_consume_otp_proof(uuid, text) from public, anon, authenticated;
+grant execute on function public.warroom_consume_otp_proof(uuid, text) to service_role;

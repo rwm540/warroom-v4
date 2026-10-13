@@ -174,6 +174,11 @@ export function createMemoryStore({ latencyMs = 0 } = {}) {
     },
 
     async issueOtpChallenge(row) {
+      for (const previous of state.otpCodes.values()) {
+        if (previous.national_code === row.national_code && !previous.revoked_at) {
+          previous.revoked_at = new Date().toISOString();
+        }
+      }
       await this.invalidateActiveOtpChallenges({ nationalCode: row.national_code, keepChallengeId: null });
       await this.insertOtpChallenge(row);
     },
@@ -195,6 +200,7 @@ export function createMemoryStore({ latencyMs = 0 } = {}) {
         purpose: String(row.purpose || 'login'),
         pending_id: row.pending_id ? String(row.pending_id) : null,
         sms_message_id: null,
+        revoked_at: null,
       });
     },
 
@@ -236,7 +242,7 @@ export function createMemoryStore({ latencyMs = 0 } = {}) {
     async verifyOtp({ challengeId, nationalCode, codeHash }) {
       await wait();
       const row = state.otpCodes.get(String(challengeId));
-      if (!row || row.is_used || !row.sms_message_id || new Date(row.expires_at) <= new Date() || String(row.national_code) !== String(nationalCode)) {
+      if (!row || row.is_used || row.revoked_at || !row.sms_message_id || new Date(row.expires_at) <= new Date() || String(row.national_code) !== String(nationalCode)) {
         return { result: 'missing' };
       }
       row.attempt_count += 1;
@@ -264,7 +270,7 @@ export function createMemoryStore({ latencyMs = 0 } = {}) {
       else return { success: false, error: 'PROOF_PURPOSE_MISMATCH' };
 
       const row = state.otpCodes.get(String(challengeId));
-      if (!row || row.verified !== true || row.is_used !== true) {
+      if (!row || row.verified !== true || row.is_used !== true || row.revoked_at) {
         return { success: false, error: 'INVALID_OR_EXPIRED_PROOF' };
       }
       if (Date.now() - Number(row.used_at || 0) > 5 * 60 * 1000) {

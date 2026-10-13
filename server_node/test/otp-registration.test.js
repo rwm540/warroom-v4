@@ -449,3 +449,29 @@ test('120-second server deadline, fresh resend, single consumption and matching 
     await server.close();
   }
 });
+
+test('a verified but unexchanged proof is revoked by a newer challenge', async () => {
+  const store = createMemoryStore();
+  const sms = createFakeSms();
+  const server = await startTestServer({ store, sms, redis: createFakeRedis({ available: false }) });
+  try {
+    store.seedUser({ id: 'user_proof_replace', data: { national_code: NATIONAL, phone: PHONE }, password: PASSWORD });
+    const body = { nationalCode: NATIONAL, purpose: 'login', password: PASSWORD };
+    const first = await server.request('/api/otp/send', { body });
+    assert.equal(first.status, 200);
+    const verify = await server.request('/api/otp/verify', {
+      body: { nationalCode: NATIONAL, code: sms.lastCode(), challengeToken: first.json.challengeToken },
+    });
+    assert.equal(verify.status, 200);
+    for (const [key, value] of store.state.rateLimits) {
+      if (key.includes('otp:cooldown:')) value.windowEnd = Date.now() - 1;
+    }
+    const second = await server.request('/api/otp/resend', { body });
+    assert.equal(second.status, 200);
+    const stale = await server.request('/api/session/create', { body: { otpProof: verify.json.otpProof } });
+    assert.equal(stale.status, 401);
+    assert.equal(store.state.sessions.size, 0);
+  } finally {
+    await server.close();
+  }
+});

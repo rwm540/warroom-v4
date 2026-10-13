@@ -487,6 +487,7 @@ export interface RuleCategoryItem {
 }
 
 export interface SiteSettings {
+  updatedAt?: string;
   siteName?: string;
   siteTagline?: string;
   badgeText?: string;

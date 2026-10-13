@@ -145,6 +145,7 @@ export async function revokeOwnSessionsSecure(): Promise<ApiEnvelope & { revoked
 export interface OtpChallengeResponse extends ApiEnvelope {
   success: boolean;
   expiresIn?: number;
+  expiresAt?: string;
   maskedPhone?: string;
   challengeToken?: string;
   purpose?: 'login' | 'registration';

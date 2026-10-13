@@ -20,6 +20,7 @@ export interface OTPSendResponse {
   message?: string;
   error?: string;
   expiresIn?: number;
+  expiresAt?: string;
   maskedPhone?: string;
   challengeToken?: string;
   purpose?: OtpPurpose;
@@ -56,6 +57,7 @@ export async function sendOtpByNationalCode(
     message: result.message,
     error: result.error,
     expiresIn: result.expiresIn,
+    expiresAt: result.expiresAt,
     maskedPhone: result.maskedPhone,
     challengeToken: result.challengeToken,
     purpose: result.purpose === 'login' || result.purpose === 'registration' ? result.purpose : purpose,
@@ -90,18 +92,18 @@ export async function verifyOtp(
  * Requests a fresh registration challenge. Login challenges are never silently re-issued:
  * the password gate must run again, so callers restart the login flow instead.
  */
-export async function resendOtp(nationalCode: string, purpose: OtpPurpose = 'registration'): Promise<OTPSendResponse> {
-  if (purpose === 'login') {
-    return { success: false, error: 'برای دریافت کد جدید، ورود را از ابتدا تکمیل کنید.' };
-  }
-  const result = await resendRegistrationOtpSecure(nationalCode);
+export async function resendOtp(nationalCode: string, purpose: OtpPurpose = 'registration', password = ''): Promise<OTPSendResponse> {
+  const result = purpose === 'login'
+    ? await requestLoginOtpSecure(nationalCode, password)
+    : await resendRegistrationOtpSecure(nationalCode);
   return {
     success: result.success === true,
     message: result.message,
     error: result.error,
     expiresIn: result.expiresIn,
+    expiresAt: result.expiresAt,
     maskedPhone: result.maskedPhone,
     challengeToken: result.challengeToken,
-    purpose: 'registration',
+    purpose,
   };
 }

@@ -211,6 +211,7 @@ export default function AuthView({
   const [otpChallengeToken, setOtpChallengeToken] = useState('');
   const [otpMaskedPhone, setOtpMaskedPhone] = useState('');
   const [otpExpiresIn, setOtpExpiresIn] = useState<number | null>(null);
+  const [otpExpiresAt, setOtpExpiresAt] = useState('');
   const [otpPurpose, setOtpPurpose] = useState<'login' | 'registration'>('registration');
   const [pendingRegistration, setPendingRegistration] = useState<{ groupName: string } | null>(null);
 
@@ -231,7 +232,7 @@ export default function AuthView({
       return false;
     }
     const result = await sendOtpByNationalCode(nationalCode, { purpose, password: options?.password });
-    if (!result.success || !result.challengeToken || !isValidOtpExpiry(result.expiresIn)) {
+    if (!result.success || !result.challengeToken || !isValidOtpExpiry(result.expiresIn) || !result.expiresAt || !Number.isFinite(Date.parse(result.expiresAt))) {
       const message = result.error || result.message || 'ارسال کد تأیید ناموفق بود یا زمان اعتبار از سرور دریافت نشد.';
       if (activeTab === 'register') setRegisterError(message);
       else setLoginError(message);
@@ -241,6 +242,7 @@ export default function AuthView({
     setOtpChallengeToken(result.challengeToken);
     setOtpMaskedPhone(result.maskedPhone || 'شماره همراه ثبت‌شده');
     setOtpExpiresIn(result.expiresIn);
+    setOtpExpiresAt(result.expiresAt || '');
     setOtpPurpose(purpose);
     setShowOtpModal(true);
     triggerAlert(result.maskedPhone
@@ -402,7 +404,7 @@ export default function AuthView({
     // issues the SMS challenge; the identity is confirmed later by the session exchange.
     const challenge = await requestLoginChallenge(natId, loginPassword);
     setIsSubmitting(false);
-    if (!challenge.success || !challenge.challengeToken || !isValidOtpExpiry(challenge.expiresIn)) {
+    if (!challenge.success || !challenge.challengeToken || !isValidOtpExpiry(challenge.expiresIn) || !challenge.expiresAt || !Number.isFinite(Date.parse(challenge.expiresAt))) {
       setLoginError(challenge.error || challenge.message || 'کد ملی یا رمز عبور اشتباه است.');
       return;
     }
@@ -419,6 +421,7 @@ export default function AuthView({
     setOtpChallengeToken(challenge.challengeToken);
     setOtpMaskedPhone(challenge.maskedPhone || 'شماره همراه ثبت‌شده');
     setOtpExpiresIn(challenge.expiresIn);
+    setOtpExpiresAt(challenge.expiresAt || '');
     setOtpPurpose('login');
     setShowOtpModal(true);
   };
@@ -934,9 +937,12 @@ export default function AuthView({
         userPhone={otpMaskedPhone}
         challengeToken={otpChallengeToken}
         expiresIn={otpExpiresIn ?? 0}
+        expiresAt={otpExpiresAt}
+        loginPassword={loginPassword}
         purpose={otpPurpose}
         onChallengeToken={setOtpChallengeToken}
         onExpiresIn={setOtpExpiresIn}
+        onExpiresAt={setOtpExpiresAt}
         campaignTheme={isGirls ? 'girls' : 'boys'}
         onSuccess={async (verifiedUser) => {
           setShowOtpModal(false);

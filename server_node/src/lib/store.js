@@ -200,6 +200,17 @@ export function createSupabaseStore(client) {
       return data || null;
     },
 
+    /** Read-only: the IPPanel outbox id recorded when the provider accepted the message. */
+    async getOtpSmsMessageId(challengeId) {
+      const { data, error } = await client
+        .from('warroom_otp_codes')
+        .select('sms_message_id')
+        .eq('challenge_id', challengeId)
+        .maybeSingle();
+      assertNoError(error);
+      return data?.sms_message_id ? String(data.sms_message_id) : null;
+    },
+
     async invalidateOtpChallenge(challengeId) {
       const { error } = await client
         .from('warroom_otp_codes')

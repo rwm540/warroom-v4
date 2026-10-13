@@ -7,7 +7,7 @@
 - درخواست‌های مرورگر: `/api/otp/send`, `/api/otp/verify`, `/api/otp/resend`
 - Health: `GET /api/health`؛ فقط وضعیت فرایند و پیکربندی را گزارش می‌کند، نه اتصال واقعی به Provider یا Supabase.
 - ثبت‌نام و ورود همچنان از Supabase RPC فرانت‌اند انجام می‌شود.
-- OTP شش‌رقمی است و TTL پیش‌فرض آن ۳۰۰ ثانیه است.
+- OTP شش‌رقمی است و TTL پیش‌فرض آن ۱۲۰ ثانیه است.
 - IPPanel Edge Webservice contract در [مستندات رسمی](https://ippanelcom.github.io/Edge-Document/docs/send/webservice/) آمده است.
 
 ## مانع جاری

@@ -205,6 +205,11 @@ export function createMemoryStore({ latencyMs = 0 } = {}) {
       return { challenge_id: row.challenge_id };
     },
 
+    async getOtpSmsMessageId(challengeId) {
+      const row = state.otpCodes.get(String(challengeId));
+      return row?.sms_message_id ? String(row.sms_message_id) : null;
+    },
+
     async invalidateOtpChallenge(challengeId) {
       const row = state.otpCodes.get(String(challengeId));
       if (row && !row.is_used) {

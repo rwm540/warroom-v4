@@ -47,11 +47,26 @@ export function createOtpRouter({ store, sms, limiter, config }) {
   async function enforceSendRateLimits({ ip, nationalCode }) {
     const nationalKey = hashValue(nationalCode);
     const idKey = hashValue(ip);
+    // Every limit below stays in force. The cooldown is evaluated first so a user who asks for
+    // a new code too early receives an actionable message (with Retry-After) instead of a
+    // generic rate-limit error, and so early retries do not consume the per-national quota.
     const allowedIp = await limiter.hit(`otp:ip:${idKey}`, 12, 15 * 60);
-    const allowedNational = await limiter.hit(`otp:national:${nationalKey}`, config.otpMaxSend, 15 * 60);
+    if (!allowedIp) {
+      throw publicError('RATE_LIMITED', 'تعداد درخواست‌های ارسال کد از این نشانی شبکه زیاد است؛ کمی بعد تلاش کنید.', 429);
+    }
     const allowedCooldown = await limiter.hit(`otp:cooldown:${nationalKey}`, 1, config.otpResendCooldown);
-    if (!allowedIp || !allowedNational || !allowedCooldown) {
-      throw publicError('RATE_LIMITED', 'تعداد درخواست‌ها زیاد است؛ بعداً تلاش کنید.', 429);
+    if (!allowedCooldown) {
+      const error = publicError(
+        'OTP_RESEND_COOLDOWN',
+        `برای درخواست کد جدید ${config.otpResendCooldown} ثانیه صبر کنید.`,
+        429,
+      );
+      error.retryAfterSeconds = config.otpResendCooldown;
+      throw error;
+    }
+    const allowedNational = await limiter.hit(`otp:national:${nationalKey}`, config.otpMaxSend, 15 * 60);
+    if (!allowedNational) {
+      throw publicError('RATE_LIMITED', 'تعداد درخواست‌های ارسال کد برای این کد ملی زیاد است؛ کمی بعد تلاش کنید.', 429);
     }
   }
 
@@ -157,7 +172,13 @@ export function createOtpRouter({ store, sms, limiter, config }) {
     return {
       success: true,
       message: 'درخواست ارسال کد توسط سرویس پیامک پذیرفته شد؛ تحویل نهایی به اپراتور وابسته است.',
+      // Explicit: the provider accepted the request, which is not proof of handset delivery.
+      deliveryStatus: 'accepted',
       expiresIn,
+      // The absolute deadline shared by Supabase `expires_at`, the challenge token and the
+      // browser countdown, so the three can never drift apart.
+      expiresAt,
+      resendAvailableIn: config.otpResendCooldown,
       maskedPhone: maskPhone(target.phone.local),
       challengeToken,
       purpose,
@@ -182,6 +203,12 @@ export function createOtpRouter({ store, sms, limiter, config }) {
     }
   }
 
+  // Both entry points run the *same* guarded handler, so a resend can never be weaker than
+  // the initial send:
+  //   - purpose 'login' always requires the password again (the server re-verifies it before
+  //     any SMS is issued), which is why the browser must keep the password for the resend call;
+  //   - purpose 'registration' only works while an unexpired pending registration exists;
+  //   - the IP, per-national-code, per-15-minute and resend-cooldown counters all still apply.
   router.post('/send', handleSend);
   router.post('/resend', handleSend);
 
@@ -225,7 +252,12 @@ export function createOtpRouter({ store, sms, limiter, config }) {
       const allowed = await limiter.hit(`otp:verify:${hashValue(nationalCode || challenge.sub)}`, 10, 15 * 60);
       if (!allowed) throw publicError('RATE_LIMITED', 'تعداد تلاش‌های تأیید بیش از حد مجاز است.', 429);
       if (challengeRow.is_used === true) {
-        throw publicError('OTP_PROOF_REUSED', 'این کد قبلاً استفاده شده است.', 409);
+        // `verified` separates "this code was already consumed" from "this challenge was
+        // replaced or locked" so the client gets an accurate reason.
+        if (challengeRow.verified === true) {
+          throw publicError('OTP_PROOF_REUSED', 'این کد قبلاً استفاده شده است.', 409);
+        }
+        throw publicError('OTP_EXPIRED', 'این کد منقضی یا با کد جدیدتری جایگزین شده است.');
       }
       const purpose = normalizePurpose(challengeRow.purpose, { allowed: OTP_STORED_PURPOSES });
       if (!purpose) throw publicError('INVALID_PURPOSE', 'نوع درخواست OTP معتبر نیست.');

@@ -93,7 +93,9 @@ export const config = {
   // Sessions must never be signed with an OTP secret - dedicated secret required.
   sessionSecret: secretValue('SESSION_SECRET'),
   sessionTtlSeconds: intEnv('SESSION_TTL_SECONDS', 24 * 60 * 60, 300, 30 * 24 * 60 * 60),
-  otpTtlSeconds: intEnv('OTP_TTL_SECONDS', 300, 60, 900),
+  // 120 seconds: one absolute deadline drives the Supabase `expires_at`, the challenge JWT
+  // `exp`, the SMS text and the browser countdown (see routes/otp.js).
+  otpTtlSeconds: intEnv('OTP_TTL_SECONDS', 120, 60, 900),
   otpProofMaxAgeSeconds: intEnv('OTP_PROOF_MAX_AGE_SECONDS', 300, 60, 900),
   otpMaxSend: intEnv('OTP_MAX_SEND_PER_15MIN', 3, 1, 10),
   otpResendCooldown: intEnv('OTP_RESEND_COOLDOWN_SECONDS', 60, 10, 600),
@@ -153,6 +155,13 @@ export function collectConfigProblems() {
   if (config.isProduction && !config.allowMockSms && !config.ippanelKey) {
     // SMS is required in production because OTP delivery is the only login factor.
     problems.push('IPPANEL_API_KEY');
+  }
+  if (config.isProduction && !config.allowMockSms && !config.ippanelFrom) {
+    problems.push('IPPANEL_FROM_NUMBER');
+  }
+  if (config.ippanelFrom && !/^\+[1-9]\d{1,14}$/.test(config.ippanelFrom)) {
+    // A malformed sender would otherwise only surface as a send-time failure.
+    problems.push('IPPANEL_FROM_NUMBER(E.164)');
   }
   if (config.nodeEnv === 'production' && config.redisUrl && !config.redisPassword) {
     problems.push('REDIS_PASSWORD required when REDIS_URL is set in production');

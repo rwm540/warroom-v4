@@ -188,6 +188,22 @@ export function createSupabaseStore(client) {
       return rowOrNull(data);
     },
 
+    /**
+     * Deadline (ISO string) of the most recently issued challenge for a national code, or null.
+     * Only the timestamp is returned: no code hash, phone or user identifier.
+     */
+    async findLatestOtpExpiresAt(nationalCode) {
+      const { data, error } = await client
+        .from('warroom_otp_codes')
+        .select('expires_at')
+        .eq('national_code', nationalCode)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      assertNoError(error);
+      return data?.expires_at ? String(data.expires_at) : null;
+    },
+
     async setOtpSmsMessageId(challengeId, messageId) {
       const { data, error } = await client
         .from('warroom_otp_codes')

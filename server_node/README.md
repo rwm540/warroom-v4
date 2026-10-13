@@ -17,7 +17,7 @@
 - `purpose: "login"`: رمز اجباری است و پیش از هر ارسال روی سرور با RPC `warroom_verify_login` بررسی می‌شود؛ در صورت اشتباه‌بودن، پاسخ یکسان `401 INVALID_CREDENTIALS` است و هیچ پیامکی ارسال نمی‌شود.
 - `purpose: "registration"`: فقط تا وقتی یک ثبت‌نام موقت معتبر و منقضی‌نشده وجود دارد کد صادر می‌شود.
 
-در صورت پذیرش پیامک، پاسخ شامل `success`, `deliveryStatus: "accepted"`, `expiresIn`, `expiresAt`, `resendAvailableIn`, `maskedPhone` و `challengeToken` است. `expiresAt` مهلت مطلق (ISO) مشترک با `expires_at` در Supabase و `exp` توکن چالش است؛ `expiresIn` فقط فاصلهٔ باقی‌مانده و `resendAvailableIn` ثانیه‌های کول‌داون تا درخواست بعدی است. کد ملی و شماره کامل در پاسخ ارسال نمی‌شوند. کد ناموجود پاسخ عمومی می‌گیرد و پیامک/چالش ندارد؛ بااین‌حال، وجود challenge و شماره نیمه‌ماسک‌شده در پاسخ موفق یعنی این تفاوت پاسخ افشای وجود حساب را کاملاً منتفی نمی‌کند. محدودیت نرخ فقط کاهش‌دهنده ریسک است. `deliveryStatus` تنها «پذیرش درخواست توسط IPPanel» را نشان می‌دهد، نه تحویل به گوشی (به [راهنمای بررسی تحویل](../docs/otp-sms-delivery.md) مراجعه کنید).
+در صورت پذیرش پیامک، پاسخ شامل `success`, `deliveryStatus: "accepted"`, `expiresIn`, `expiresAt`, `resendAvailableIn`, `maskedPhone` و `challengeToken` است. `expiresAt` مهلت مطلق (ISO) مشترک با `expires_at` در Supabase و `exp` توکن چالش است؛ `expiresIn` فقط فاصلهٔ باقی‌مانده و `resendAvailableIn` ثانیه‌های کول‌داون تا درخواست بعدی است، `resendAvailableAt` همان مهلت مطلق ارسال مجدد است و `serverTime` زمان سرور در لحظهٔ پاسخ است (مرورگر شمارش را بر اساس این مقادیر هم‌زمان می‌کند). کد ملی و شماره کامل در پاسخ ارسال نمی‌شوند. کد ناموجود پاسخ عمومی می‌گیرد و پیامک/چالش ندارد؛ بااین‌حال، وجود challenge و شماره نیمه‌ماسک‌شده در پاسخ موفق یعنی این تفاوت پاسخ افشای وجود حساب را کاملاً منتفی نمی‌کند. محدودیت نرخ فقط کاهش‌دهنده ریسک است. `deliveryStatus` تنها «پذیرش درخواست توسط IPPanel» را نشان می‌دهد، نه تحویل به گوشی (به [راهنمای بررسی تحویل](../docs/otp-sms-delivery.md) مراجعه کنید).
 
 ### `POST /api/otp/resend`
 
@@ -54,18 +54,20 @@
 - `OTP_CHALLENGE_SECRET` و `OTP_SECRET` — دو مقدار تصادفی مستقل، هرکدام حداقل ۳۲ نویسه.
 - `OTP_TTL_SECONDS` — پیش‌فرض ۱۲۰؛ بازه مجاز ۶۰ تا ۹۰۰ ثانیه.
 - `OTP_MAX_SEND_PER_15MIN` — پیش‌فرض ۳.
-- `OTP_RESEND_COOLDOWN_SECONDS` — پیش‌فرض ۶۰.
+- `OTP_RESEND_COOLDOWN_SECONDS` — پیش‌فرض ۱۲۰ (برابر با مدت اعتبار کد).
 - `OTP_MAX_VERIFY_ATTEMPTS` — پیش‌فرض ۵.
 - `IPPANEL_API_KEY`, `IPPANEL_FROM_NUMBER`, `IPPANEL_API_URL` — فقط سمت سرور. مستندات رسمی Webservice: [IPPanel Edge API](https://ippanelcom.github.io/Edge-Document/docs/send/webservice/).
+- `IPPANEL_SENDING_TYPE` — `webservice` (پیش‌فرض، متن آزاد) یا `pattern` (الگوی تأییدشده). مقدار دیگر خطای پیکربندی است.
+- `IPPANEL_PATTERN_CODE` — فقط در حالت `pattern` لازم است؛ کد الگوی تأییدشده در پنل IPPanel. در Production بدون کد معتبر، سرور راه‌اندازی نمی‌شود. مستندات: [Send Pattern SMS](https://ippanelcom.github.io/Edge-Document/docs/send/pattern/).
 - `PORT` — پیش‌فرض `4010`; `HOST` — پیش‌فرض `0.0.0.0`.
 
 فایل `.env.example` placeholder دارد، نه credential واقعی. در Production از فایل یا Secret Store خصوصی استفاده کنید.
 
 ## قرارداد IPPanel
 
-Adapter از `POST https://edge.ippanel.com/v1/api/send` استفاده می‌کند و `IPPANEL_API_KEY` را در Header `Authorization` می‌فرستد. Body شامل `sending_type: "webservice"`، `from_number` و `recipients` با قالب E.164 و متن OTP است. موفقیت تنها وقتی پذیرفته می‌شود که HTTP موفق باشد، `meta.status === true` باشد و `data.message_outbox_ids` حداقل یک شناسه عددی معتبر داشته باشد. Timeout درخواست خروجی ۱۵ ثانیه و timeout خواندن Nginx برای API برابر ۳۰ ثانیه است. شناسهٔ پیام در ستون `sms_message_id` چالش ذخیره می‌شود تا بعداً بتوان تحویل همان پیام را از گزارش رسمی Provider خواند.
+Adapter از `POST https://edge.ippanel.com/v1/api/send` استفاده می‌کند و `IPPANEL_API_KEY` را در Header `Authorization` می‌فرستد. Body در حالت `webservice` شامل `sending_type: "webservice"`، `from_number`، `message` (متن کوتاه `کد اتاق جنگ: %code%`) و `params.recipients` است. در حالت `pattern` بدنه `sending_type: "pattern"`، `from_number`، `code` (کد الگو به صورت رشته)، `recipients` (یک گیرنده) و `params.code` (کد OTP به صورت رشته) است؛ هیچ‌گاه به متن آزاد برنمی‌گردد. موفقیت تنها وقتی پذیرفته می‌شود که HTTP موفق باشد، `meta.status === true` باشد و `data.message_outbox_ids` حداقل یک شناسه عددی معتبر داشته باشد. Timeout درخواست خروجی ۱۵ ثانیه و timeout خواندن Nginx برای API برابر ۳۰ ثانیه است. شناسهٔ پیام در ستون `sms_message_id` چالش ذخیره می‌شود تا بعداً بتوان تحویل همان پیام را از گزارش رسمی Provider خواند.
 
-شکست‌ها به کدهای مستقل تفکیک می‌شوند تا پیکربندی، اعتبارسنجی فرستنده، خطای احراز هویت Provider، محدودیت نرخ Provider، رد گیرنده/متن و خطای شبکه از هم قابل تشخیص باشند (`SMS_NOT_CONFIGURED`, `SMS_CONFIGURATION_INVALID`, `SMS_SENDER_INVALID`, `SMS_AUTH_REJECTED`, `SMS_SENDER_REJECTED`, `SMS_RECIPIENT_REJECTED`, `SMS_MESSAGE_REJECTED`, `SMS_PROVIDER_RATE_LIMITED`, `SMS_PROVIDER_UNAVAILABLE`, `SMS_NETWORK_FAILED`, `SMS_SEND_FAILED`). هیچ تلاش مجدد خودکاری انجام نمی‌شود، بدنهٔ درخواست/پاسخ Provider هرگز Log نمی‌شود و در لاگ فقط کد خطا، وضعیت HTTP، کد خطای Provider و شمارهٔ ماسک‌شده ثبت می‌گردد. پذیرش IPPanel تحویل قطعی پیامک به تلفن را اثبات نمی‌کند؛ روش قطعی بررسی تحویل در [docs/otp-sms-delivery.md](../docs/otp-sms-delivery.md) آمده است.
+شکست‌ها به کدهای مستقل تفکیک می‌شوند تا پیکربندی، اعتبارسنجی فرستنده، خطای احراز هویت Provider، محدودیت نرخ Provider، رد گیرنده/متن و خطای شبکه از هم قابل تشخیص باشند (`SMS_NOT_CONFIGURED`, `SMS_CONFIGURATION_INVALID`, `SMS_SENDER_INVALID`, `SMS_AUTH_REJECTED`, `SMS_SENDER_REJECTED`, `SMS_RECIPIENT_REJECTED`, `SMS_MESSAGE_REJECTED`, `SMS_PATTERN_NOT_CONFIGURED`, `SMS_PATTERN_REJECTED`, `SMS_PROVIDER_RATE_LIMITED`, `SMS_PROVIDER_UNAVAILABLE`, `SMS_NETWORK_FAILED`, `SMS_SEND_FAILED`). هیچ تلاش مجدد خودکاری انجام نمی‌شود، بدنهٔ درخواست/پاسخ Provider هرگز Log نمی‌شود و در لاگ فقط کد خطا، وضعیت HTTP، کد خطای Provider و شمارهٔ ماسک‌شده ثبت می‌گردد. پذیرش IPPanel تحویل قطعی پیامک به تلفن را اثبات نمی‌کند؛ روش قطعی بررسی تحویل در [docs/otp-sms-delivery.md](../docs/otp-sms-delivery.md) آمده است.
 
 ## Supabase و دسترسی
 

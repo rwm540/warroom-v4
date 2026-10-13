@@ -105,6 +105,10 @@ function assertSmsConfiguration() {
   if (!/^\+[1-9]\d{1,14}$/.test(config.ippanelFrom)) {
     throw smsError('SMS_SENDER_INVALID', 503);
   }
+  // Pattern mode without an approved code is not a configured provider (readiness reports it).
+  if (config.ippanelSendingType === 'pattern' && !config.ippanelPatternCode) {
+    throw smsError('SMS_PATTERN_NOT_CONFIGURED', 503);
+  }
   return configuredSendUrl();
 }
 
@@ -131,7 +135,7 @@ function providerErrorFields(payload) {
   return Object.keys(errors).filter((key) => /^[a-z_]{1,32}$/i.test(key)).slice(0, 10);
 }
 
-function classifyProviderFailure({ httpStatus, providerCode, errorFields }) {
+function classifyProviderFailure({ httpStatus, providerCode, errorFields, sendingType = 'webservice' }) {
   const code = typeof providerCode === 'string' ? providerCode.slice(0, 16) : '';
   if (httpStatus === 401 || httpStatus === 403 || code === '400-1') {
     return { code: 'SMS_AUTH_REJECTED', status: 502 };
@@ -140,6 +144,12 @@ function classifyProviderFailure({ httpStatus, providerCode, errorFields }) {
   if (httpStatus >= 500) return { code: 'SMS_PROVIDER_UNAVAILABLE', status: 503 };
   if (errorFields.some((field) => /^(from_number|sender|source)$/i.test(field))) {
     return { code: 'SMS_SENDER_REJECTED', status: 502 };
+  }
+  if (sendingType === 'pattern' && errorFields.some((field) => /^(code|pattern|params)$/i.test(field))) {
+    // The panel rejected the pattern code or its variables (typically: not approved, or the
+    // placeholder name does not match). Reported distinctly so it is never mistaken for a
+    // free-text failure. The caller never falls back to free text.
+    return { code: 'SMS_PATTERN_REJECTED', status: 502 };
   }
   if (errorFields.some((field) => /^(recipients?|params)$/i.test(field))) {
     return { code: 'SMS_RECIPIENT_REJECTED', status: 400 };
@@ -160,11 +170,60 @@ function safePhoneLabel(phone) {
 }
 
 /**
- * Sends one SMS through IPPanel's documented Webservice endpoint.
- * See: https://ippanelcom.github.io/Edge-Document/docs/send/webservice/
+ * Free-text OTP message (webservice mode).
+ *
+ * Counting method (documented in docs/otp-sms-delivery.md): the length is measured on the final
+ * text after substitution, in Unicode code points (what a user sees) and in UTF-16 code units
+ * (what a naive counter sees). Both must stay at most OTP_SMS_MAX_CHARACTERS. The text contains
+ * no validity period, link, advertising or extra wording by design.
+ */
+export const OTP_SMS_MAX_CHARACTERS = 25;
+const OTP_SMS_TEMPLATE = 'کد اتاق جنگ: %code%';
+
+export function buildOtpSmsMessage(otp) {
+  if (!/^\d{6}$/.test(String(otp || ''))) throw smsError('SMS_REQUEST_INVALID', 400);
+  return OTP_SMS_TEMPLATE.replace('%code%', String(otp));
+}
+
+/**
+ * Request body for the configured sending type. Exported for unit tests (no network).
+ *
+ * - webservice: { sending_type, from_number, message, params: { recipients: [phone] } }
+ * - pattern:    { sending_type, from_number, code: <pattern code string>, recipients: [phone],
+ *                 params: { code: <otp as a string> } }
+ *   The placeholder key `code` must equal the variable name of the approved pattern in the panel.
+ *   Pattern mode never falls back to the webservice body.
+ */
+export function buildSendBody({ sendingType, fromNumber, patternCode, e164Phone, otp }) {
+  if (sendingType === 'pattern') {
+    if (!patternCode) throw smsError('SMS_PATTERN_NOT_CONFIGURED', 503);
+    return {
+      sending_type: 'pattern',
+      from_number: fromNumber,
+      code: String(patternCode),
+      recipients: [e164Phone],
+      params: { code: String(otp) },
+    };
+  }
+  return {
+    sending_type: 'webservice',
+    from_number: fromNumber,
+    message: buildOtpSmsMessage(otp),
+    params: { recipients: [e164Phone] },
+  };
+}
+
+/**
+ * Sends one OTP SMS through IPPanel's documented Edge send endpoint.
+ * Webservice: https://ippanelcom.github.io/Edge-Document/docs/send/webservice/
+ * Pattern:    https://ippanelcom.github.io/Edge-Document/docs/send/pattern/
  */
 export async function sendOtpSms(e164Phone, otp, { issuedAtMs, expiresAtMs } = {}) {
   const endpoint = assertSmsConfiguration();
+  const sendingType = config.ippanelSendingType === 'pattern' ? 'pattern' : 'webservice';
+  if (sendingType === 'pattern' && !config.ippanelPatternCode) {
+    throw smsError('SMS_PATTERN_NOT_CONFIGURED', 503);
+  }
   if (!/^\+989\d{9}$/.test(String(e164Phone || '')) || !/^\d{6}$/.test(String(otp || ''))) {
     throw smsError('SMS_REQUEST_INVALID', 400);
   }
@@ -181,7 +240,13 @@ export async function sendOtpSms(e164Phone, otp, { issuedAtMs, expiresAtMs } = {
     throw smsError('OTP_EXPIRY_INVALID', 503);
   }
 
-  const message = `کد تأیید اتاق جنگ: ${otp}\nاعتبار کد: ${validitySeconds} ثانیه از زمان صدور.`;
+  const body = buildSendBody({
+    sendingType,
+    fromNumber: config.ippanelFrom,
+    patternCode: config.ippanelPatternCode,
+    e164Phone,
+    otp,
+  });
   let response;
   try {
     response = await fetch(endpoint, {
@@ -192,12 +257,7 @@ export async function sendOtpSms(e164Phone, otp, { issuedAtMs, expiresAtMs } = {
         'Content-Type': 'application/json',
       },
       signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
-      body: JSON.stringify({
-        sending_type: 'webservice',
-        from_number: config.ippanelFrom,
-        message,
-        params: { recipients: [e164Phone] },
-      }),
+      body: JSON.stringify(body),
     });
   } catch (error) {
     // Never log the request body (it contains the OTP) or the API key.
@@ -224,6 +284,7 @@ export async function sendOtpSms(e164Phone, otp, { issuedAtMs, expiresAtMs } = {
       httpStatus: response.status,
       providerCode,
       errorFields: providerErrorFields(payload),
+      sendingType,
     });
     console.warn(
       `[sms] rejected provider=ippanel code=${classification.code} httpStatus=${response.status} providerCode=${providerCode || 'none'} phone=${safePhoneLabel(e164Phone)}`,

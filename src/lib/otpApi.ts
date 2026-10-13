@@ -22,8 +22,12 @@ export interface OTPSendResponse {
   expiresIn?: number;
   /** Absolute server deadline (ISO) - the single source of truth for the countdown. */
   expiresAt?: string;
+  /** Server instant the answer was produced (ISO); used to align the countdown. */
+  serverTime?: string;
   /** Seconds to wait before another code may be requested (server cooldown). */
   resendAvailableIn?: number;
+  /** Absolute resend deadline (ISO). */
+  resendAvailableAt?: string;
   /** 'accepted' means the provider queued the SMS; it is not proof of handset delivery. */
   deliveryStatus?: 'accepted';
   retryAfterSeconds?: number;
@@ -68,7 +72,9 @@ export async function sendOtpByNationalCode(
     error: result.error,
     expiresIn: result.expiresIn,
     expiresAt: result.expiresAt,
+    serverTime: result.serverTime,
     resendAvailableIn: result.resendAvailableIn,
+    resendAvailableAt: result.resendAvailableAt,
     deliveryStatus: result.deliveryStatus,
     retryAfterSeconds: result.retryAfterSeconds,
     maskedPhone: result.maskedPhone,
@@ -147,7 +153,9 @@ export async function resendOtp(
     error: result.error,
     expiresIn: result.expiresIn,
     expiresAt: result.expiresAt,
+    serverTime: result.serverTime,
     resendAvailableIn: result.resendAvailableIn,
+    resendAvailableAt: result.resendAvailableAt,
     deliveryStatus: result.deliveryStatus,
     retryAfterSeconds: result.retryAfterSeconds,
     maskedPhone: result.maskedPhone,

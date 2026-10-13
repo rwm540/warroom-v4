@@ -198,6 +198,15 @@ export function createMemoryStore({ latencyMs = 0 } = {}) {
       return clone(state.otpCodes.get(String(challengeId)) || null);
     },
 
+    async findLatestOtpExpiresAt(nationalCode) {
+      let latest = null;
+      for (const row of state.otpCodes.values()) {
+        if (String(row.national_code) !== String(nationalCode)) continue;
+        latest = row; // Map keeps insertion order: the last match is the newest challenge
+      }
+      return latest?.expires_at ? String(latest.expires_at) : null;
+    },
+
     async setOtpSmsMessageId(challengeId, messageId) {
       const row = state.otpCodes.get(String(challengeId));
       if (!row || row.is_used) return null;

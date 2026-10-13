@@ -147,8 +147,12 @@ export interface OtpChallengeResponse extends ApiEnvelope {
   expiresIn?: number;
   /** Absolute deadline (ISO) shared by Supabase `expires_at` and the challenge token. */
   expiresAt?: string;
+  /** Server instant the answer was produced (ISO). The browser aligns its countdown with it. */
+  serverTime?: string;
   /** Seconds the user must wait before the next code may be requested. */
   resendAvailableIn?: number;
+  /** Absolute resend deadline (ISO) = serverTime + cooldown. */
+  resendAvailableAt?: string;
   /** Always 'accepted': the provider queued the message, nothing about handset delivery. */
   deliveryStatus?: 'accepted';
   /** Set on cooldown answers so the UI can show an accurate countdown. */

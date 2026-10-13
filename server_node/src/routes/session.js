@@ -138,6 +138,15 @@ export function createSessionRouter({ store, limiter, auth, config }) {
 
       if (!userId) throw publicError('INVALID_OTP_PROOF', 'مدرک OTP معتبر نیست.', 401);
 
+      // A login proof must never be spent on an account that cannot sign in. The account is
+      // checked before the proof is consumed; a blocked or inactive account keeps the proof
+      // unspent and gets no session.
+      if (purpose === SESSION_PURPOSES.login) {
+        const accountRow = await store.findUserById(userId);
+        if (!accountRow) throw publicError('USER_NOT_FOUND', 'کاربر یافت نشد.', 401);
+        assertUserUsable(accountRow);
+      }
+
       // Atomic, one-time consumption of the proof - a failed insert means someone else won.
       const consumed = await store.consumeOtpProof(otpProof, purpose);
       if (consumed?.success !== true) {
@@ -158,6 +167,11 @@ export function createSessionRouter({ store, limiter, auth, config }) {
       const csrfToken = createCsrfToken(sessionId);
       const expiresAt = new Date(Date.now() + ttlSeconds * 1000).toISOString();
 
+      // Every read that can fail happens before the session row is written, and cookies are only
+      // set after the row exists. A failure in between therefore never leaves a half-made session
+      // with cookies pointing at nothing.
+      const mustChangePassword = await store.mustChangePassword(userId);
+
       await store.insertSession({
         id: sessionId,
         user_id: userId,
@@ -175,7 +189,7 @@ export function createSessionRouter({ store, limiter, auth, config }) {
         csrfToken,
         expiresAt,
         isNewRegistration,
-        mustChangePassword: await store.mustChangePassword(userId),
+        mustChangePassword,
         user,
       });
     } catch (error) {

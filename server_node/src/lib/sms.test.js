@@ -1,7 +1,16 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { config } from '../config.js';
-import { sendOtpSms, fetchSmsDeliveryStatus, isSmsConfigured } from './sms.js';
+import {
+  sendOtpSms,
+  fetchSmsDeliveryStatus,
+  isSmsConfigured,
+  buildOtpSmsMessage,
+  buildSendBody,
+  OTP_SMS_MAX_CHARACTERS,
+} from './sms.js';
+import { parseIppanelPatternCode, parseIppanelSendingType } from '../config.js';
+import { createSmsGateway } from './smsGateway.js';
 
 const SEND_URL = 'https://edge.ippanel.com/v1/api/send';
 const BULK_URL = 'https://edge.ippanel.com/v1/api/report/by_bulk';
@@ -97,8 +106,8 @@ test('SMS adapter sends the documented payload and accepts only a successful res
     assert.deepEqual(body, {
       sending_type: 'webservice',
       from_number: '+983000505',
-      // The validity stated in the message is the configured TTL, never a hardcoded value.
-      message: `کد تأیید اتاق جنگ: 123456\nاعتبار کد: ${config.otpTtlSeconds} ثانیه از زمان صدور.`,
+      // Fixed short template: no validity text, no link, no advertising (see OTP_SMS_MAX_CHARACTERS).
+      message: 'کد اتاق جنگ: 123456',
       params: { recipients: [RECIPIENT] },
     });
 
@@ -246,4 +255,144 @@ test('delivery status rejects invalid ids and provider auth failures', async () 
     globalThis.fetch = async () => jsonResponse({ data: null, meta: { status: false, message_code: '400-1' } }, 401);
     await expectSmsError(fetchSmsDeliveryStatus('1123544244'), 'SMS_AUTH_REJECTED');
   });
+});
+
+/** Runs a test with pattern mode enabled and always restores the previous settings. */
+async function withPatternConfig(patternCode, run) {
+  const original = {
+    sendingType: config.ippanelSendingType,
+    patternCode: config.ippanelPatternCode,
+  };
+  config.ippanelSendingType = 'pattern';
+  config.ippanelPatternCode = patternCode;
+  try {
+    return await withSmsConfig(run);
+  } finally {
+    config.ippanelSendingType = original.sendingType;
+    config.ippanelPatternCode = original.patternCode;
+  }
+}
+
+test('the OTP SMS text is the fixed short template and fits the 25-character limit', () => {
+  const message = buildOtpSmsMessage('123456');
+  assert.equal(message, 'کد اتاق جنگ: 123456');
+  // Two counters are checked: code points (what the user reads) and UTF-16 code units
+  // (what a naive counter measures). Both must stay within the limit.
+  assert.ok([...message].length <= OTP_SMS_MAX_CHARACTERS, `code points: ${[...message].length}`);
+  assert.ok(message.length <= OTP_SMS_MAX_CHARACTERS, `UTF-16 units: ${message.length}`);
+  assert.equal([...message].length, 19, 'the template with a 6-digit code is 19 characters');
+  // The length does not depend on the digits of the code.
+  for (const otp of ['000000', '999999', '504817']) {
+    assert.equal([...buildOtpSmsMessage(otp)].length, 19);
+  }
+  // No validity period, link, advertising or extra wording is ever added.
+  assert.equal(/ثانیه|اعتبار|http|www|\.ir|\n/.test(message), false);
+});
+
+test('an OTP that is not exactly six digits never produces an SMS text', () => {
+  for (const otp of ['12345', '1234567', 'abcdef', '', null]) {
+    assert.throws(() => buildOtpSmsMessage(otp), (error) => error.code === 'SMS_REQUEST_INVALID');
+  }
+});
+
+test('pattern mode sends the approved code as a string with the OTP in the "code" variable', () => {
+  const body = buildSendBody({
+    sendingType: 'pattern',
+    fromNumber: '+983000505',
+    patternCode: 'test-pattern-code',
+    e164Phone: RECIPIENT,
+    otp: '123456',
+  });
+  assert.deepEqual(body, {
+    sending_type: 'pattern',
+    from_number: '+983000505',
+    code: 'test-pattern-code',
+    recipients: [RECIPIENT],
+    params: { code: '123456' },
+  });
+  assert.equal(typeof body.code, 'string');
+  assert.equal(typeof body.params.code, 'string');
+  assert.equal('message' in body, false, 'pattern bodies carry no free text');
+});
+
+test('pattern mode without a code fails explicitly and never builds a free-text body', () => {
+  assert.throws(
+    () => buildSendBody({ sendingType: 'pattern', fromNumber: '+983000505', patternCode: '', e164Phone: RECIPIENT, otp: '123456' }),
+    (error) => error.code === 'SMS_PATTERN_NOT_CONFIGURED',
+  );
+});
+
+test('pattern mode sends one pattern request with mocked IPPanel and never a free-text request', async () => {
+  await withPatternConfig('test-pattern-code', async () => {
+    const requests = [];
+    globalThis.fetch = async (url, options) => {
+      requests.push({ url: String(url), body: JSON.parse(options.body) });
+      return jsonResponse({ data: { message_outbox_ids: [555001] }, meta: { status: true, message_code: '200-1' } });
+    };
+    const result = await sendOtpSms(RECIPIENT, '246810', otpWindow());
+    assert.deepEqual(result, { ok: true, ids: ['555001'], accepted: true, provider: 'ippanel' });
+    assert.equal(requests.length, 1);
+    assert.equal(requests[0].url, SEND_URL);
+    assert.equal(requests[0].body.sending_type, 'pattern');
+    assert.equal(requests[0].body.code, 'test-pattern-code');
+    assert.deepEqual(requests[0].body.params, { code: '246810' });
+    assert.deepEqual(requests[0].body.recipients, [RECIPIENT]);
+    assert.equal('message' in requests[0].body, false);
+  });
+});
+
+test('pattern mode without a code throws before any network call (no fallback, no mock)', async () => {
+  await withPatternConfig('', async () => {
+    let calls = 0;
+    globalThis.fetch = async () => {
+      calls += 1;
+      return jsonResponse({ data: null, meta: { status: false } }, 500);
+    };
+    await expectSmsError(sendOtpSms(RECIPIENT, '246810', otpWindow()), 'SMS_PATTERN_NOT_CONFIGURED');
+    assert.equal(calls, 0, 'no request is made in pattern mode without a code');
+
+    // The gateway must not reach the mock sender either, even when mock SMS is allowed.
+    const gateway = createSmsGateway({ allowMock: true, configured: () => true, sender: async () => {
+      calls += 1;
+      return { ok: true, ids: ['x'] };
+    } });
+    await assert.rejects(gateway.send(RECIPIENT, '246810', otpWindow()), (error) => error.code === 'SMS_PATTERN_NOT_CONFIGURED');
+    assert.equal(calls, 0, 'neither the real sender nor a mock is used');
+  });
+});
+
+test('a pattern rejected by IPPanel is a detectable error and the adapter sends no second, free-text request', async () => {
+  await withPatternConfig('unapproved-code', async () => {
+    let calls = 0;
+    globalThis.fetch = async () => {
+      calls += 1;
+      return jsonResponse(
+        { data: null, meta: { status: false, message_code: '400-2', errors: { code: ['pattern not found'] } } },
+        422,
+      );
+    };
+    await expectSmsError(sendOtpSms(RECIPIENT, '246810', otpWindow()), 'SMS_PATTERN_REJECTED');
+    assert.equal(calls, 1, 'exactly one request, never a fallback request');
+  });
+});
+
+test('pattern and webservice modes are read from explicit settings only', () => {
+  assert.deepEqual(parseIppanelSendingType(undefined), { value: 'webservice', valid: true });
+  assert.deepEqual(parseIppanelSendingType(''), { value: 'webservice', valid: true });
+  assert.deepEqual(parseIppanelSendingType('webservice'), { value: 'webservice', valid: true });
+  assert.deepEqual(parseIppanelSendingType(' Pattern '), { value: 'pattern', valid: true });
+  assert.equal(parseIppanelSendingType('free-text').valid, false, 'unknown values are never silently accepted');
+  assert.equal(parseIppanelSendingType('free-text').value, 'invalid');
+});
+
+test('the pattern code must be an identifier and placeholders are rejected', () => {
+  assert.equal(parseIppanelPatternCode('abc-123_XYZ'), 'abc-123_XYZ');
+  assert.equal(parseIppanelPatternCode('  abcd1234  '), 'abcd1234');
+  assert.equal(parseIppanelPatternCode(''), '');
+  assert.equal(parseIppanelPatternCode(undefined), '');
+  assert.equal(parseIppanelPatternCode('abc'), '', 'shorter than 4 characters');
+  assert.equal(parseIppanelPatternCode('code with spaces'), '');
+  assert.equal(parseIppanelPatternCode('replace_with_pattern_code'), '');
+  assert.equal(parseIppanelPatternCode('your_pattern_code'), '');
+  assert.equal(parseIppanelPatternCode('x'.repeat(65)), '');
 });

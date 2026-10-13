@@ -232,11 +232,13 @@ Tests: 11 passed
 - `OTP_SECRET` — حداقل 32 کاراکتر تصادفی
 - `OTP_TTL_SECONDS` — 60-900، پیش‌فرض 120
 - `OTP_MAX_SEND_PER_15MIN` — 1-10، پیش‌فرض 3
-- `OTP_RESEND_COOLDOWN_SECONDS` — 10-600، پیش‌فرض 60
+- `OTP_RESEND_COOLDOWN_SECONDS` — 10-600، پیش‌فرض 120
 - `OTP_MAX_VERIFY_ATTEMPTS` — 3-10، پیش‌فرض 5
 - `IPPANEL_API_KEY` — کلید IPPanel
 - `IPPANEL_FROM_NUMBER` — شماره فرستنده E.164 تأییدشده
 - `IPPANEL_API_URL` — `https://edge.ippanel.com/v1/api/send`
+- `IPPANEL_SENDING_TYPE` — `webservice` (پیش‌فرض) یا `pattern`
+- `IPPANEL_PATTERN_CODE` — کد الگوی تأییدشده در پنل IPPanel (فقط برای `pattern`؛ هرگز در مخزن قرار نمی‌گیرد)
 - `PORT` — 4010
 - `HOST` — 0.0.0.0
 - `NODE_ENV` — production/development

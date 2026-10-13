@@ -38,6 +38,7 @@ import PersianDatePicker from './PersianDatePicker';
 import RadarLoading from './RadarLoading';
 import OTPVerificationModal from './OTPVerificationModal';
 import { resendOtp, sendOtpByNationalCode } from '../lib/otpApi';
+import { buildOtpChallengeClock, type OtpChallengeClock } from '../lib/otpClock';
 import { createGroupRecord, MAX_GROUP_MEMBERS } from '../lib/groupRegistration';
 import { completeAuthentication, requestLoginChallenge, startRegistration } from '../lib/authApi';
 import {
@@ -45,10 +46,6 @@ import {
 } from '../lib/backendApi';
 
 const WARROOM_LOGO_PATH = '/images/logos/warroom_logo.webp';
-
-function isValidOtpExpiry(value: unknown): value is number {
-  return typeof value === 'number' && Number.isInteger(value) && value > 0 && value <= 900;
-}
 
 interface AuthViewProps {
   users: User[];
@@ -208,12 +205,10 @@ export default function AuthView({
   const [showOtpModal, setShowOtpModal] = useState(false);
   const [pendingUser, setPendingUser] = useState<User | null>(null);
   const [pendingMeta, setPendingMeta] = useState<any>(null);
-  const [otpChallengeToken, setOtpChallengeToken] = useState('');
   const [otpMaskedPhone, setOtpMaskedPhone] = useState('');
-  const [otpExpiresIn, setOtpExpiresIn] = useState<number | null>(null);
-  // Absolute server deadline (ISO) so the browser countdown matches Supabase `expires_at`.
-  const [otpExpiresAt, setOtpExpiresAt] = useState<string | null>(null);
-  const [otpResendAvailableIn, setOtpResendAvailableIn] = useState<number | undefined>(undefined);
+  // The whole challenge (token + server deadlines) is one value, so the modal never mixes a new
+  // token with an old deadline.
+  const [otpChallenge, setOtpChallenge] = useState<OtpChallengeClock | null>(null);
   const [otpPurpose, setOtpPurpose] = useState<'login' | 'registration'>('registration');
   const [pendingRegistration, setPendingRegistration] = useState<{ groupName: string } | null>(null);
 
@@ -234,18 +229,16 @@ export default function AuthView({
       return false;
     }
     const result = await sendOtpByNationalCode(nationalCode, { purpose, password: options?.password });
-    if (!result.success || !result.challengeToken || !isValidOtpExpiry(result.expiresIn)) {
-      const message = result.error || result.message || 'ارسال کد تأیید ناموفق بود یا زمان اعتبار از سرور دریافت نشد.';
+    const clock = result.success ? buildOtpChallengeClock(result, Date.now()) : null;
+    if (!clock) {
+      const message = result.error || result.message || 'ارسال کد تأیید ناموفق بود یا مهلت کد از سرور دریافت نشد.';
       if (activeTab === 'register') setRegisterError(message);
       else setLoginError(message);
       triggerAlert(message);
       return false;
     }
-    setOtpChallengeToken(result.challengeToken);
+    setOtpChallenge(clock);
     setOtpMaskedPhone(result.maskedPhone || 'شماره همراه ثبت‌شده');
-    setOtpExpiresIn(result.expiresIn);
-    setOtpExpiresAt(result.expiresAt || null);
-    setOtpResendAvailableIn(result.resendAvailableIn);
     setOtpPurpose(purpose);
     setShowOtpModal(true);
     triggerAlert(result.maskedPhone
@@ -267,7 +260,7 @@ export default function AuthView({
   const requestNewOtpCode = async () => {
     const nationalCode = normalizeToEnglishDigits(pendingUser?.national_code || pendingUser?.nationalCode || '').trim();
     if (!nationalCode) {
-      return { success: false, error: 'کد ملی کاربر نامعتبر است. لطفاً دوباره تلاش کنید.' };
+      return { success: false, error: 'کد ملی کاربر نامعتبر است. لطفاً دوباره تلاش کنید.' } as const;
     }
     return resendOtp(nationalCode, {
       purpose: otpPurpose,
@@ -428,25 +421,22 @@ export default function AuthView({
     // issues the SMS challenge; the identity is confirmed later by the session exchange.
     const challenge = await requestLoginChallenge(natId, loginPassword);
     setIsSubmitting(false);
-    if (!challenge.success || !challenge.challengeToken || !isValidOtpExpiry(challenge.expiresIn)) {
+    const clock = challenge.success ? buildOtpChallengeClock(challenge, Date.now()) : null;
+    if (!clock) {
       setLoginError(challenge.error || challenge.message || 'کد ملی یا رمز عبور اشتباه است.');
       return;
     }
 
-    const knownUser = users.find(u =>
-      normalizeToEnglishDigits(u.national_code) === natId ||
-      normalizeToEnglishDigits(u.personal_code) === natId
-    ) || null;
-    const pending = (knownUser || { id: `login_${natId}`, national_code: natId, password: '' }) as unknown as User;
+    // The national code typed by the user identifies the target. The local user list is only used
+    // for a cosmetic hint (gender); it never decides which account the code is sent to.
+    const knownUser = users.find(u => normalizeToEnglishDigits(u.national_code) === natId) || null;
+    const pending = { id: `login_${natId}`, national_code: natId, password: '' } as unknown as User;
     if (knownUser?.gender) setSelectedGender(knownUser.gender);
 
     setPendingUser(pending);
     setPendingMeta({});
-    setOtpChallengeToken(challenge.challengeToken);
+    setOtpChallenge(clock);
     setOtpMaskedPhone(challenge.maskedPhone || 'شماره همراه ثبت‌شده');
-    setOtpExpiresIn(challenge.expiresIn);
-    setOtpExpiresAt(challenge.expiresAt || null);
-    setOtpResendAvailableIn(challenge.resendAvailableIn);
     setOtpPurpose('login');
     setShowOtpModal(true);
   };
@@ -955,19 +945,15 @@ export default function AuthView({
         </div>
       )}
 
+      {otpChallenge && (
       <OTPVerificationModal
         isOpen={showOtpModal}
         onClose={() => setShowOtpModal(false)}
         nationalCode={normalizeToEnglishDigits(pendingUser?.national_code || pendingUser?.nationalCode || '')}
         userPhone={otpMaskedPhone}
-        challengeToken={otpChallengeToken}
-        expiresIn={otpExpiresIn ?? 0}
-        expiresAt={otpExpiresAt}
-        resendAvailableIn={otpResendAvailableIn}
+        challenge={otpChallenge}
+        onChallengeRenewed={setOtpChallenge}
         purpose={otpPurpose}
-        onChallengeToken={setOtpChallengeToken}
-        onExpiresIn={setOtpExpiresIn}
-        onExpiresAt={setOtpExpiresAt}
         onRequestNewCode={requestNewOtpCode}
         campaignTheme={isGirls ? 'girls' : 'boys'}
         onSuccess={async (verifiedUser) => {
@@ -1019,6 +1005,7 @@ export default function AuthView({
           onLoginSuccess(serverUser, { mustChangePassword: auth.mustChangePassword });
         }}
       />
+      )}
 
       {/* Military Radar Scanning & Authentication Overlay */}
       {isSubmitting && (

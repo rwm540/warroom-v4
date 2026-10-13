@@ -32,6 +32,11 @@ export function createSmsGateway({
       }
     },
     async send(phoneE164, otp, meta) {
+      // Pattern mode is explicit. Without an approved code there is no silent fallback to free
+      // text and no fallback to the mock sender, in any environment.
+      if (config.ippanelSendingType === 'pattern' && !config.ippanelPatternCode) {
+        throw publicError('SMS_PATTERN_NOT_CONFIGURED', 'قالب پیامک تأیید پیکربندی نشده است.', 503);
+      }
       if (configured() === true) {
         return sender(phoneE164, otp, meta);
       }

@@ -15,7 +15,9 @@ function sendResponse(overrides: Record<string, unknown> = {}, status = 200) {
       message: 'ok',
       expiresIn: 120,
       expiresAt: '2026-01-01T00:02:00.000Z',
-      resendAvailableIn: 60,
+      serverTime: '2026-01-01T00:00:00.000Z',
+      resendAvailableIn: 120,
+      resendAvailableAt: '2026-01-01T00:02:00.000Z',
       deliveryStatus: 'accepted',
       maskedPhone: '0912***33',
       challengeToken: 'challenge-token',
@@ -62,7 +64,9 @@ describe('OTP resend contract', () => {
     expect(result.success).toBe(true);
     expect(result.challengeToken).toBe('challenge-token');
     expect(result.expiresAt).toBe('2026-01-01T00:02:00.000Z');
-    expect(result.resendAvailableIn).toBe(60);
+    expect(result.resendAvailableIn).toBe(120);
+    expect(result.serverTime).toBe('2026-01-01T00:00:00.000Z');
+    expect(result.resendAvailableAt).toBe('2026-01-01T00:02:00.000Z');
     expect(result.deliveryStatus).toBe('accepted');
     // Nothing credential-related may ever be written to Web Storage.
     expect(setItemSpy).not.toHaveBeenCalled();
@@ -104,7 +108,7 @@ describe('OTP resend contract', () => {
 
   it('surfaces the cooldown answer with its retry hint and never throws', async () => {
     const fetchMock = vi.fn(async (_path: string, _options?: RequestInit) => errorResponse(
-      { success: false, error: 'RATE_LIMITED_COOLDOWN', message: 'برای درخواست کد جدید ۶۰ ثانیه صبر کنید.', retryAfterSeconds: 60 },
+      { success: false, error: 'RATE_LIMITED_COOLDOWN', message: 'برای درخواست کد جدید ۱۲۰ ثانیه صبر کنید.', retryAfterSeconds: 37 },
       429,
     ));
     vi.stubGlobal('fetch', fetchMock);
@@ -112,8 +116,8 @@ describe('OTP resend contract', () => {
     const result = await resendOtp(NATIONAL, { purpose: 'login', password: PASSWORD });
 
     expect(result.success).toBe(false);
-    expect(result.error).toMatch(/۶۰ ثانیه/);
-    expect(result.retryAfterSeconds).toBe(60);
+    expect(result.error).toMatch(/۱۲۰ ثانیه/);
+    expect(result.retryAfterSeconds).toBe(37);
   });
 
   it('maps a failed initial send without leaking server internals', async () => {

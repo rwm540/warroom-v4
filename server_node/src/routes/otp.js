@@ -44,6 +44,23 @@ function phoneFromUserData(data) {
 export function createOtpRouter({ store, sms, limiter, config }) {
   const router = Router();
 
+  /**
+   * Seconds until a new code may be requested, measured from the latest challenge's server
+   * deadline. The cooldown window starts with a send, and a send issues a challenge with the same
+   * TTL as the cooldown, so the deadline is the cooldown end. When no usable deadline exists
+   * (no challenge, or the window was started by a request that never issued one), the full
+   * cooldown is returned: a conservative answer, never an early one.
+   */
+  async function cooldownRemainingSeconds(nationalCode) {
+    const full = config.otpResendCooldown;
+    const latest = await store.findLatestOtpExpiresAt(nationalCode);
+    const expiresMs = latest ? Date.parse(latest) : Number.NaN;
+    if (!Number.isFinite(expiresMs)) return full;
+    const remaining = Math.ceil((expiresMs - Date.now()) / 1000);
+    if (remaining < 1) return full;
+    return Math.min(remaining, full);
+  }
+
   async function enforceSendRateLimits({ ip, nationalCode }) {
     const nationalKey = hashValue(nationalCode);
     const idKey = hashValue(ip);
@@ -56,12 +73,13 @@ export function createOtpRouter({ store, sms, limiter, config }) {
     }
     const allowedCooldown = await limiter.hit(`otp:cooldown:${nationalKey}`, 1, config.otpResendCooldown);
     if (!allowedCooldown) {
+      const retryAfterSeconds = await cooldownRemainingSeconds(nationalCode);
       const error = publicError(
         'OTP_RESEND_COOLDOWN',
-        `برای درخواست کد جدید ${config.otpResendCooldown} ثانیه صبر کنید.`,
+        `برای درخواست کد جدید ${retryAfterSeconds} ثانیه صبر کنید.`,
         429,
       );
-      error.retryAfterSeconds = config.otpResendCooldown;
+      error.retryAfterSeconds = retryAfterSeconds;
       throw error;
     }
     const allowedNational = await limiter.hit(`otp:national:${nationalKey}`, config.otpMaxSend, 15 * 60);
@@ -164,7 +182,9 @@ export function createOtpRouter({ store, sms, limiter, config }) {
       throw error;
     }
 
-    const expiresIn = Math.floor((expiresAtMs - Date.now()) / 1000);
+    // Measured once, here, so every time field in the answer refers to the same instant.
+    const serverNowMs = Date.now();
+    const expiresIn = Math.floor((expiresAtMs - serverNowMs) / 1000);
     if (expiresIn <= 0) {
       throw publicError('OTP_EXPIRED', 'مهلت کد تأیید هنگام ارسال پایان یافت؛ دوباره درخواست کنید.', 503);
     }
@@ -176,9 +196,12 @@ export function createOtpRouter({ store, sms, limiter, config }) {
       deliveryStatus: 'accepted',
       expiresIn,
       // The absolute deadline shared by Supabase `expires_at`, the challenge token and the
-      // browser countdown, so the three can never drift apart.
+      // browser countdown. The browser computes the remaining time from this deadline and the
+      // offset between serverTime and its own clock; it never runs a second timer.
       expiresAt,
+      serverTime: new Date(serverNowMs).toISOString(),
       resendAvailableIn: config.otpResendCooldown,
+      resendAvailableAt: new Date(serverNowMs + config.otpResendCooldown * 1000).toISOString(),
       maskedPhone: maskPhone(target.phone.local),
       challengeToken,
       purpose,
@@ -247,6 +270,11 @@ export function createOtpRouter({ store, sms, limiter, config }) {
       }
       if (suppliedNationalCode && String(challengeRow.national_code) !== suppliedNationalCode) {
         throw publicError('OTP_EXPIRED', 'کد منقضی شده یا وجود ندارد.');
+      }
+      // The signed purpose and the stored purpose must agree. A token minted for one purpose can
+      // never be exchanged for a proof of another (checked before any attempt is consumed).
+      if (String(challenge.purpose || '') !== String(challengeRow.purpose || '')) {
+        throw publicError('CHALLENGE_MISMATCH', 'نشست تأیید با این عملیات سازگار نیست.', 401);
       }
 
       const allowed = await limiter.hit(`otp:verify:${hashValue(nationalCode || challenge.sub)}`, 10, 15 * 60);

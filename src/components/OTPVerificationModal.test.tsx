@@ -4,18 +4,33 @@ import { createRoot, type Root } from 'react-dom/client';
 import { act } from 'react';
 import OTPVerificationModal from './OTPVerificationModal';
 import type { OTPSendResponse, OTPVerifiedUser } from '../lib/otpApi';
+import type { OtpChallengeClock } from '../lib/otpClock';
 
 const NATIONAL = '1234567891';
 const BASE_TIME = Date.UTC(2026, 0, 1, 12, 0, 0);
 const TTL_SECONDS = 120;
-const COOLDOWN_SECONDS = 60;
+
+/** A challenge issued by the server at `serverStartMs` (server clock), received at `receivedMs`. */
+function makeClock(
+  serverStartMs: number,
+  overrides: Partial<OtpChallengeClock> & { resendSeconds?: number; receivedMs?: number } = {},
+): OtpChallengeClock {
+  const { resendSeconds = TTL_SECONDS, receivedMs = serverStartMs, ...rest } = overrides;
+  return {
+    challengeToken: 'challenge-1',
+    expiresAt: new Date(serverStartMs + TTL_SECONDS * 1000).toISOString(),
+    serverTime: new Date(serverStartMs).toISOString(),
+    resendAvailableAt: new Date(serverStartMs + resendSeconds * 1000).toISOString(),
+    resendAvailableIn: resendSeconds,
+    receivedAtMs: receivedMs,
+    ...rest,
+  };
+}
 
 type HarnessProps = {
-  expiresIn: number;
-  expiresAt: string | null;
-  resendAvailableIn?: number;
+  initial: OtpChallengeClock;
   onRequestNewCode?: () => Promise<OTPSendResponse>;
-  onChallengeToken?: (token: string) => void;
+  onChallengeRenewed?: (next: OtpChallengeClock) => void;
   onSuccess?: (user: OTPVerifiedUser) => void;
 };
 
@@ -23,12 +38,10 @@ let container: HTMLDivElement;
 let root: Root;
 const controls: { setOpen: (open: boolean) => void } = { setOpen: () => {} };
 
-/** Minimal stand-in for AuthView: it owns the challenge state the modal reports back. */
+/** Minimal stand-in for AuthView: it owns the single challenge value the modal reports back. */
 function Harness(props: HarnessProps) {
   const [open, setOpen] = useState(true);
-  const [challengeToken, setChallengeToken] = useState('challenge-1');
-  const [expiresIn, setExpiresIn] = useState(props.expiresIn);
-  const [expiresAt, setExpiresAt] = useState<string | null>(props.expiresAt);
+  const [challenge, setChallenge] = useState<OtpChallengeClock>(props.initial);
   controls.setOpen = setOpen;
 
   return (
@@ -38,17 +51,12 @@ function Harness(props: HarnessProps) {
       onSuccess={props.onSuccess ?? (() => {})}
       userPhone="0912***33"
       nationalCode={NATIONAL}
-      challengeToken={challengeToken}
-      expiresIn={expiresIn}
-      expiresAt={expiresAt}
-      resendAvailableIn={props.resendAvailableIn}
-      purpose="login"
-      onChallengeToken={(token) => {
-        props.onChallengeToken?.(token);
-        setChallengeToken(token);
+      challenge={challenge}
+      onChallengeRenewed={(next) => {
+        props.onChallengeRenewed?.(next);
+        setChallenge(next);
       }}
-      onExpiresIn={setExpiresIn}
-      onExpiresAt={setExpiresAt}
+      purpose="login"
       onRequestNewCode={props.onRequestNewCode}
     />
   );
@@ -122,120 +130,133 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-describe('OTPVerificationModal lifecycle', () => {
-  it('counts down from the server deadline and does not restart when the window is reopened', async () => {
-    renderHarness({
-      expiresIn: TTL_SECONDS,
-      expiresAt: new Date(BASE_TIME + TTL_SECONDS * 1000).toISOString(),
-      resendAvailableIn: COOLDOWN_SECONDS,
-    });
+describe('OTPVerificationModal: one countdown from the server deadline', () => {
+  it('shows exactly one timer, counts from the server deadline and survives close and reopen', async () => {
+    renderHarness({ initial: makeClock(BASE_TIME) });
 
     expect(timerText()).toContain('2:00');
+    expect(container.querySelectorAll('[data-testid="otp-timer"]').length).toBe(1);
 
     advance(30);
     expect(timerText()).toContain('1:30');
 
-    // The user closes the window and comes back later.
+    // The user closes the window and comes back later: the same deadline continues.
     act(() => controls.setOpen(false));
     advance(20);
     act(() => controls.setOpen(true));
-
-    // The remaining time continues from the original deadline instead of restarting at 2:00.
     expect(timerText()).toContain('1:10');
     await act(async () => {});
   });
 
-  it('allows a new code after the server cooldown, well before the code expires', async () => {
-    const onRequestNewCode = vi.fn(async (): Promise<OTPSendResponse> => ({
-      success: true,
-      challengeToken: 'challenge-2',
-      expiresIn: TTL_SECONDS,
-      expiresAt: new Date(BASE_TIME + COOLDOWN_SECONDS * 1000 + TTL_SECONDS * 1000).toISOString(),
-      resendAvailableIn: COOLDOWN_SECONDS,
-      deliveryStatus: 'accepted',
-    }));
-    const onChallengeToken = vi.fn();
+  it('computes the countdown from the server clock, not from a skewed browser clock', () => {
+    // The browser clock is 5 minutes behind the server. The answer carries the server time.
+    const serverStart = BASE_TIME + 5 * 60 * 1000;
+    renderHarness({ initial: makeClock(serverStart, { receivedMs: BASE_TIME }) });
 
-    renderHarness({
-      expiresIn: TTL_SECONDS,
-      expiresAt: new Date(BASE_TIME + TTL_SECONDS * 1000).toISOString(),
-      resendAvailableIn: COOLDOWN_SECONDS,
-      onRequestNewCode,
-      onChallengeToken,
-    });
+    expect(timerText()).toContain('2:00');
+    advance(30);
+    expect(timerText()).toContain('1:30');
+    advance(90);
+    expect(timerText()).toContain('کد منقضی');
+  });
+
+  it('shows the code as expired at its deadline, rejects verification and keeps resend available', () => {
+    renderHarness({ initial: makeClock(BASE_TIME) });
+
+    advance(TTL_SECONDS);
+    expect(timerText()).toContain('کد منقضی شده است');
+    expect(verifyButton().disabled).toBe(true);
+    expect(verifyButton().textContent).toContain('کد منقضی شده است');
+    expect(resendButton().disabled).toBe(false);
+  });
+});
+
+describe('OTPVerificationModal: resend gate', () => {
+  it('keeps resend disabled until the server resend deadline and never shows a second timer', () => {
+    // Resend unlocks after 60 seconds while the code is still valid for 120 seconds.
+    renderHarness({ initial: makeClock(BASE_TIME, { resendSeconds: 60 }) });
 
     expect(resendButton().disabled).toBe(true);
-    expect(resendButton().textContent).toContain('ارسال مجدد در');
+    expect(resendButton().textContent).not.toMatch(/\d:\d\d/);
+    expect(container.querySelectorAll('[data-testid="otp-timer"]').length).toBe(1);
 
-    advance(COOLDOWN_SECONDS);
+    advance(59);
+    expect(resendButton().disabled).toBe(true);
+    advance(1);
     expect(resendButton().disabled).toBe(false);
-    expect(resendButton().textContent).toContain('ارسال مجدد کد تایید');
+    expect(timerText()).toContain('1:00');
+  });
+
+  it('issues a new code, replaces the whole challenge at once and restarts the countdown', async () => {
+    const onChallengeRenewed = vi.fn();
+    const onRequestNewCode = vi.fn(async (): Promise<OTPSendResponse> => {
+      const issuedAt = BASE_TIME + TTL_SECONDS * 1000;
+      return {
+        success: true,
+        challengeToken: 'challenge-2',
+        expiresIn: TTL_SECONDS,
+        expiresAt: new Date(issuedAt + TTL_SECONDS * 1000).toISOString(),
+        serverTime: new Date(issuedAt).toISOString(),
+        resendAvailableIn: TTL_SECONDS,
+        resendAvailableAt: new Date(issuedAt + TTL_SECONDS * 1000).toISOString(),
+        deliveryStatus: 'accepted',
+      };
+    });
+
+    renderHarness({ initial: makeClock(BASE_TIME), onRequestNewCode, onChallengeRenewed });
+
+    advance(TTL_SECONDS);
+    expect(resendButton().disabled).toBe(false);
 
     await act(async () => {
       resendButton().click();
     });
 
     expect(onRequestNewCode).toHaveBeenCalledTimes(1);
-    expect(onChallengeToken).toHaveBeenCalledWith('challenge-2');
+    expect(onChallengeRenewed).toHaveBeenCalledTimes(1);
+    const next = onChallengeRenewed.mock.calls[0][0] as OtpChallengeClock;
+    expect(next.challengeToken).toBe('challenge-2');
+    expect(next.expiresAt).toBe(new Date(BASE_TIME + 240_000).toISOString());
     // The fresh challenge restarts the countdown and clears previously typed digits.
     expect(timerText()).toContain('2:00');
+    expect(resendButton().disabled).toBe(true);
     for (const input of Array.from(container.querySelectorAll('input'))) {
       expect((input as HTMLInputElement).value).toBe('');
     }
   });
 
-  it('keeps the resend button locked when the server answers with a cooldown', async () => {
+  it('keeps resend locked for the server cooldown and shows the Persian message', async () => {
     const onRequestNewCode = vi.fn(async (): Promise<OTPSendResponse> => ({
       success: false,
-      error: 'برای درخواست کد جدید ۶۰ ثانیه صبر کنید.',
-      retryAfterSeconds: COOLDOWN_SECONDS,
+      error: 'برای درخواست کد جدید ۳۰ ثانیه صبر کنید.',
+      retryAfterSeconds: 30,
     }));
-
-    renderHarness({
-      expiresIn: TTL_SECONDS,
-      expiresAt: new Date(BASE_TIME + TTL_SECONDS * 1000).toISOString(),
-      resendAvailableIn: COOLDOWN_SECONDS,
-      onRequestNewCode,
-    });
-
-    advance(COOLDOWN_SECONDS);
-    expect(resendButton().disabled).toBe(false);
+    renderHarness({ initial: makeClock(BASE_TIME, { resendSeconds: 0 }), onRequestNewCode });
 
     await act(async () => {
       resendButton().click();
     });
-
-    expect(alertText()).toContain('۶۰ ثانیه');
-    expect(resendButton().disabled).toBe(true);
-    expect(resendButton().textContent).toContain('ارسال مجدد در');
-  });
-
-  it('keeps resend locked until expiry when the server sends no cooldown', async () => {
-    renderHarness({
-      expiresIn: TTL_SECONDS,
-      expiresAt: new Date(BASE_TIME + TTL_SECONDS * 1000).toISOString(),
-      resendAvailableIn: undefined,
-    });
-
-    advance(COOLDOWN_SECONDS);
+    expect(alertText()).toContain('۳۰ ثانیه');
     expect(resendButton().disabled).toBe(true);
 
-    advance(TTL_SECONDS - COOLDOWN_SECONDS);
+    advance(29);
+    expect(resendButton().disabled).toBe(true);
+    advance(1);
     expect(resendButton().disabled).toBe(false);
   });
 
-  it('blocks verification of an expired code and offers a resend instead', async () => {
-    renderHarness({
-      expiresIn: TTL_SECONDS,
-      expiresAt: new Date(BASE_TIME + TTL_SECONDS * 1000).toISOString(),
-      resendAvailableIn: COOLDOWN_SECONDS,
-    });
+  it('closing the window neither locks the account nor blocks a later resend', async () => {
+    const onRequestNewCode = vi.fn(async (): Promise<OTPSendResponse> => ({ success: false, error: 'تست' }));
+    renderHarness({ initial: makeClock(BASE_TIME, { resendSeconds: 40 }), onRequestNewCode });
 
-    advance(TTL_SECONDS);
+    act(() => controls.setOpen(false));
+    advance(60);
+    act(() => controls.setOpen(true));
 
-    expect(timerText()).toContain('0:00');
-    expect(verifyButton().disabled).toBe(true);
-    expect(verifyButton().textContent).toContain('کد منقضی شده است');
     expect(resendButton().disabled).toBe(false);
+    await act(async () => {
+      resendButton().click();
+    });
+    expect(onRequestNewCode).toHaveBeenCalledTimes(1);
   });
 });

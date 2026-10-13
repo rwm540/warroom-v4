@@ -75,6 +75,29 @@ function parseAllowedOrigins() {
   return Array.from(new Set(cleaned));
 }
 
+/**
+ * IPPanel sending type. Unknown values are reported as invalid instead of silently falling
+ * back to free text, because a silent fallback would send a different message than configured.
+ */
+export function parseIppanelSendingType(raw) {
+  const value = String(raw ?? '').trim().toLowerCase();
+  if (value === '' || value === 'webservice') return { value: 'webservice', valid: true };
+  if (value === 'pattern') return { value: 'pattern', valid: true };
+  return { value: 'invalid', valid: false };
+}
+
+/**
+ * Returns the pattern code when it has the shape of an identifier, or '' otherwise.
+ * Placeholders such as "replace_me" or "your_pattern" are rejected so they cannot reach the API.
+ */
+export function parseIppanelPatternCode(raw) {
+  const value = String(raw ?? '').trim();
+  if (!value) return '';
+  if (PLACEHOLDER_PATTERN.test(value)) return '';
+  if (!/^[A-Za-z0-9_-]{4,64}$/.test(value)) return '';
+  return value;
+}
+
 export const config = {
   port: intEnv('PORT', 4010, 1, 65535),
   host: String(process.env.HOST || '0.0.0.0').trim() || '0.0.0.0',
@@ -98,11 +121,17 @@ export const config = {
   otpTtlSeconds: intEnv('OTP_TTL_SECONDS', 120, 60, 900),
   otpProofMaxAgeSeconds: intEnv('OTP_PROOF_MAX_AGE_SECONDS', 300, 60, 900),
   otpMaxSend: intEnv('OTP_MAX_SEND_PER_15MIN', 3, 1, 10),
-  otpResendCooldown: intEnv('OTP_RESEND_COOLDOWN_SECONDS', 60, 10, 600),
+  // Same 120 seconds as the code itself: a new code is only available once the previous one has
+  // expired, so the UI never shows two overlapping timers.
+  otpResendCooldown: intEnv('OTP_RESEND_COOLDOWN_SECONDS', 120, 10, 600),
   otpMaxAttempts: intEnv('OTP_MAX_VERIFY_ATTEMPTS', 5, 3, 10),
   ippanelKey: secretValue('IPPANEL_API_KEY'),
   ippanelFrom: String(process.env.IPPANEL_FROM_NUMBER || '').trim(),
   ippanelUrl: String(process.env.IPPANEL_API_URL || 'https://edge.ippanel.com/v1/api/send').trim(),
+  // 'webservice' (free text, default) or 'pattern' (approved template). See parseIppanelSendingType.
+  ippanelSendingType: parseIppanelSendingType(process.env.IPPANEL_SENDING_TYPE).value,
+  // Pattern code from the IPPanel panel (Edge "code" field). Never hardcoded.
+  ippanelPatternCode: parseIppanelPatternCode(process.env.IPPANEL_PATTERN_CODE),
   // Mock SMS is only permitted outside production.
   allowMockSms: !isProduction && boolEnv('ALLOW_MOCK_SMS', true),
   passwordResetRateLimitPerHour: intEnv('PASSWORD_RESET_RATE_LIMIT_PER_HOUR', 3, 1, 20),
@@ -158,6 +187,13 @@ export function collectConfigProblems() {
   }
   if (config.isProduction && !config.allowMockSms && !config.ippanelFrom) {
     problems.push('IPPANEL_FROM_NUMBER');
+  }
+  if (!parseIppanelSendingType(process.env.IPPANEL_SENDING_TYPE).valid) {
+    problems.push('IPPANEL_SENDING_TYPE(webservice|pattern)');
+  }
+  if (config.isProduction && config.ippanelSendingType === 'pattern' && !config.ippanelPatternCode) {
+    // Pattern mode without an approved code would otherwise fail on every login.
+    problems.push('IPPANEL_PATTERN_CODE');
   }
   if (config.ippanelFrom && !/^\+[1-9]\d{1,14}$/.test(config.ippanelFrom)) {
     // A malformed sender would otherwise only surface as a send-time failure.

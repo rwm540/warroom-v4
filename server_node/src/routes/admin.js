@@ -121,7 +121,8 @@ export function createAdminRouter({ store, sms, limiter, auth, config }) {
         success: true,
         message: 'کد تأیید مدیریتی ارسال شد.',
         deliveryStatus: 'accepted',
-        expiresIn: Math.floor((expiresAtMs - Date.now()) / 1000),
+        // The configured TTL, not a value re-derived from the clock at response time.
+        expiresIn: config.otpTtlSeconds,
         expiresAt: new Date(expiresAtMs).toISOString(),
         maskedPhone: maskPhone(phone.local),
         challengeToken,

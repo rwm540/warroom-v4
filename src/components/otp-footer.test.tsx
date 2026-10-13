@@ -34,7 +34,7 @@ describe('OTP deadline and footer', () => {
     const render = (open: boolean) => <OTPVerificationModal
       isOpen={open} onClose={() => {}} onSuccess={() => {}} userPhone="09****1234"
       nationalCode="1234567891" challengeToken="signed" expiresIn={120}
-      expiresAt={deadline} loginPassword="" purpose="registration"
+      expiresAt={deadline} resendAvailableIn={120} purpose="registration"
       onChallengeToken={() => {}} onExpiresIn={() => {}} onExpiresAt={() => {}} />;
     await act(async () => { root?.render(render(true)); });
     expect(container.textContent).toContain('زمان باقی‌مانده: 2:00');

@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Shield, X, CheckCircle, AlertCircle, RefreshCw, Clock } from 'lucide-react';
 import { resendOtp, verifyOtp } from '../lib/otpApi';
-import type { OTPVerifiedUser } from '../lib/otpApi';
+import type { OTPSendResponse, OTPVerifiedUser } from '../lib/otpApi';
 
 interface OTPVerificationModalProps {
   isOpen: boolean;
@@ -12,11 +12,21 @@ interface OTPVerificationModalProps {
   nationalCode: string;
   challengeToken: string;
   expiresIn: number;
-  expiresAt: string;
-  loginPassword: string;
-  onExpiresAt: (value: string) => void;
+  /**
+   * Absolute server deadline (ISO). When present it is authoritative, so the countdown can
+   * never drift from Supabase `expires_at` / the challenge token.
+   */
+  expiresAt?: string | null;
+  /** Server-side cooldown before another code may be requested (seconds). */
+  resendAvailableIn?: number;
   onChallengeToken: (token: string) => void;
   onExpiresIn: (seconds: number) => void;
+  onExpiresAt?: (iso: string) => void;
+  /**
+   * Password-aware resend. The parent owns the flow context (for 'login' the password must be
+   * re-sent so the server can re-run the password gate), so the modal only asks for a new code.
+   */
+  onRequestNewCode?: () => Promise<OTPSendResponse>;
   /** Which server-side flow this challenge belongs to (controls resend semantics). */
   purpose?: 'login' | 'registration';
   campaignTheme?: 'girls' | 'boys';
@@ -37,6 +47,42 @@ function hasValidExpiry(value: unknown): value is number {
   return Number.isInteger(value) && Number(value) > 0 && Number(value) <= 900;
 }
 
+interface OTPDeadlines {
+  /** When the code stops being valid (server deadline). */
+  expiresAtMs: number;
+  /** When the next code may be requested (server cooldown). */
+  resendAtMs: number;
+}
+
+/**
+ * One absolute deadline pair per challenge. Computed from the server response only, so closing
+ * and reopening the window can never restart (or extend) the countdown of a code.
+ */
+function resolveDeadlines({
+  expiresAt,
+  expiresIn,
+  resendAvailableIn,
+}: {
+  expiresAt?: string | null;
+  expiresIn?: number;
+  resendAvailableIn?: number;
+}): OTPDeadlines {
+  const now = Date.now();
+  const parsedExpiry = typeof expiresAt === 'string' ? Date.parse(expiresAt) : Number.NaN;
+  const ttlSeconds = hasValidExpiry(expiresIn) ? Number(expiresIn) : 0;
+  const cooldownSeconds =
+    Number.isInteger(resendAvailableIn) && Number(resendAvailableIn) > 0 && Number(resendAvailableIn) <= 900
+      ? Number(resendAvailableIn)
+      : 0;
+
+  return {
+    expiresAtMs: Number.isFinite(parsedExpiry) ? parsedExpiry : now + ttlSeconds * 1000,
+    // With a server-provided cooldown the button unlocks after it. If an older server does not
+    // send one, fall back to the previous behaviour (resend only once the code expired).
+    resendAtMs: now + (cooldownSeconds > 0 ? cooldownSeconds : ttlSeconds) * 1000,
+  };
+}
+
 /** OTP challenge modal with six digits and a server-provided expiration. */
 export default function OTPVerificationModal({
   isOpen,
@@ -46,21 +92,26 @@ export default function OTPVerificationModal({
   nationalCode,
   challengeToken,
   expiresIn,
-  expiresAt,
-  loginPassword,
-  onExpiresAt,
+  expiresAt = null,
+  resendAvailableIn,
   onChallengeToken,
   onExpiresIn,
+  onExpiresAt,
+  onRequestNewCode,
   purpose = 'registration',
   campaignTheme = 'boys'
 }: OTPVerificationModalProps) {
   const [otpDigits, setOtpDigits] = useState<string[]>(emptyOtpDigits);
   const [error, setError] = useState<string | null>(null);
   const [isVerifying, setIsVerifying] = useState(false);
-  const [timeLeft, setTimeLeft] = useState(0);
-
+  const [timeLeft, setTimeLeft] = useState(expiresIn);
+  const [resendIn, setResendIn] = useState(0);
+  const [canResend, setCanResend] = useState(false);
   const [isResending, setIsResending] = useState(false);
   const [activeChallengeToken, setActiveChallengeToken] = useState(challengeToken);
+  const [deadlines, setDeadlines] = useState<OTPDeadlines>(() =>
+    resolveDeadlines({ expiresAt, expiresIn, resendAvailableIn })
+  );
   const inputRefs = useRef<Array<HTMLInputElement | null>>([]);
 
   const isGirls = campaignTheme === 'girls';
@@ -76,31 +127,38 @@ export default function OTPVerificationModal({
       setOtpDigits(emptyOtpDigits());
       setError(null);
       setIsVerifying(false);
+      setCanResend(false);
       return;
     }
     setOtpDigits(emptyOtpDigits());
     setError(null);
     setIsVerifying(false);
+    setCanResend(false);
   }, [isOpen, challengeToken]);
 
+  // A new challenge gets fresh deadlines. The effect deliberately ignores `isOpen`: closing the
+  // window must not reset (extend) the lifetime of the code that was already issued.
   useEffect(() => {
-    if (!isOpen || !expiresAt || !Number.isFinite(Date.parse(expiresAt))) {
-      if (isOpen) {
-        setTimeLeft(0);
-      }
-      return;
-    }
+    setDeadlines(resolveDeadlines({ expiresAt, expiresIn, resendAvailableIn }));
+  }, [challengeToken, expiresAt, expiresIn, resendAvailableIn]);
 
-    const deadline = Date.parse(expiresAt);
+  useEffect(() => {
+    if (!isOpen) return;
+
     const updateTimer = () => {
-      const remaining = Math.max(0, Math.floor((deadline - Date.now()) / 1000));
+      const now = Date.now();
+      const remaining = Math.max(0, Math.ceil((deadlines.expiresAtMs - now) / 1000));
+      const resendRemaining = Math.max(0, Math.ceil((deadlines.resendAtMs - now) / 1000));
       setTimeLeft(remaining);
+      setResendIn(resendRemaining);
+      // An expired code may always be replaced; otherwise the server cooldown decides.
+      setCanResend(remaining === 0 && resendRemaining === 0);
     };
 
     updateTimer();
     const timer = setInterval(updateTimer, 1000);
     return () => clearInterval(timer);
-  }, [isOpen, challengeToken, expiresAt]);
+  }, [isOpen, deadlines]);
 
   const formatTime = (seconds: number) => {
     const safeSeconds = Math.max(0, seconds);
@@ -144,17 +202,29 @@ export default function OTPVerificationModal({
   };
 
   const handleResendOTP = async () => {
-    if (timeLeft > 0 || isResending || isVerifying) return;
+    if (!canResend || isResending || isVerifying) return;
 
     setIsResending(true);
     setError(null);
     try {
-      const result = await resendOtp(nationalCode, purpose, loginPassword);
+      // The parent provides the password-aware variant for login challenges; the direct call
+      // below is only the fallback for registration flows without a parent handler.
+      const result = onRequestNewCode
+        ? await onRequestNewCode()
+        : await resendOtp(nationalCode, { purpose });
+
       if (!result.success) {
+        // Server cooldown: keep the button locked for the remaining seconds instead of letting
+        // the user hammer the endpoint.
+        const retryAfterSeconds = Number(result.retryAfterSeconds);
+        if (Number.isInteger(retryAfterSeconds) && retryAfterSeconds > 0) {
+          setDeadlines((previous) => ({ ...previous, resendAtMs: Date.now() + retryAfterSeconds * 1000 }));
+          setCanResend(false);
+        }
         setError(result.error || result.message || 'ارسال مجدد کد ناموفق بود.');
         return;
       }
-      if (!result.challengeToken || !hasValidExpiry(result.expiresIn) || !result.expiresAt || !Number.isFinite(Date.parse(result.expiresAt))) {
+      if (!result.challengeToken || !hasValidExpiry(result.expiresIn)) {
         setError(result.message || 'پاسخ سرور برای کد تازه ناقص است؛ دوباره تلاش کنید.');
         return;
       }
@@ -164,7 +234,17 @@ export default function OTPVerificationModal({
       setOtpDigits(emptyOtpDigits());
       setTimeLeft(result.expiresIn);
       onExpiresIn(result.expiresIn);
-      onExpiresAt(result.expiresAt);
+      if (typeof result.expiresAt === 'string') {
+        setDeadlines(resolveDeadlines({
+          expiresAt: result.expiresAt,
+          expiresIn: result.expiresIn,
+          resendAvailableIn: result.resendAvailableIn,
+        }));
+        onExpiresAt?.(result.expiresAt);
+      } else {
+        setDeadlines(resolveDeadlines({ expiresIn: result.expiresIn, resendAvailableIn: result.resendAvailableIn }));
+      }
+      setCanResend(false);
       setError(null);
       inputRefs.current[0]?.focus();
     } catch {
@@ -248,7 +328,7 @@ export default function OTPVerificationModal({
                 : 'bg-blue-100 text-blue-700'
           }`}>
             <Clock size={18} />
-            <span className="font-bold">
+            <span className="font-bold" data-testid="otp-timer">
               زمان باقی‌مانده: {formatTime(timeLeft)}
             </span>
           </div>
@@ -349,6 +429,7 @@ export default function OTPVerificationModal({
           {/* دکمه تایید */}
           <button
             type="button"
+            data-testid="otp-verify-button"
             onClick={handleVerifyOTP}
             disabled={!isOtpComplete || isVerifying || timeLeft === 0}
             className={`w-full py-4 rounded-2xl font-black text-white text-lg transition-all transform
@@ -381,10 +462,11 @@ export default function OTPVerificationModal({
           {/* دکمه ارسال مجدد */}
           <button
             type="button"
+            data-testid="otp-resend-button"
             onClick={handleResendOTP}
-            disabled={timeLeft > 0 || isResending || isVerifying}
+            disabled={!canResend || isResending || isVerifying}
             className={`w-full mt-4 py-3 rounded-xl font-bold text-sm transition-all
-              ${timeLeft === 0 && !isResending
+              ${canResend && !isResending
                 ? isGirls
                   ? 'text-pink-700 hover:bg-pink-100'
                   : 'text-blue-700 hover:bg-blue-100'
@@ -398,12 +480,18 @@ export default function OTPVerificationModal({
                 <RefreshCw size={16} className="animate-spin" />
                 در حال ارسال...
               </span>
-            ) : timeLeft === 0 ? (
+            ) : canResend ? (
               'ارسال مجدد کد تایید'
             ) : (
               'ارسال مجدد پس از پایان مهلت'
             )}
           </button>
+
+          <p className={`mt-3 text-center text-[11px] leading-relaxed ${
+            isGirls ? 'text-pink-700/80' : 'text-blue-700/80'
+          }`}>
+            بستن این پنجره کد را باطل نمی‌کند؛ می‌توانید بعداً دوباره کد جدید درخواست کنید.
+          </p>
 
         </motion.div>
       </motion.div>

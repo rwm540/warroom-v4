@@ -1,0 +1,11 @@
+[Unit]
+Description=Poll GitHub main for WarRoom updates
+
+[Timer]
+OnBootSec=3min
+OnUnitActiveSec=5min
+Persistent=true
+Unit=deploy-warroom.service
+
+[Install]
+WantedBy=timers.target

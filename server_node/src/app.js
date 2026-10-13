@@ -11,10 +11,22 @@ import { createRegistrationRouter } from './routes/registration.js';
 import { createPasswordResetRouter } from './routes/passwordReset.js';
 import { createAdminRouter } from './routes/admin.js';
 
+// Safe, provider-independent Persian messages. Provider response bodies never reach the client.
 const SAFE_ERROR_MESSAGES = {
   SMS_NOT_CONFIGURED: 'سرویس پیامک پیکربندی نشده است.',
   SMS_CONFIGURATION_INVALID: 'تنظیمات سرویس پیامک معتبر نیست.',
   SMS_SEND_FAILED: 'ارسال پیامک از سرویس ارائه‌دهنده ناموفق بود.',
+  SMS_REQUEST_INVALID: 'درخواست ارسال پیامک معتبر نیست.',
+  SMS_SENDER_INVALID: 'شماره فرستنده پیامک در تنظیمات سرویس معتبر نیست.',
+  SMS_AUTH_REJECTED: 'کلید سرویس پیامک پذیرفته نشد؛ تنظیمات سرویس را بررسی کنید.',
+  SMS_SENDER_REJECTED: 'شماره فرستنده برای این حساب سرویس پیامک تأیید نشده است.',
+  SMS_RECIPIENT_REJECTED: 'شماره موبایل مقصد برای دریافت پیامک معتبر نیست.',
+  SMS_MESSAGE_REJECTED: 'متن پیامک توسط سرویس پیامک پذیرفته نشد.',
+  SMS_PROVIDER_REJECTED: 'سرویس پیامک این درخواست را نپذیرفت.',
+  SMS_PROVIDER_RATE_LIMITED: 'سرویس پیامک موقتاً درخواست‌ها را محدود کرده است؛ کمی بعد تلاش کنید.',
+  SMS_PROVIDER_UNAVAILABLE: 'سرویس پیامک موقتاً در دسترس نیست؛ کمی بعد تلاش کنید.',
+  SMS_NETWORK_FAILED: 'ارتباط با سرویس پیامک برقرار نشد؛ کمی بعد تلاش کنید.',
+  SMS_STATUS_UNAVAILABLE: 'بررسی وضعیت تحویل پیامک در حال حاضر ممکن نیست.',
   DATABASE_NOT_CONFIGURED: 'اتصال خصوصی پایگاه داده پیکربندی نشده است.',
   AUTH_SECRETS_NOT_CONFIGURED: 'تنظیمات امنیتی سرویس کامل نیست.',
   OTP_SECRET_NOT_CONFIGURED: 'تنظیمات امنیتی OTP کامل نیست.',
@@ -88,10 +100,16 @@ export function createApp({ store, sms, redis } = {}) {
   });
 
   app.get('/api/ready', async (_req, res) => {
+    const smsConfigured = typeof sms.configured === 'function' ? sms.configured() === true : false;
     const dependencies = {
       database: { configured: true, reachable: false },
       redis: { configured: Boolean(config.redisUrl), available: false },
-      sms: { configured: sms.configured?.() === true, mockAllowed: false },
+      // Reported from the real gateway: 'ippanel' only when key, sender and URL are all valid.
+      sms: {
+        configured: smsConfigured,
+        provider: typeof sms.providerName === 'function' ? sms.providerName() : 'unknown',
+        mockAllowed: config.allowMockSms,
+      },
       secrets: { valid: true },
       schema: { ready: false },
     };
@@ -126,7 +144,12 @@ export function createApp({ store, sms, redis } = {}) {
       }
     }
 
-    const ready = dependencies.database.reachable && dependencies.schema.ready && dependencies.sms.configured && configMissingForReady().length === 0;
+    // Without a usable SMS path nobody can complete an OTP login, so readiness requires it.
+    const ready = dependencies.database.reachable
+      && dependencies.schema.ready
+      && smsConfigured
+      && configMissingForReady().length === 0;
+    if (!smsConfigured) notes.push('sms provider not configured');
     if (!ready) notes.push('service not ready');
     res.status(ready ? 200 : 503).json({
       ready,
@@ -161,7 +184,14 @@ export function createApp({ store, sms, redis } = {}) {
     }
 
     if (res.headersSent) return;
-    res.status(status).json({ success: false, error: code, message });
+    const body = { success: false, error: code, message };
+    // A cooldown answer carries an actionable Retry-After hint; nothing else is added here.
+    const retryAfterSeconds = Number(err?.retryAfterSeconds);
+    if (Number.isInteger(retryAfterSeconds) && retryAfterSeconds > 0 && retryAfterSeconds <= 3600) {
+      body.retryAfterSeconds = retryAfterSeconds;
+      res.setHeader('Retry-After', String(retryAfterSeconds));
+    }
+    res.status(status).json(body);
   });
 
   return app;

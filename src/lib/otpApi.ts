@@ -9,7 +9,7 @@
 import {
   requestLoginOtpSecure,
   requestRegistrationOtpSecure,
-  resendRegistrationOtpSecure,
+  resendOtpSecure,
   verifyOtpSecure,
 } from './secureApi';
 
@@ -20,6 +20,13 @@ export interface OTPSendResponse {
   message?: string;
   error?: string;
   expiresIn?: number;
+  /** Absolute server deadline (ISO) - the single source of truth for the countdown. */
+  expiresAt?: string;
+  /** Seconds to wait before another code may be requested (server cooldown). */
+  resendAvailableIn?: number;
+  /** 'accepted' means the provider queued the SMS; it is not proof of handset delivery. */
+  deliveryStatus?: 'accepted';
+  retryAfterSeconds?: number;
   maskedPhone?: string;
   challengeToken?: string;
   purpose?: OtpPurpose;
@@ -35,6 +42,10 @@ export interface OTPVerifyResponse {
   message?: string;
   error?: string;
   user?: OTPVerifiedUser;
+}
+
+function normalizePurpose(value: unknown, fallback: OtpPurpose): OtpPurpose {
+  return value === 'login' || value === 'registration' ? value : fallback;
 }
 
 /**
@@ -56,9 +67,13 @@ export async function sendOtpByNationalCode(
     message: result.message,
     error: result.error,
     expiresIn: result.expiresIn,
+    expiresAt: result.expiresAt,
+    resendAvailableIn: result.resendAvailableIn,
+    deliveryStatus: result.deliveryStatus,
+    retryAfterSeconds: result.retryAfterSeconds,
     maskedPhone: result.maskedPhone,
     challengeToken: result.challengeToken,
-    purpose: result.purpose === 'login' || result.purpose === 'registration' ? result.purpose : purpose,
+    purpose: normalizePurpose(result.purpose, purpose),
   };
 }
 
@@ -86,22 +101,57 @@ export async function verifyOtp(
   };
 }
 
+export interface ResendOtpOptions {
+  purpose?: OtpPurpose;
+  /**
+   * Required for a login resend: the server re-verifies the password before issuing a new code
+   * (the same gate as the first request), so the password must be sent again.
+   */
+  password?: string;
+}
+
 /**
- * Requests a fresh registration challenge. Login challenges are never silently re-issued:
- * the password gate must run again, so callers restart the login flow instead.
+ * Requests a fresh code for either purpose.
+ *
+ * Both purposes are supported now:
+ *  - 'registration': only needs the national code, and only works while an unexpired pending
+ *    registration exists;
+ *  - 'login': needs the password again, because the server re-runs the password gate before
+ *    any SMS is sent (the OTP is a second factor, never a password replacement).
+ *
+ * Server-side cooldown, per-national-code and per-IP limits are untouched and still apply.
  */
-export async function resendOtp(nationalCode: string, purpose: OtpPurpose = 'registration'): Promise<OTPSendResponse> {
-  if (purpose === 'login') {
-    return { success: false, error: 'برای دریافت کد جدید، ورود را از ابتدا تکمیل کنید.' };
+export async function resendOtp(
+  nationalCode: string,
+  purposeOrOptions: OtpPurpose | ResendOtpOptions = 'registration',
+  legacyPassword?: string,
+): Promise<OTPSendResponse> {
+  const options: ResendOtpOptions = typeof purposeOrOptions === 'string'
+    ? { purpose: purposeOrOptions, password: legacyPassword }
+    : purposeOrOptions || {};
+  const purpose: OtpPurpose = options.purpose === 'login' ? 'login' : 'registration';
+  const password = String(options.password || '');
+
+  if (purpose === 'login' && !password) {
+    // Fail before the request: without the password the server would reject it anyway.
+    return {
+      success: false,
+      error: 'برای دریافت کد جدید، رمز عبور را دوباره وارد کنید و ورود را تکمیل کنید.',
+    };
   }
-  const result = await resendRegistrationOtpSecure(nationalCode);
+
+  const result = await resendOtpSecure(nationalCode, { purpose, password: purpose === 'login' ? password : undefined });
   return {
     success: result.success === true,
     message: result.message,
     error: result.error,
     expiresIn: result.expiresIn,
+    expiresAt: result.expiresAt,
+    resendAvailableIn: result.resendAvailableIn,
+    deliveryStatus: result.deliveryStatus,
+    retryAfterSeconds: result.retryAfterSeconds,
     maskedPhone: result.maskedPhone,
     challengeToken: result.challengeToken,
-    purpose: 'registration',
+    purpose: normalizePurpose(result.purpose, purpose),
   };
 }

@@ -39,10 +39,15 @@ export function createCookieJar() {
 
 export function createFakeSms() {
   const sent = [];
+  const statusCalls = [];
   return {
     sent,
+    statusCalls,
     lastCode() {
       return sent.length ? sent[sent.length - 1].otp : null;
+    },
+    lastMessageId() {
+      return sent.length ? `test-${sent.length}` : null;
     },
     configured: () => true,
     providerName: () => 'mock-test',
@@ -50,6 +55,19 @@ export function createFakeSms() {
       // Test-only in-memory capture: no SMS is sent and nothing is written to logs.
       sent.push({ phone, otp, meta });
       return { ok: true, ids: [`test-${sent.length}`], accepted: true, provider: 'mock-test' };
+    },
+    /** Sanitized stand-in for the documented IPPanel delivery report (never calls the network). */
+    async deliveryStatus(messageId) {
+      statusCalls.push(String(messageId));
+      return {
+        messageId: String(messageId),
+        provider: 'mock-test',
+        state: 'finish',
+        recipientsCount: 1,
+        counts: { delivered: 1, notDelivered: 0, blacklisted: 0, inProgress: 0 },
+        delivered: true,
+        recipients: [{ phone: '0912***33', status: 2, state: 'delivered', parts: 1 }],
+      };
     },
   };
 }

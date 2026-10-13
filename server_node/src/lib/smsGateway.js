@@ -1,5 +1,5 @@
 import { config } from '../config.js';
-import { sendOtpSms, isSmsConfigured } from './sms.js';
+import { sendOtpSms, isSmsConfigured, fetchSmsDeliveryStatus } from './sms.js';
 import { publicError } from './errors.js';
 import { maskPhone } from './identity.js';
 
@@ -14,6 +14,7 @@ export function createSmsGateway({
   allowMock = config.allowMockSms,
   sender = sendOtpSms,
   configured = isSmsConfigured,
+  statusReader = fetchSmsDeliveryStatus,
 } = {}) {
   return {
     configured: () => {
@@ -41,6 +42,17 @@ export function createSmsGateway({
         return { ok: true, ids: [`mock-${Date.now()}`], accepted: true, provider: 'mock' };
       }
       throw publicError('SMS_NOT_CONFIGURED', 'سرویس پیامک پیکربندی نشده است.', 503);
+    },
+
+    /**
+     * Reads the documented IPPanel delivery report of one accepted message. Only meaningful
+     * with a real provider; mock mode has no outbox to report on.
+     */
+    async deliveryStatus(messageId) {
+      if (configured() !== true) {
+        throw publicError('SMS_STATUS_UNAVAILABLE', 'بررسی وضعیت تحویل پیامک در دسترس نیست.', 503);
+      }
+      return statusReader(messageId);
     },
   };
 }

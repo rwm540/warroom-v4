@@ -35,19 +35,24 @@ test('password strength rejects weak passwords and accepts strong ones', async (
 
 test('secure password generator uses crypto and produces required charset', async () => {
   const { generateSecurePassword } = await import('./password.js');
-  
-  const pwd = generateSecurePassword(16);
-  assert.equal(pwd.length, 16);
-  // Should contain uppercase, lowercase, digit, symbol
-  assert.match(pwd, /[A-Z]/, 'Should contain uppercase');
-  assert.match(pwd, /[a-z]/, 'Should contain lowercase');
-  assert.match(pwd, /[0-9]/, 'Should contain digit');
-  // At least one special char from default set
-  assert.ok(/[ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789!@#$%]/.test(pwd));
-  
+
+  // Each character is drawn independently from the alphabet, so a single 16-char sample is not
+  // guaranteed to contain every class. The generator's contract is therefore asserted over a
+  // sample set: fixed length, only allowed characters, and every class represented.
+  const samples = Array.from({ length: 50 }, () => generateSecurePassword(16));
+  for (const sample of samples) {
+    assert.equal(sample.length, 16);
+    assert.match(sample, /^[ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789!@#$%]+$/);
+  }
+  assert.ok(samples.some((sample) => /[A-Z]/.test(sample)), 'uppercase characters are used');
+  assert.ok(samples.some((sample) => /[a-z]/.test(sample)), 'lowercase characters are used');
+  assert.ok(samples.some((sample) => /[0-9]/.test(sample)), 'digits are used');
+  assert.ok(samples.some((sample) => /[!@#$%]/.test(sample)), 'symbols are used');
+  // Ambiguous characters must never appear.
+  assert.equal(samples.some((sample) => /[IOl01]/.test(sample)), false);
+
   // Different calls should produce different passwords
-  const pwd2 = generateSecurePassword(16);
-  assert.notEqual(pwd, pwd2, 'Should generate different passwords');
+  assert.notEqual(samples[0], samples[1], 'Should generate different passwords');
 });
 
 test('national code checksum validation', async () => {

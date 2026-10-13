@@ -120,7 +120,9 @@ export function createAdminRouter({ store, sms, limiter, auth, config }) {
       return res.json({
         success: true,
         message: 'کد تأیید مدیریتی ارسال شد.',
+        deliveryStatus: 'accepted',
         expiresIn: Math.floor((expiresAtMs - Date.now()) / 1000),
+        expiresAt: new Date(expiresAtMs).toISOString(),
         maskedPhone: maskPhone(phone.local),
         challengeToken,
       });
@@ -271,6 +273,40 @@ export function createAdminRouter({ store, sms, limiter, auth, config }) {
         success: true,
         events: events.map((row) => ({ id: row.id, ...sanitizeUserData(row.data), timestamp: row.created_at })),
       });
+    } catch (error) {
+      return next(error);
+    }
+  });
+
+  /**
+   * Read-only provider delivery check.
+   *
+   * "Accepted" (the send response) only means IPPanel queued the message. This endpoint reads
+   * the documented report of that exact `message_outbox_id` and returns sanitized, masked data:
+   * per-recipient `message_status` (0 sent to operator, 1 operator received, 2 delivered,
+   * 3 not delivered, 4 blacklisted). No raw provider body and no full phone numbers are returned.
+   */
+  router.post('/otp/sms-status', async (req, res, next) => {
+    try {
+      await enforceLimit(req, 'sms-status', 30, 15 * 60);
+
+      let messageId = String(req.body?.messageId || '').trim();
+      if (!messageId) {
+        const challengeId = String(req.body?.challengeId || '').trim();
+        if (!isUuid(challengeId)) {
+          throw publicError('INVALID_INPUT', 'شناسه پیامک یا شناسه چالش معتبر لازم است.');
+        }
+        messageId = String((await store.getOtpSmsMessageId(challengeId)) || '').trim();
+        if (!messageId) {
+          throw publicError('SMS_STATUS_UNAVAILABLE', 'برای این چالش شناسه پیامک ثبت نشده است.', 404);
+        }
+      }
+      if (!/^\d{1,32}$/.test(messageId)) {
+        throw publicError('INVALID_INPUT', 'شناسه پیامک معتبر نیست.');
+      }
+
+      const status = await sms.deliveryStatus(messageId);
+      return res.json({ success: true, ...status });
     } catch (error) {
       return next(error);
     }

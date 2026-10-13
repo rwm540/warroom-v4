@@ -145,6 +145,14 @@ export async function revokeOwnSessionsSecure(): Promise<ApiEnvelope & { revoked
 export interface OtpChallengeResponse extends ApiEnvelope {
   success: boolean;
   expiresIn?: number;
+  /** Absolute deadline (ISO) shared by Supabase `expires_at` and the challenge token. */
+  expiresAt?: string;
+  /** Seconds the user must wait before the next code may be requested. */
+  resendAvailableIn?: number;
+  /** Always 'accepted': the provider queued the message, nothing about handset delivery. */
+  deliveryStatus?: 'accepted';
+  /** Set on cooldown answers so the UI can show an accurate countdown. */
+  retryAfterSeconds?: number;
   maskedPhone?: string;
   challengeToken?: string;
   purpose?: 'login' | 'registration';
@@ -160,8 +168,22 @@ export async function requestRegistrationOtpSecure(nationalCode: string): Promis
   return apiRequest<OtpChallengeResponse>('/api/otp/send', { body: { nationalCode, purpose: 'registration' } });
 }
 
-export async function resendRegistrationOtpSecure(nationalCode: string): Promise<OtpChallengeResponse> {
-  return apiRequest<OtpChallengeResponse>('/api/otp/resend', { body: { nationalCode, purpose: 'registration' } });
+/**
+ * Requests a fresh code.
+ *
+ * `/api/otp/resend` runs the same guarded handler as `/api/otp/send`, so a login resend still
+ * has to carry the password: the server re-verifies it before issuing any SMS. Registration
+ * resends only work while an unexpired pending registration exists (`nationalCode` only).
+ */
+export async function resendOtpSecure(
+  nationalCode: string,
+  options: { purpose?: 'login' | 'registration'; password?: string } = {},
+): Promise<OtpChallengeResponse> {
+  const purpose = options.purpose === 'login' ? 'login' : 'registration';
+  const body = purpose === 'login'
+    ? { nationalCode, purpose, password: String(options.password || '') }
+    : { nationalCode, purpose };
+  return apiRequest<OtpChallengeResponse>('/api/otp/resend', { body });
 }
 
 export interface RegistrationStartResponse extends ApiEnvelope {

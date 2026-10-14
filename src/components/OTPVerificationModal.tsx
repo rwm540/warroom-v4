@@ -152,7 +152,7 @@ export default function OTPVerificationModal({
       setTimeLeft(remaining);
       setResendIn(resendRemaining);
       // An expired code may always be replaced; otherwise the server cooldown decides.
-      setCanResend(remaining === 0 || resendRemaining === 0);
+      setCanResend(remaining === 0 && resendRemaining === 0);
     };
 
     updateTimer();
@@ -482,10 +482,8 @@ export default function OTPVerificationModal({
               </span>
             ) : canResend ? (
               'ارسال مجدد کد تایید'
-            ) : resendIn > 0 ? (
-              `ارسال مجدد در ${formatTime(resendIn)}`
             ) : (
-              `ارسال مجدد در ${formatTime(timeLeft)}`
+              'ارسال مجدد پس از پایان مهلت'
             )}
           </button>
 

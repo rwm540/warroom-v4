@@ -91,7 +91,7 @@ export function createSessionRouter({ store, limiter, auth, config }) {
 
       const otpRow = await store.getOtpByChallenge(otpProof);
       if (!otpRow) throw publicError('INVALID_OTP_PROOF', 'مدرک OTP نامعتبر است.', 401);
-      if (otpRow.verified !== true || otpRow.is_used !== true) {
+      if (otpRow.verified !== true || otpRow.is_used !== true || otpRow.revoked_at) {
         throw publicError('OTP_NOT_VERIFIED', 'OTP تأیید نشده است.', 401);
       }
 
@@ -165,6 +165,7 @@ export function createSessionRouter({ store, limiter, auth, config }) {
         expires_at: expiresAt,
       });
 
+      const mustChangePassword = await store.mustChangePassword(userId);
       issueSessionCookies(res, { token, csrfToken, ttlSeconds });
 
       const user = { id: String(userRow.id), ...sanitizeUserData(userRow.data) };
@@ -175,7 +176,7 @@ export function createSessionRouter({ store, limiter, auth, config }) {
         csrfToken,
         expiresAt,
         isNewRegistration,
-        mustChangePassword: await store.mustChangePassword(userId),
+        mustChangePassword,
         user,
       });
     } catch (error) {

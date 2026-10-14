@@ -73,7 +73,7 @@ const cooldownOnly = (key) => key.includes(':cooldown:');
 
 test('OTP validity is 120 seconds and every layer shares one absolute deadline', async () => {
   assert.equal(config.otpTtlSeconds, 120, 'OTP_TTL_SECONDS default must be 120');
-  assert.equal(config.otpResendCooldown, 60);
+  assert.equal(config.otpResendCooldown, 120);
 
   const store = createMemoryStore();
   const sms = createFakeSms();
@@ -85,7 +85,7 @@ test('OTP validity is 120 seconds and every layer shares one absolute deadline',
     assert.equal(send.status, 200);
     assert.equal(send.json.success, true);
     assert.equal(send.json.deliveryStatus, 'accepted', 'acceptance must be stated explicitly');
-    assert.equal(send.json.resendAvailableIn, 60);
+    assert.equal(send.json.resendAvailableIn, 120);
     assert.ok(send.json.expiresIn > 0 && send.json.expiresIn <= 120, `expiresIn must fit the TTL: ${send.json.expiresIn}`);
     assert.ok(send.json.expiresIn >= 115, `expiresIn must reflect the real remaining TTL: ${send.json.expiresIn}`);
     assert.equal('code' in send.json, false, 'the OTP code is never returned');
@@ -253,8 +253,8 @@ test('resend cannot bypass the cooldown, the per-national quota or the per-IP li
     });
     assert.equal(tooSoon.status, 429);
     assert.equal(tooSoon.json.error, 'OTP_RESEND_COOLDOWN');
-    assert.equal(tooSoon.json.retryAfterSeconds, 60);
-    assert.equal(tooSoon.headers.get('retry-after'), '60');
+    assert.equal(tooSoon.json.retryAfterSeconds, 120);
+    assert.equal(tooSoon.headers.get('retry-after'), '120');
     assert.equal(sms.sent.length, 1, 'the cooldown prevents a second SMS');
 
     // Per-national-code quota (OTP_MAX_SEND_PER_15MIN = 3): still enforced on every resend.

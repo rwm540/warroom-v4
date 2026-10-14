@@ -288,6 +288,12 @@ export default function Footer({ onNavigate, onOpenAbout, themeMode = 'boys', si
 
       </div>
 
+      <div className="text-center px-4 text-sm text-white/80 break-words">
+        <a href="https://tanoryazd.com" target="_blank" rel="noopener noreferrer"
+          className="inline-block py-2 underline underline-offset-4 hover:text-cyan-300 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-300">
+          سایت هیئت نوالهدا یزد
+        </a>
+      </div>
     </footer>
   );
 }

@@ -28,10 +28,18 @@ export function validatePasswordStrength(password) {
 }
 
 export function generateSecurePassword(length = 16) {
-  const alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789!@#$%';
-  let pwd = '';
-  for (let i = 0; i < length; i++) {
-    pwd += alphabet[randomInt(0, alphabet.length)];
+  if (!Number.isInteger(length) || length < MIN_LENGTH || length > 128) {
+    throw new RangeError('PASSWORD_LENGTH_INVALID');
   }
-  return pwd;
+  const letters = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz';
+  const digits = '23456789';
+  const alphabet = `${letters}${digits}!@#$%`;
+  const chars = [letters[randomInt(letters.length)], digits[randomInt(digits.length)]];
+  while (chars.length < length) chars.push(alphabet[randomInt(alphabet.length)]);
+  // Crypto-backed Fisher-Yates: required character classes are not in predictable positions.
+  for (let i = chars.length - 1; i > 0; i--) {
+    const j = randomInt(i + 1);
+    [chars[i], chars[j]] = [chars[j], chars[i]];
+  }
+  return chars.join('');
 }

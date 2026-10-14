@@ -126,10 +126,8 @@ export function createOtpRouter({ store, sms, limiter, config }) {
       nationalCodeBinding: hashNationalCodeForChallenge(nationalCode),
     }, expiresAtMs);
 
-    // Only one live challenge per national code: previous ones are invalidated first.
-    await store.invalidateActiveOtpChallenges({ nationalCode, keepChallengeId: null });
-
-    await store.insertOtpChallenge({
+    // Serialize replacement and insertion inside the database transaction.
+    await store.issueOtpChallenge({
       challenge_id: challengeId,
       user_id: target.subjectId,
       national_code: nationalCode,
@@ -235,7 +233,8 @@ export function createOtpRouter({ store, sms, limiter, config }) {
       }
 
       const challengeRow = await store.getOtpByChallenge(challenge.challengeId);
-      if (!challengeRow || String(challengeRow.user_id) !== String(challenge.sub)) {
+      if (!challengeRow || String(challengeRow.user_id) !== String(challenge.sub) ||
+          String(challengeRow.purpose) !== String(challenge.purpose)) {
         throw publicError('OTP_EXPIRED', 'کد منقضی شده یا وجود ندارد.');
       }
 

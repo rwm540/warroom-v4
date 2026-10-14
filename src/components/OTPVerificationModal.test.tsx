@@ -8,7 +8,7 @@ import type { OTPSendResponse, OTPVerifiedUser } from '../lib/otpApi';
 const NATIONAL = '1234567891';
 const BASE_TIME = Date.UTC(2026, 0, 1, 12, 0, 0);
 const TTL_SECONDS = 120;
-const COOLDOWN_SECONDS = 60;
+const COOLDOWN_SECONDS = 120;
 
 type HarnessProps = {
   expiresIn: number;
@@ -145,7 +145,7 @@ describe('OTPVerificationModal lifecycle', () => {
     await act(async () => {});
   });
 
-  it('allows a new code after the server cooldown, well before the code expires', async () => {
+  it('allows a new code after the full server deadline', async () => {
     const onRequestNewCode = vi.fn(async (): Promise<OTPSendResponse> => ({
       success: true,
       challengeToken: 'challenge-2',
@@ -165,7 +165,7 @@ describe('OTPVerificationModal lifecycle', () => {
     });
 
     expect(resendButton().disabled).toBe(true);
-    expect(resendButton().textContent).toContain('ارسال مجدد در');
+    expect(resendButton().textContent).toContain('ارسال مجدد پس از پایان مهلت');
 
     advance(COOLDOWN_SECONDS);
     expect(resendButton().disabled).toBe(false);
@@ -187,7 +187,7 @@ describe('OTPVerificationModal lifecycle', () => {
   it('keeps the resend button locked when the server answers with a cooldown', async () => {
     const onRequestNewCode = vi.fn(async (): Promise<OTPSendResponse> => ({
       success: false,
-      error: 'برای درخواست کد جدید ۶۰ ثانیه صبر کنید.',
+      error: 'برای درخواست کد جدید ۱۲۰ ثانیه صبر کنید.',
       retryAfterSeconds: COOLDOWN_SECONDS,
     }));
 
@@ -205,9 +205,9 @@ describe('OTPVerificationModal lifecycle', () => {
       resendButton().click();
     });
 
-    expect(alertText()).toContain('۶۰ ثانیه');
+    expect(alertText()).toContain('۱۲۰ ثانیه');
     expect(resendButton().disabled).toBe(true);
-    expect(resendButton().textContent).toContain('ارسال مجدد در');
+    expect(resendButton().textContent).toContain('ارسال مجدد پس از پایان مهلت');
   });
 
   it('keeps resend locked until expiry when the server sends no cooldown', async () => {
@@ -217,10 +217,10 @@ describe('OTPVerificationModal lifecycle', () => {
       resendAvailableIn: undefined,
     });
 
-    advance(COOLDOWN_SECONDS);
+    advance(60);
     expect(resendButton().disabled).toBe(true);
 
-    advance(TTL_SECONDS - COOLDOWN_SECONDS);
+    advance(TTL_SECONDS - 60);
     expect(resendButton().disabled).toBe(false);
   });
 

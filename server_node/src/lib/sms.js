@@ -4,10 +4,10 @@ import { maskPhone } from './identity.js';
 /**
  * IPPanel Edge adapter.
  *
- * Send contract (documented at https://ippanelcom.github.io/Edge-Document/docs/send/webservice/):
+ * Send contract (documented at https://ippanelcom.github.io/Edge-Document/docs/send/pattern/):
  *   POST https://edge.ippanel.com/v1/api/send
  *   Authorization: <raw API token>   Content-Type: application/json
- *   { sending_type, from_number, message, params: { recipients: [...] } }
+ *   { sending_type: "pattern", from_number, code: patternId, recipients: [phone], params: { code: otp } }
  *   -> 200 { data: { message_outbox_ids: [1123544244] }, meta: { status: true, message_code: '200-1' } }
  *
  * A successful answer only means IPPanel *accepted* the request. It never proves that the
@@ -99,12 +99,13 @@ function reportUrl(kind, params) {
 }
 
 function assertSmsConfiguration() {
-  if (!config.ippanelKey || !config.ippanelFrom) {
+  if (!config.ippanelKey || !config.ippanelFrom || !config.ippanelPatternCode) {
     throw smsError('SMS_NOT_CONFIGURED', 503);
   }
   if (!/^\+[1-9]\d{1,14}$/.test(config.ippanelFrom)) {
     throw smsError('SMS_SENDER_INVALID', 503);
   }
+  if (!/^[a-zA-Z0-9]+$/.test(config.ippanelPatternCode)) throw smsError('SMS_CONFIGURATION_INVALID', 503);
   return configuredSendUrl();
 }
 
@@ -160,8 +161,8 @@ function safePhoneLabel(phone) {
 }
 
 /**
- * Sends one SMS through IPPanel's documented Webservice endpoint.
- * See: https://ippanelcom.github.io/Edge-Document/docs/send/webservice/
+ * Sends one SMS through IPPanel's documented pattern endpoint.
+ * See: https://ippanelcom.github.io/Edge-Document/docs/send/pattern/
  */
 export async function sendOtpSms(e164Phone, otp, { issuedAtMs, expiresAtMs } = {}) {
   const endpoint = assertSmsConfiguration();
@@ -181,7 +182,6 @@ export async function sendOtpSms(e164Phone, otp, { issuedAtMs, expiresAtMs } = {
     throw smsError('OTP_EXPIRY_INVALID', 503);
   }
 
-  const message = `کد تأیید اتاق جنگ: ${otp}\nاعتبار کد: ${validitySeconds} ثانیه از زمان صدور.`;
   let response;
   try {
     response = await fetch(endpoint, {
@@ -193,10 +193,11 @@ export async function sendOtpSms(e164Phone, otp, { issuedAtMs, expiresAtMs } = {
       },
       signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
       body: JSON.stringify({
-        sending_type: 'webservice',
+        sending_type: 'pattern',
         from_number: config.ippanelFrom,
-        message,
-        params: { recipients: [e164Phone] },
+        code: config.ippanelPatternCode,
+        recipients: [e164Phone],
+        params: { code: otp },
       }),
     });
   } catch (error) {

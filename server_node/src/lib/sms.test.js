@@ -15,17 +15,20 @@ async function withSmsConfig(run) {
     key: config.ippanelKey,
     from: config.ippanelFrom,
     url: config.ippanelUrl,
+    pattern: config.ippanelPatternCode,
     fetch: globalThis.fetch,
   };
   config.ippanelKey = TEST_KEY;
   config.ippanelFrom = '+983000505';
   config.ippanelUrl = SEND_URL;
+  config.ippanelPatternCode = 'mf31w8ng9vnoqy5';
   try {
     return await run();
   } finally {
     config.ippanelKey = original.key;
     config.ippanelFrom = original.from;
     config.ippanelUrl = original.url;
+    config.ippanelPatternCode = original.pattern;
     globalThis.fetch = original.fetch;
   }
 }
@@ -95,11 +98,11 @@ test('SMS adapter sends the documented payload and accepts only a successful res
 
     const body = JSON.parse(requestOptions.body);
     assert.deepEqual(body, {
-      sending_type: 'webservice',
+      sending_type: 'pattern',
       from_number: '+983000505',
-      // The validity stated in the message is the configured TTL, never a hardcoded value.
-      message: `کد تأیید اتاق جنگ: 123456\nاعتبار کد: ${config.otpTtlSeconds} ثانیه از زمان صدور.`,
-      params: { recipients: [RECIPIENT] },
+      code: config.ippanelPatternCode,
+      recipients: [RECIPIENT],
+      params: { code: '123456' },
     });
 
     globalThis.fetch = async () => jsonResponse({
@@ -246,4 +249,32 @@ test('delivery status rejects invalid ids and provider auth failures', async () 
     globalThis.fetch = async () => jsonResponse({ data: null, meta: { status: false, message_code: '400-1' } }, 401);
     await expectSmsError(fetchSmsDeliveryStatus('1123544244'), 'SMS_AUTH_REJECTED');
   });
+});
+
+test('pattern is required, leading zeros are preserved and accepted does not mean delivered', async () => {
+  await withSmsConfig(async () => {
+    let calls = 0;
+    globalThis.fetch = async (_url, options) => {
+      calls++;
+      const body = JSON.parse(options.body);
+      assert.equal(body.params.code, '004217');
+      assert.equal(body.code, config.ippanelPatternCode);
+      assert.deepEqual(body.recipients, [RECIPIENT]);
+      return jsonResponse({ data: { message_outbox_ids: [1123544244] }, meta: { status: true } });
+    };
+    config.ippanelPatternCode = '';
+    await expectSmsError(sendOtpSms(RECIPIENT, '004217', otpWindow()), 'SMS_NOT_CONFIGURED');
+    assert.equal(calls, 0);
+    config.ippanelPatternCode = 'mf31w8ng9vnoqy5';
+    const result = await sendOtpSms(RECIPIENT, '004217', otpWindow());
+    assert.equal(calls, 1);
+    assert.equal(result.accepted, true);
+    assert.equal('delivered' in result, false);
+  });
+});
+
+test('approved text is 28 Unicode code points, exceeding the unresolved 25-character limit', () => {
+  const rendered = 'کد ورود هیئت نوالهدا: %code%'.replace('%code%', '123456');
+  assert.equal([...rendered].length, 28);
+  assert.equal([...rendered].length <= 25, false);
 });

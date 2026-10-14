@@ -50,3 +50,17 @@ test('identity helpers normalize Persian/Arabic digits and Iranian phone numbers
   assert.equal(isValidNationalCode('1111111111'), null);
   assert.equal(isValidNationalCode('0012345678'), null);
 });
+
+test('random server OTPs include leading-zero codes and are not constant', () => {
+  const old = [config.otpSecret, config.otpChallengeSecret];
+  config.otpSecret = 'unit-test-otp-secret-0123456789abcdef';
+  config.otpChallengeSecret = 'unit-test-challenge-secret-0123456789';
+  try {
+  const values = Array.from({ length: 300 }, () => createOtp());
+  assert.ok(values.every(v => /^\d{6}$/.test(v)));
+  assert.ok(values.some(v => v.startsWith('0')));
+  assert.ok(new Set(values).size > 1);
+  } finally {
+    [config.otpSecret, config.otpChallengeSecret] = old;
+  }
+});

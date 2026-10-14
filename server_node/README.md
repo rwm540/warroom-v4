@@ -56,14 +56,14 @@
 - `OTP_MAX_SEND_PER_15MIN` — پیش‌فرض ۳.
 - `OTP_RESEND_COOLDOWN_SECONDS` — پیش‌فرض ۶۰.
 - `OTP_MAX_VERIFY_ATTEMPTS` — پیش‌فرض ۵.
-- `IPPANEL_API_KEY`, `IPPANEL_FROM_NUMBER`, `IPPANEL_API_URL` — فقط سمت سرور. مستندات رسمی Webservice: [IPPanel Edge API](https://ippanelcom.github.io/Edge-Document/docs/send/webservice/).
+- `IPPANEL_API_KEY`, `IPPANEL_FROM_NUMBER`, `IPPANEL_PATTERN_CODE`, `IPPANEL_API_URL` — فقط سمت سرور. مستندات رسمی Pattern: [IPPanel Edge API](https://ippanelcom.github.io/Edge-Document/docs/send/pattern/).
 - `PORT` — پیش‌فرض `4010`; `HOST` — پیش‌فرض `0.0.0.0`.
 
 فایل `.env.example` placeholder دارد، نه credential واقعی. در Production از فایل یا Secret Store خصوصی استفاده کنید.
 
 ## قرارداد IPPanel
 
-Adapter از `POST https://edge.ippanel.com/v1/api/send` استفاده می‌کند و `IPPANEL_API_KEY` را در Header `Authorization` می‌فرستد. Body شامل `sending_type: "webservice"`، `from_number` و `recipients` با قالب E.164 و متن OTP است. موفقیت تنها وقتی پذیرفته می‌شود که HTTP موفق باشد، `meta.status === true` باشد و `data.message_outbox_ids` حداقل یک شناسه عددی معتبر داشته باشد. Timeout درخواست خروجی ۱۵ ثانیه و timeout خواندن Nginx برای API برابر ۳۰ ثانیه است. شناسهٔ پیام در ستون `sms_message_id` چالش ذخیره می‌شود تا بعداً بتوان تحویل همان پیام را از گزارش رسمی Provider خواند.
+Adapter از `POST https://edge.ippanel.com/v1/api/send` استفاده می‌کند و `IPPANEL_API_KEY` را در Header `Authorization` می‌فرستد. Body شامل `sending_type: "pattern"`، `from_number`، کد پترن `code`، `recipients` با قالب E.164 و OTP در `params.code` است. موفقیت تنها وقتی پذیرفته می‌شود که HTTP موفق باشد، `meta.status === true` باشد و `data.message_outbox_ids` حداقل یک شناسه عددی معتبر داشته باشد. Timeout درخواست خروجی ۱۵ ثانیه و timeout خواندن Nginx برای API برابر ۳۰ ثانیه است. شناسهٔ پیام در ستون `sms_message_id` چالش ذخیره می‌شود تا بعداً بتوان تحویل همان پیام را از گزارش رسمی Provider خواند.
 
 شکست‌ها به کدهای مستقل تفکیک می‌شوند تا پیکربندی، اعتبارسنجی فرستنده، خطای احراز هویت Provider، محدودیت نرخ Provider، رد گیرنده/متن و خطای شبکه از هم قابل تشخیص باشند (`SMS_NOT_CONFIGURED`, `SMS_CONFIGURATION_INVALID`, `SMS_SENDER_INVALID`, `SMS_AUTH_REJECTED`, `SMS_SENDER_REJECTED`, `SMS_RECIPIENT_REJECTED`, `SMS_MESSAGE_REJECTED`, `SMS_PROVIDER_RATE_LIMITED`, `SMS_PROVIDER_UNAVAILABLE`, `SMS_NETWORK_FAILED`, `SMS_SEND_FAILED`). هیچ تلاش مجدد خودکاری انجام نمی‌شود، بدنهٔ درخواست/پاسخ Provider هرگز Log نمی‌شود و در لاگ فقط کد خطا، وضعیت HTTP، کد خطای Provider و شمارهٔ ماسک‌شده ثبت می‌گردد. پذیرش IPPanel تحویل قطعی پیامک به تلفن را اثبات نمی‌کند؛ روش قطعی بررسی تحویل در [docs/otp-sms-delivery.md](../docs/otp-sms-delivery.md) آمده است.
 

@@ -173,6 +173,11 @@ export function createSupabaseStore(client) {
       return data || { success: false, error: 'REGISTRATION_FINALIZE_FAILED' };
     },
 
+    async issueOtpChallenge(row) {
+      const { error } = await client.rpc('warroom_issue_otp_challenge', { p_row: row });
+      assertNoError(error);
+    },
+
     async insertOtpChallenge(row) {
       const { error } = await client.from('warroom_otp_codes').insert(row);
       assertNoError(error);
@@ -181,7 +186,7 @@ export function createSupabaseStore(client) {
     async getOtpByChallenge(challengeId) {
       const { data, error } = await client
         .from('warroom_otp_codes')
-        .select('challenge_id, user_id, national_code, phone, purpose, pending_id, verified, is_used, used_at, expires_at, attempt_count, max_attempts')
+        .select('challenge_id, user_id, national_code, phone, purpose, pending_id, verified, is_used, used_at, revoked_at, expires_at, attempt_count, max_attempts')
         .eq('challenge_id', challengeId)
         .maybeSingle();
       assertNoError(error);
@@ -286,7 +291,7 @@ export function createSupabaseStore(client) {
         const { error } = await client.from(name).select(columns).limit(1);
         if (error) missing.push(`${name}: ${String(error.message || '').slice(0, 80)}`);
       };
-      await probeTable('warroom_otp_codes', 'challenge_id, purpose, pending_id, verified, is_used');
+      await probeTable('warroom_otp_codes', 'challenge_id, purpose, pending_id, verified, is_used, revoked_at');
       await probeTable('warroom_pending_registrations', 'id, national_code, is_verified');
       await probeTable('warroom_refresh_tokens', 'id, token_hash, revoked_at');
       await probeTable('warroom_security_kv', 'id');
@@ -304,6 +309,11 @@ export function createSupabaseStore(client) {
       });
       if (consumeError && String(consumeError.code || '') === '42883') {
         missing.push('function warroom_consume_otp_proof(uuid,text)');
+      }
+      // Null JSONB fails the new issuance RPC's validation without writing any row.
+      const { error: issueError } = await client.rpc('warroom_issue_otp_challenge', { p_row: null });
+      if (issueError && ['42883', 'PGRST202'].includes(String(issueError.code || ''))) {
+        missing.push('function warroom_issue_otp_challenge(jsonb)');
       }
       return { ok: missing.length === 0, missing };
     },
